@@ -1,10 +1,24 @@
+import { existsSync } from "node:fs";
 import express from "express";
 import cors from "cors";
+import OpenAI from "openai";
 import { pool } from "./db.js";
 import { getTree, resolveNodeId, descendantIds, buildMenus, findDescendantByName } from "./taxonomyTree.js";
 
+// Same lesson as db/scraper/run_scrape.py's _load_dotenv(): a key set only
+// in the current shell is gone the next time this process starts (this is
+// literally why Cougar silently failed a real scrape run earlier). Node
+// 20.6+ has this built in — no dotenv dependency needed. An already-set
+// real env var still wins (loadEnvFile doesn't override existing vars).
+if (existsSync(new URL(".env", import.meta.url))) {
+  process.loadEnvFile();
+}
+
 const app = express();
 app.use(cors());
+app.use(express.json());
+
+const openai = process.env.OPENAI_API_KEY ? new OpenAI() : null;
 
 const PORT = process.env.PORT || 4000;
 const PAGE_SIZE_DEFAULT = 24;
@@ -207,6 +221,225 @@ app.get("/api/products", async (req, res) => {
     }));
 
     res.json({ total, page, pageSize, products });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "internal_error" });
+  }
+});
+
+// ---------- POST /api/search (natural-language search) ----------
+// Design (see the RAG architecture discussion this was built from):
+//   1. ONE OpenAI tool-call extracts objective filters (gender/price/brand/
+//      sale/sizes/colors) PLUS a semantic residual and a confirmation
+//      sentence — all in the same call. The model's job ends here; it
+//      never sees the actual product results, so there is no second
+//      round-trip to "narrate" anything.
+//   2. The raw query text gets embedded (text-embedding-3-large, 1536
+//      dims — must match db/embed_products.py's dimensions exactly or the
+//      vector distance is meaningless) CONCURRENTLY with step 1 (see the
+//      Promise.all below) rather than waiting for extraction's cleaned-up
+//      semantic_query first — measured as the single biggest latency win
+//      here (~2.5s sequential -> ~1.5-2s concurrent, bounded by whichever
+//      call is slower). Used to rank the objective-filtered candidate set
+//      via pgvector, in one SQL query (WHERE narrows, ORDER BY embedding
+//      <=> ranks) — not two separate searches merged afterward.
+//   3. response_text is templated with the real result count after the
+//      query runs — the model estimates nothing about results it hasn't
+//      seen.
+const SEARCH_TOOL = {
+  type: "function",
+  function: {
+    name: "search_filters",
+    description:
+      "Extract structured shopping filters and the remaining semantic intent from a natural-language product search query for a Pakistani apparel marketplace.",
+    parameters: {
+      type: "object",
+      properties: {
+        gender: { type: ["string", "null"], enum: ["Women", "Men", "Boys", "Girls", "Unisex", null], description: "Who the product is for, if stated or clearly implied. null if not mentioned." },
+        minPrice: { type: ["number", "null"], description: "Minimum price in PKR, if a lower bound is stated. null otherwise." },
+        maxPrice: { type: ["number", "null"], description: "Maximum price in PKR, if an upper bound or budget is stated (e.g. 'under 5000', 'cheap' does NOT count as a number — leave null for vague budget words). null otherwise." },
+        brand: { type: ["string", "null"], description: "One of the known brand names, ONLY if the user names a real brand explicitly. Known brands: Breakout, Cambridge, Charcoal, Cougar, Diners, Edenrobe, Engine Clothing, Equator, Furor, Lama, Meme, Monark, ONE (Be-One), Outfitters, Royal Tag, Uniworth, Zellbury. null otherwise — never invent a brand name." },
+        sizes: { type: "array", items: { type: "string" }, description: "Sizes explicitly requested (e.g. ['M'], ['L','XL']). Empty array if none." },
+        colors: { type: "array", items: { type: "string" }, description: "Colors explicitly requested, lowercase canonical English names (e.g. ['blue']). Empty array if none." },
+        onSale: { type: "boolean", description: "true only if the user explicitly asks for sale/discounted items." },
+        semantic_query: { type: "string", description: "The remaining descriptive intent NOT already captured above — garment type, style, occasion, material, mood (e.g. 'cozy warm sweater', 'formal wedding kurta'). This is what drives semantic ranking, so keep it focused on the product itself, not the filters already extracted." },
+        response_text: { type: "string", description: "A short, natural one-sentence confirmation of what's being searched for, written in present tense as if results are being shown now (e.g. 'Here are cozy sweaters for women under Rs. 5,000.'). Do NOT mention a specific count — that gets filled in separately." },
+      },
+      required: ["gender", "minPrice", "maxPrice", "brand", "sizes", "colors", "onSale", "semantic_query", "response_text"],
+      additionalProperties: false,
+    },
+    strict: true,
+  },
+};
+
+async function extractSearchFilters(query) {
+  const completion = await openai.chat.completions.create({
+    model: "gpt-4o-mini",
+    messages: [{ role: "user", content: query }],
+    tools: [SEARCH_TOOL],
+    tool_choice: { type: "function", function: { name: "search_filters" } },
+  });
+  const call = completion.choices[0].message.tool_calls?.[0];
+  if (!call) throw new Error("model did not call search_filters");
+  return JSON.parse(call.function.arguments);
+}
+
+async function embedText(text) {
+  const resp = await openai.embeddings.create({
+    model: "text-embedding-3-large",
+    input: text,
+    dimensions: 1536,
+  });
+  return "[" + resp.data[0].embedding.join(",") + "]";
+}
+
+app.post("/api/search", async (req, res) => {
+  try {
+    if (!openai) {
+      return res.status(503).json({ error: "search_unavailable", message: "OPENAI_API_KEY not configured" });
+    }
+    const query = (req.body?.query || "").trim();
+    if (!query) return res.status(400).json({ error: "missing_query" });
+
+    // Extraction and embedding are independent — extraction reads the
+    // request text, embedding reads the request text — so run them
+    // concurrently instead of waiting for extraction's cleaned-up
+    // `semantic_query` before starting the embedding call. This was
+    // measured as the single biggest latency win available here: two
+    // sequential OpenAI calls (~1.65s + ~0.86s ≈ 2.5s) vs. the same two
+    // calls run together (~1.65s, bounded by the slower one). Embeds the
+    // raw query text rather than the cleaned semantic_query as the
+    // tradeoff — acceptable for now (embeddings tolerate some noise from
+    // the price/gender words still present); revisit only if real query
+    // data shows it hurting rank quality.
+    const [filters, queryVector] = await Promise.all([
+      extractSearchFilters(query),
+      embedText(query),
+    ]);
+
+    const { ids: categoryIds } = filters.gender
+      ? await categoryIdsFromQuery({ gender: filters.gender })
+      : { ids: null };
+    const brandId = filters.brand ? await resolveBrandId(filters.brand) : null;
+
+    const where = [
+      "p.is_active = true AND p.is_browsable = true",
+      "EXISTS (SELECT 1 FROM variants va WHERE va.product_id = p.id AND va.current_available = true)",
+    ];
+    const params = [];
+    if (categoryIds) {
+      params.push(categoryIds);
+      where.push(`p.category_id = ANY($${params.length}::int[])`);
+    }
+    if (brandId != null) {
+      params.push(brandId);
+      where.push(`p.brand_id = $${params.length}`);
+    }
+    if (Number.isFinite(filters.minPrice)) {
+      params.push(filters.minPrice);
+      where.push(`(SELECT MIN(vp.current_price) FROM variants vp WHERE vp.product_id = p.id) >= $${params.length}`);
+    }
+    if (Number.isFinite(filters.maxPrice)) {
+      params.push(filters.maxPrice);
+      where.push(`(SELECT MIN(vp.current_price) FROM variants vp WHERE vp.product_id = p.id) <= $${params.length}`);
+    }
+    if (filters.onSale === true) {
+      where.push(
+        "EXISTS (SELECT 1 FROM variants vo WHERE vo.product_id = p.id AND vo.current_compare_at IS NOT NULL AND vo.current_compare_at > vo.current_price)"
+      );
+    }
+    if (Array.isArray(filters.colors) && filters.colors.length) {
+      params.push(filters.colors.map((c) => String(c).toLowerCase()));
+      where.push(
+        `EXISTS (SELECT 1 FROM variants vc JOIN colors c ON c.id = vc.color_id WHERE vc.product_id = p.id AND lower(c.canonical_name) = ANY($${params.length}::text[]))`
+      );
+    }
+    if (Array.isArray(filters.sizes) && filters.sizes.length) {
+      params.push(expandSizeAliasesForQuery(filters.sizes));
+      where.push(
+        `EXISTS (SELECT 1 FROM variants vs WHERE vs.product_id = p.id AND lower(vs.size_label) = ANY($${params.length}::text[]) AND vs.current_available = true)`
+      );
+    }
+    where.push("p.embedding IS NOT NULL");
+    const whereSql = where.join(" AND ");
+
+    const countSql = `SELECT COUNT(*) FROM products p WHERE ${whereSql}`;
+    const countResult = await pool.query(countSql, params);
+    const total = Number(countResult.rows[0].count);
+
+    const CANDIDATE_POOL = 50;
+    params.push(queryVector);
+    const vectorParamIdx = params.length;
+    params.push(CANDIDATE_POOL);
+    const listSql = `
+      SELECT
+        p.id, p.title, p.handle,
+        b.name AS store_display, b.slug AS store,
+        (SELECT pi.url FROM product_images pi WHERE pi.product_id = p.id ORDER BY pi.position LIMIT 1) AS image_url,
+        v.price, v.compare_at_price, v.available, v.variant_count
+      FROM products p
+      JOIN brands b ON b.id = p.brand_id
+      JOIN LATERAL (
+        SELECT vv.current_price AS price, vv.current_compare_at AS compare_at_price,
+               (SELECT BOOL_OR(v2.current_available) FROM variants v2 WHERE v2.product_id = p.id) AS available,
+               (SELECT COUNT(*) FROM variants v3 WHERE v3.product_id = p.id) AS variant_count
+        FROM variants vv WHERE vv.product_id = p.id
+        ORDER BY vv.current_price ASC NULLS LAST LIMIT 1
+      ) v ON true
+      WHERE ${whereSql}
+      ORDER BY p.embedding <=> $${vectorParamIdx}::vector
+      LIMIT $${params.length}
+    `;
+    // pgvector's HNSW index under a selective WHERE filter can silently
+    // return FEWER rows than LIMIT even when more exist — it stops
+    // exploring the graph after `hnsw.ef_search` candidates (default 40)
+    // regardless of how many passed the filter. Measured directly: the
+    // exact "Women + under Rs. 5,000" filter above returned only 7 of 50
+    // real matching rows at the default. `SET` only affects the session
+    // that runs it, and pool.query() doesn't guarantee two calls land on
+    // the same pooled connection — so SET and the search must run on one
+    // explicitly-checked-out client, not two separate pool.query() calls.
+    // 400 was measured to reliably return the full candidate pool here at
+    // ~50ms — still negligible next to the OpenAI calls.
+    const client = await pool.connect();
+    let rows;
+    try {
+      await client.query("SET hnsw.ef_search = 400");
+      ({ rows } = await client.query(listSql, params));
+    } finally {
+      client.release();
+    }
+
+    const products = rows.map((r) => ({
+      id: r.id,
+      title: r.title,
+      store: r.store,
+      store_display: r.store_display,
+      image_url: r.image_url,
+      price: r.price != null ? Number(r.price) : null,
+      compare_at_price: r.compare_at_price != null ? Number(r.compare_at_price) : null,
+      currency: "PKR",
+      available: !!r.available,
+      variant_count: Number(r.variant_count) || 0,
+    }));
+
+    // `total` (from COUNT(*)) is every product matching the HARD filters —
+    // it does NOT mean "this many are semantically about the query", since
+    // vector ranking only reorders the candidate pool, it never narrows the
+    // SQL row count. Stapling the raw `total` onto a semantic sentence like
+    // "cozy sweaters... Found 3054 results" is honest about the number but
+    // misleading about what it means (most of those 3054 aren't sweaters —
+    // they're just other women's items under the price cap). Report the
+    // count of what's ACTUALLY being shown (the ranked candidate pool)
+    // instead; `total` is still returned separately for anything that
+    // legitimately wants the raw filter-match count (pagination, etc).
+    const shown = products.length;
+    res.json({
+      response_text: `${filters.response_text} Showing ${shown} best match${shown === 1 ? "" : "es"}${total > shown ? ` (${total} match the filters).` : "."}`,
+      filters,
+      total,
+      products,
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "internal_error" });
