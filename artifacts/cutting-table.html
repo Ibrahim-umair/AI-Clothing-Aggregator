@@ -1,0 +1,769 @@
+<title>The Cutting Table</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fjalla+One&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --paper: #eef1f3;
+    --surface: #ffffff;
+    --surface-2: #f6f8f9;
+    --ink: #1d2126;
+    --ink-muted: #5b6570;
+    --ink-faint: #8992a0;
+    --line: #d7dce0;
+    --line-strong: #b9c1c7;
+    --accent: #c43d6b;
+    --accent-ink: #ffffff;
+
+    --t-D: #1d8a7a; --t-D-bg: #e1f2ef;
+    --t-V: #c0862a; --t-V-bg: #faf0dd;
+    --t-T: #c43d6b; --t-T-bg: #fbe7ee;
+    --t-H: #6c4fcb; --t-H-bg: #ece7fb;
+    --t-M: #2f6fb0; --t-M-bg: #e4eef8;
+    --t-S: #4b5a6a; --t-S-bg: #e6e9ec;
+    --t-N: #98a0a8; --t-N-bg: #eef0f2;
+    --t-X: #b0293b; --t-X-bg: #fbe3e6;
+
+    --dot: rgba(29,33,38,0.08);
+    color-scheme: light dark;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #14171c;
+      --surface: #1b1f26;
+      --surface-2: #21262e;
+      --ink: #e7eaee;
+      --ink-muted: #8a93a0;
+      --ink-faint: #626b78;
+      --line: #2a2f37;
+      --line-strong: #383f49;
+      --accent: #e8608f;
+      --accent-ink: #14171c;
+
+      --t-D: #3fb6a3; --t-D-bg: #17332f;
+      --t-V: #e0a83e; --t-V-bg: #362a12;
+      --t-T: #e8608f; --t-T-bg: #3a1e29;
+      --t-H: #9b82e8; --t-H-bg: #2a2340;
+      --t-M: #5b9bdb; --t-M-bg: #1c2c3d;
+      --t-S: #8ca0b5; --t-S-bg: #262c33;
+      --t-N: #5b6570; --t-N-bg: #22262c;
+      --t-X: #e06478; --t-X-bg: #3a1c22;
+
+      --dot: rgba(231,234,238,0.07);
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #14171c;
+    --surface: #1b1f26;
+    --surface-2: #21262e;
+    --ink: #e7eaee;
+    --ink-muted: #8a93a0;
+    --ink-faint: #626b78;
+    --line: #2a2f37;
+    --line-strong: #383f49;
+    --accent: #e8608f;
+    --accent-ink: #14171c;
+
+    --t-D: #3fb6a3; --t-D-bg: #17332f;
+    --t-V: #e0a83e; --t-V-bg: #362a12;
+    --t-T: #e8608f; --t-T-bg: #3a1e29;
+    --t-H: #9b82e8; --t-H-bg: #2a2340;
+    --t-M: #5b9bdb; --t-M-bg: #1c2c3d;
+    --t-S: #8ca0b5; --t-S-bg: #262c33;
+    --t-N: #5b6570; --t-N-bg: #22262c;
+    --t-X: #e06478; --t-X-bg: #3a1c22;
+
+    --dot: rgba(231,234,238,0.07);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background:
+      radial-gradient(circle at 1px 1px, var(--dot) 1px, transparent 1.6px) 0 0/16px 16px,
+      var(--paper);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", -apple-system, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+  ::selection { background: var(--accent); color: var(--accent-ink); }
+
+  .wrap {
+    max-width: 1240px;
+    margin: 0 auto;
+    padding: 40px 28px 80px;
+  }
+
+  header.page {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    margin-bottom: 28px;
+  }
+  .eyebrow {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+  }
+  h1 {
+    font-family: "Fjalla One", "IBM Plex Sans", sans-serif;
+    font-weight: 400;
+    letter-spacing: 0.01em;
+    font-size: clamp(32px, 5vw, 46px);
+    margin: 0;
+    text-wrap: balance;
+    line-height: 1.05;
+  }
+  .dek {
+    max-width: 62ch;
+    color: var(--ink-muted);
+    font-size: 15px;
+    line-height: 1.6;
+    margin: 0;
+  }
+
+  .stat-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    margin: 22px 0 26px;
+  }
+  .stat {
+    flex: 1 1 140px;
+    padding: 14px 18px;
+    border-right: 1px dashed var(--line-strong);
+  }
+  .stat:last-child { border-right: none; }
+  .stat .n {
+    font-family: "IBM Plex Mono", monospace;
+    font-weight: 500;
+    font-size: 22px;
+    font-variant-numeric: tabular-nums;
+  }
+  .stat .l {
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    margin-top: 2px;
+  }
+
+  /* legend styled like a garment care label */
+  .legend {
+    border: 1px solid var(--line);
+    background: var(--surface);
+    padding: 16px 18px;
+    margin-bottom: 22px;
+  }
+  .legend-title {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    margin-bottom: 10px;
+  }
+  .legend-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 10px 18px;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .legend-item .txt {
+    font-size: 12.5px;
+    color: var(--ink-muted);
+    line-height: 1.3;
+  }
+  .legend-item .txt b { color: var(--ink); font-weight: 600; }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 4px;
+    font-family: "IBM Plex Mono", monospace;
+    font-weight: 500;
+    font-size: 13px;
+    flex-shrink: 0;
+    border: 1px solid transparent;
+  }
+
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .controls input[type="text"] {
+    font-family: "IBM Plex Sans", sans-serif;
+    font-size: 13px;
+    padding: 8px 12px;
+    border: 1px solid var(--line-strong);
+    background: var(--surface);
+    color: var(--ink);
+    min-width: 220px;
+  }
+  .controls input[type="text"]:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+  .toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12.5px;
+    color: var(--ink-muted);
+    cursor: pointer;
+    user-select: none;
+    border: 1px solid var(--line-strong);
+    background: var(--surface);
+    padding: 7px 12px;
+  }
+  .toggle input { accent-color: var(--accent); }
+  .toggle:has(input:checked) { color: var(--ink); }
+
+  .matrix-scroll {
+    border: 1px solid var(--line);
+    overflow: auto;
+    max-height: 66vh;
+    background: var(--surface);
+  }
+  table.matrix {
+    border-collapse: separate;
+    border-spacing: 0;
+    width: 100%;
+  }
+  table.matrix th, table.matrix td {
+    border-bottom: 1px solid var(--line);
+    border-right: 1px solid var(--line);
+    padding: 0;
+  }
+  .field-col {
+    position: sticky;
+    left: 0;
+    z-index: 3;
+    background: var(--surface);
+    min-width: 168px;
+    max-width: 168px;
+    text-align: left;
+    padding: 10px 12px !important;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .field-col .grp {
+    display: block;
+    font-family: "IBM Plex Mono", monospace;
+    font-weight: 400;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin-top: 2px;
+  }
+  thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--surface-2);
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11.5px;
+    font-weight: 500;
+    padding: 12px 10px !important;
+    text-align: left;
+    white-space: nowrap;
+    min-width: 108px;
+  }
+  thead th.field-col { z-index: 4; background: var(--surface-2); }
+
+  tr.group-head td, tr.group-head th {
+    background: var(--surface-2);
+    border-bottom: 1px dashed var(--line-strong);
+  }
+  tr.group-head .group-label {
+    position: sticky;
+    left: 0;
+    padding: 8px 12px !important;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    font-weight: 500;
+    background: var(--surface-2);
+    z-index: 3;
+  }
+
+  td.cell {
+    text-align: center;
+    padding: 8px !important;
+    cursor: pointer;
+    transition: background-color 0.12s ease;
+  }
+  td.cell:hover { background: var(--surface-2); }
+  td.cell:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+  }
+  td.cell.dim .badge { opacity: 0.28; }
+  tr.dim-row { opacity: 0.32; }
+  .col-dim { opacity: 0.22; }
+
+  .foot-note {
+    margin-top: 14px;
+    font-size: 12px;
+    color: var(--ink-faint);
+    line-height: 1.6;
+  }
+
+  /* detail drawer */
+  .drawer-backdrop {
+    position: fixed; inset: 0;
+    background: rgba(10,12,14,0.35);
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.18s ease;
+    z-index: 10;
+  }
+  .drawer-backdrop.open { opacity: 1; pointer-events: auto; }
+
+  .drawer {
+    position: fixed;
+    right: 0; top: 0; bottom: 0;
+    width: min(420px, 92vw);
+    background: var(--surface);
+    border-left: 1px solid var(--line);
+    box-shadow: -18px 0 40px rgba(0,0,0,0.18);
+    transform: translateX(100%);
+    transition: transform 0.22s cubic-bezier(.2,.8,.3,1);
+    z-index: 11;
+    padding: 24px 24px 24px;
+    overflow-y: auto;
+  }
+  .drawer.open { transform: translateX(0); }
+  .drawer-close {
+    position: absolute;
+    top: 18px; right: 18px;
+    width: 30px; height: 30px;
+    border: 1px solid var(--line-strong);
+    background: var(--surface);
+    color: var(--ink-muted);
+    font-family: "IBM Plex Mono", monospace;
+    cursor: pointer;
+  }
+  .drawer-close:hover { color: var(--ink); }
+  .drawer .tag-line {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    margin-bottom: 8px;
+  }
+  .drawer h2 {
+    font-family: "Fjalla One", sans-serif;
+    font-weight: 400;
+    font-size: 26px;
+    margin: 0 0 4px;
+  }
+  .drawer .brand-name {
+    color: var(--ink-muted);
+    font-size: 14px;
+    margin-bottom: 18px;
+  }
+  .drawer .type-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 20px;
+  }
+  .drawer dl {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .drawer dt {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin-bottom: 4px;
+  }
+  .drawer dd {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.55;
+  }
+  .drawer .example {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12.5px;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    padding: 10px 12px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .drawer-empty {
+    color: var(--ink-faint);
+    font-size: 13.5px;
+    line-height: 1.6;
+    margin-top: 60px;
+  }
+
+  @media (max-width: 640px) {
+    .wrap { padding: 24px 16px 60px; }
+    .drawer { width: 100vw; }
+  }
+</style>
+
+<div class="wrap">
+
+  <header class="page">
+    <div class="eyebrow">Field provenance reference &middot; 15 stores &middot; PK apparel scrape</div>
+    <h1>The Cutting Table</h1>
+    <p class="dek">Lay the schema against every brand's actual pattern. Each cell shows where a field's signal really lives — a clean structured value, buried in the title, borrowed from an unrelated field, or missing outright — so the normalization pass spends effort where the fabric is actually messy.</p>
+  </header>
+
+  <div class="stat-strip" id="statStrip"></div>
+
+  <div class="legend">
+    <div class="legend-title">Reading the marks</div>
+    <div class="legend-grid" id="legendGrid"></div>
+  </div>
+
+  <div class="controls">
+    <input type="text" id="brandFilter" placeholder="Filter brands&hellip;" autocomplete="off">
+    <label class="toggle">
+      <input type="checkbox" id="extToggle" checked>
+      Show extended fields (fabric, stitched status)
+    </label>
+    <label class="toggle">
+      <input type="checkbox" id="onlyMessy">
+      Highlight only fields needing text parsing
+    </label>
+  </div>
+
+  <div class="matrix-scroll">
+    <table class="matrix" id="matrixTable"></table>
+  </div>
+
+  <p class="foot-note">Built from a field-by-field statistical read of all 95,992 scraped products (title structure, <code>product_type</code>/<code>tags</code>/<code>vendor</code> distributions, and variant option names) &mdash; not a single sampled item per store. Click any cell for the source and a real example value.</p>
+
+</div>
+
+<div class="drawer-backdrop" id="backdrop"></div>
+<aside class="drawer" id="drawer">
+  <button class="drawer-close" id="drawerClose" aria-label="Close">&times;</button>
+  <div id="drawerBody">
+    <p class="drawer-empty">Click a cell in the matrix to see exactly where that field's data comes from for that brand — the raw source, a real example, and how confidently it can be automated.</p>
+  </div>
+</aside>
+
+<script>
+const BRANDS = [
+  ['outfitters','Outfitters'], ['furor','Furor'], ['edenrobe','Edenrobe'],
+  ['one_be-one','ONE (Be-One)'], ['equator','Equator'], ['meme','Meme'],
+  ['breakout','Breakout'], ['monark','Monark'], ['engine_clothing','Engine Clothing'],
+  ['charcoal','Charcoal'], ['royal_tag','Royal Tag'], ['diners','Diners'],
+  ['cambridge','Cambridge'], ['uniworth','Uniworth'], ['cougar','Cougar'],
+];
+
+const FIELDS = [
+  {key:'brand', label:'Brand', group:'core'},
+  {key:'gender', label:'Gender', group:'core'},
+  {key:'category', label:'Category', group:'core'},
+  {key:'subcategory', label:'Subcategory', group:'core'},
+  {key:'color', label:'Color', group:'core'},
+  {key:'size', label:'Size', group:'core'},
+  {key:'price', label:'Price', group:'core'},
+  {key:'availability', label:'Availability', group:'core'},
+  {key:'fabric', label:'Fabric', group:'extended'},
+  {key:'stitched', label:'Stitched status', group:'extended'},
+];
+
+const TYPES = {
+  D: {glyph:'✓', label:'Direct', desc:'Clean structured field — read as-is'},
+  V: {glyph:'⚑', label:'Vendor-repurposed', desc:'Structured, but the field is doing a job its name doesn’t suggest'},
+  T: {glyph:'T', label:'Title-parsed', desc:'Extract from the product title text'},
+  H: {glyph:'#', label:'Tag-parsed', desc:'Extract from the tags array'},
+  M: {glyph:'↳', label:'Mapped / derived', desc:'Structured, but needs a lookup table to collapse or reinterpret it'},
+  S: {glyph:'●', label:'Store constant', desc:'No per-product signal — hardcode once at the store level'},
+  N: {glyph:'–', label:'Not applicable', desc:'Doesn’t apply to this brand’s product range'},
+  X: {glyph:'✗', label:'Missing', desc:'No usable signal anywhere in the scrape'},
+};
+
+const D_ALL = (label) => ({t:'D', src:'variant/product field', ex:'—', note:label||''});
+
+const DATA = {
+  brand: Object.fromEntries(BRANDS.map(([k,l]) => [k, {t:'D', src:'which store was scraped', ex:l, note:'Never read brand from the vendor field — proven unreliable across nearly every store.'}])),
+
+  gender: {
+    outfitters: {t:'V', src:'vendor field (repurposed)', ex:'Men · Women · Boys Junior · Girls Toddler', note:'Vendor never names an actual vendor here — it’s used as the gender/age line instead.'},
+    furor: {t:'S', src:'store-wide constant', ex:'Furorjeans — every one of the top 8 categories is prefixed "Men"', note:'100% menswear catalog. Confirmed from data, not assumed.'},
+    edenrobe: {t:'T', src:'prefix on product_type', ex:'"Woman Un Stitched" → Woman', note:'Regex-strip the leading Man/Woman/Girls token.'},
+    'one_be-one': {t:'V', src:'vendor field', ex:'Men · Boys · Women · Girls · Unisex', note:'Clean and direct here, unlike Outfitters’ near-identical setup — still store-specific, don’t assume it holds elsewhere.'},
+    equator: {t:'X', src:'no field carries it', ex:'—', note:'Catalog reads as menswear by content, but nothing in the data confirms it. Needs a manual call, not a rule.'},
+    meme: {t:'T', src:'suffix on product_type', ex:'"T-Shirts For Women" → Women', note:'Regex on the "For X" suffix.'},
+    breakout: {t:'H', src:'tags array', ex:'tags include MEN / WOMEN / BOYS', note:'Not in vendor or product_type — only surfaces as a tag keyword.'},
+    monark: {t:'X', src:'no field carries it', ex:'—', note:'Shirts/polos/pants/suits/ties read as menswear, but unconfirmed in data.'},
+    engine_clothing: {t:'D', src:'product_type', ex:'Men · Boys · Girls · Women (only 4 values total)', note:'Rare case: product_type is purely a gender field here, not a category one.'},
+    charcoal: {t:'X', src:'no field carries it', ex:'—', note:'Vendor holds Charcoal’s own sub-labels ("old trouser", "old sweaters"), not gender.'},
+    royal_tag: {t:'X', src:'no field carries it', ex:'—', note:'Polos/ties/belts read as menswear, unconfirmed in data.'},
+    diners: {t:'V', src:'vendor field — store-specific lookup', ex:'"D Man" = menswear · "D-Juniors Boys/Girls" = kids', note:'Real signal, but the exact mapping is unique to Diners — won’t transfer to any other store.'},
+    cambridge: {t:'X', src:'no field carries it', ex:'—', note:'Vendor holds sub-brand names (Mashriq, Formal Shirt) not gender; likely mostly menswear plus one womenswear sub-line — needs a spot check.'},
+    uniworth: {t:'X', src:'no field carries it', ex:'—', note:'Known historically as a menswear-only label, but that’s outside knowledge, not something the scrape itself confirms.'},
+    cougar: {t:'D', src:'dedicated "Gender" variant option', ex:'—', note:'The only store with an explicit, structured gender field.'},
+  },
+
+  category: {
+    outfitters: {t:'D', src:'product_type', ex:'TEES · TROUSERS · SHIRTS · JEANS', note:'38 clean values, 0% empty. Cleanest store in the set.'},
+    furor: {t:'D', src:'product_type, strip "Men " prefix', ex:'"Men Shirts" → Shirts', note:'Light regex, high confidence.'},
+    edenrobe: {t:'M', src:'product_type, needs grouping', ex:'127 raw values collapse into families: Un Stitched, Kurta, Pret…', note:'Sub-lines ("Allure Lawn" vs "Allure Khaddar") are real distinctions, not noise — needs a lookup table, not a discard.'},
+    'one_be-one': {t:'D', src:'product_type', ex:'Tees · Track Pants · Polos', note:'84 values, all recognizable.'},
+    equator: {t:'T', src:'free text in title', ex:'"Jeans Straight Fit" · "Casual Shirt FS"', note:'product_type is 100% empty — this store has zero structured category signal.'},
+    meme: {t:'T', src:'prefix on product_type before "For"', ex:'"T-Shirts For Women" → T-Shirts', note:'Regex split, high confidence.'},
+    breakout: {t:'M', src:'product_type is fabric-construction, not garment type', ex:'"KNIT" bucket mixes Tees AND Jumpsuits together', note:'The stored value answers a different question than "category" — title text recovers the real garment type.'},
+    monark: {t:'D', src:'product_type', ex:'Casual Shirt · Polos · Cotton Pants', note:'29 clean values.'},
+    engine_clothing: {t:'T', src:'title, after the gender prefix', ex:'"Men Straight Trouser" → Trouser', note:'product_type is spent on gender here, so category has to come from title.'},
+    charcoal: {t:'T', src:'title (ALL-CAPS, descriptive)', ex:'"STRAIGHT FIT CASUAL TROUSER BEIGE"', note:'product_type is 62.8% empty; title is the more reliable source for most of the catalog.'},
+    royal_tag: {t:'T', src:'product_type, strip leading SKU code', ex:'"SM326 POLO SHIRT" → Polo Shirt', note:'The prefix is an internal collection code, not part of the category name.'},
+    diners: {t:'D', src:'product_type', ex:'Shirts · Shalwar Kameez · Trouser · Accessories', note:'Reasonably clean for the top values.'},
+    cambridge: {t:'M', src:'product_type, heavily mixed', ex:'"Mashriq basic suit" (sub-brand) vs "WAIST COAT" (real category)', note:'241 distinct values, 13% empty — real categories tangled with sister-brand names and season labels.'},
+    uniworth: {t:'T', src:'free text in title', ex:'"D Grey Geometric Tie" · "Maroon Check Woven Boxer"', note:'product_type is a platform placeholder ("configurable"/"simple") — zero category meaning.'},
+    cougar: {t:'D', src:'product_type, strip gender prefix', ex:'"Men Tee" → Tee', note:'Light regex, high confidence.'},
+  },
+
+  subcategory: {
+    outfitters: {t:'D', src:'product_type value itself', ex:'SHIRTS/BLOUSES · SWEATSHIRTS', note:'Already fine-grained enough to use directly.'},
+    furor: {t:'D', src:'product_type value itself', ex:'Men Graphic Tees · Men Jogger Pants', note:'57 values, usable as-is.'},
+    edenrobe: {t:'D', src:'product_type value itself', ex:'Woman Un Stitched Allure Lawn', note:'Granular but real — this is the finest grain the data offers.'},
+    'one_be-one': {t:'D', src:'product_type value itself', ex:'—', note:''},
+    equator: {t:'T', src:'same title parse as category', ex:'—', note:'No finer-grained signal exists beyond the title text.'},
+    meme: {t:'D', src:'product_type value itself', ex:'93 values', note:''},
+    breakout: {t:'T', src:'title text', ex:'—', note:'Same limitation as category — the stored bucket is too coarse.'},
+    monark: {t:'D', src:'product_type value itself', ex:'—', note:''},
+    engine_clothing: {t:'T', src:'title text, finer-grained', ex:'"Boys Polo Tee" vs "Boys Suit"', note:''},
+    charcoal: {t:'T', src:'title text', ex:'—', note:''},
+    royal_tag: {t:'T', src:'title, post SKU-strip', ex:'—', note:''},
+    diners: {t:'D', src:'product_type value itself', ex:'—', note:''},
+    cambridge: {t:'T', src:'title text', ex:'—', note:''},
+    uniworth: {t:'T', src:'title text', ex:'—', note:''},
+    cougar: {t:'D', src:'product_type value itself', ex:'—', note:''},
+  },
+
+  color: {
+    outfitters: {t:'D', src:"variant 'Color' option — 100%", ex:'—', note:''},
+    furor: {t:'D', src:"variant 'Color' option — 94.3%", ex:'—', note:''},
+    edenrobe: {t:'D', src:"variant 'Color' option — 99.5%", ex:'—', note:''},
+    'one_be-one': {t:'D', src:"variant 'Color'/'color' option — 100%", ex:'—', note:'Casing of the option name varies (Color vs color) — normalize the key, not just the value.'},
+    equator: {t:'X', src:'no signal anywhere', ex:'—', note:'0% have a Color option, and sampled titles carry no color words either. This store may simply not merchandise color as an attribute.'},
+    meme: {t:'D', src:"variant 'Color' option — 99.9%", ex:'—', note:'Title sometimes redundantly suffixes color too, inconsistently — trust the option, ignore the title suffix.'},
+    breakout: {t:'D', src:"variant 'COLOR' option — 99.9%", ex:'—', note:''},
+    monark: {t:'T', src:'leading word of the title', ex:'"BROWN CO-ORD SET" · "pistachio green CAMP COLLAR SHIRT"', note:'0% have a Color option — this is a pure text-parse case, but a very regular one.'},
+    engine_clothing: {t:'D', src:"variant 'Color' option — 99.9%", ex:'—', note:''},
+    charcoal: {t:'T', src:'trailing word of the title', ex:'"…CASUAL TROUSER BEIGE" → Beige', note:'Only 11.4% have a Color option — title is the primary source here, not the fallback.'},
+    royal_tag: {t:'D', src:"variant 'Color' option — 84.7%", ex:'also the leading word of the title, redundantly', note:''},
+    diners: {t:'T', src:'leading word of the title', ex:'"Cream Wash & Wear Shalwar Kameez" → Cream', note:'0% have a Color option.'},
+    cambridge: {t:'D', src:"variant 'Color' option — 99.9%", ex:'—', note:'One of the more reliable fields in an otherwise messy store.'},
+    uniworth: {t:'D', src:"variant 'Color' option — 67.5%", ex:'also the leading title word when the option is missing', note:''},
+    cougar: {t:'D', src:"variant 'Color' option — 99.7%", ex:'—', note:''},
+  },
+
+  size: {
+    outfitters: {t:'D', src:"variant 'Size' option — 100%", ex:'—', note:''},
+    furor: {t:'D', src:"variant 'Size' option — 85.1%", ex:'—', note:'Accessories like caps/socks are often sizeless — the gap is real, not a data problem.'},
+    edenrobe: {t:'D', src:"variant 'Size' option — 59.3%", ex:'—', note:'Many unstitched fabric pieces are genuinely one-size — again, a real gap not a parsing failure.'},
+    'one_be-one': {t:'D', src:"variant 'Size' option — 100%", ex:'—', note:''},
+    equator: {t:'D', src:"variant 'Size' option — 89.5%", ex:'—', note:''},
+    meme: {t:'D', src:"variant 'Size' option — 99.6%", ex:'—', note:''},
+    breakout: {t:'D', src:"variant 'Size' option — 99.9%", ex:'—', note:''},
+    monark: {t:'D', src:"variant 'Size' option — 94.5%", ex:'—', note:''},
+    engine_clothing: {t:'D', src:"variant 'Size' option — 98.6%", ex:'—', note:''},
+    charcoal: {t:'M', src:"variant option present, 6 spellings", ex:'Size · SIZE · Select Size · Waist Size · Title', note:'Normalize the option NAME before trusting the value at all.'},
+    royal_tag: {t:'D', src:"variant 'Size' option — 96.5%", ex:'—', note:''},
+    diners: {t:'D', src:"variant 'Size' option — 84.3%", ex:'—', note:''},
+    cambridge: {t:'D', src:"variant 'Size' option — 90.7%", ex:'—', note:''},
+    uniworth: {t:'D', src:"variant 'Size' option — 76.9%", ex:'—', note:'A handful of products have fully broken option names — entire sentences used as the option key instead of a value. Needs a defensive skip, not a parser.'},
+    cougar: {t:'D', src:"variant 'Size' option — 100%", ex:'—', note:''},
+  },
+
+  price: Object.fromEntries(BRANDS.map(([k]) => [k, {t:'D', src:'variant price field', ex:'—', note:'Stored as a string ("1499.00") on every REST store — cast to float, always present.'}])),
+  availability: Object.fromEntries(BRANDS.map(([k]) => [k, {t:'D', src:'variant available/availableForSale flag', ex:'—', note:'Lives at the variant level, not the product level — one size can be out of stock while others aren’t.'}])),
+
+  fabric: {
+    outfitters: {t:'N', src:'', ex:'', note:'Western ready-to-wear — fabric isn’t merchandised as a customer-facing attribute.'},
+    furor: {t:'N', src:'', ex:'', note:'Denim/casual wear — not tracked as a field.'},
+    edenrobe: {t:'V', src:'vendor field (repurposed)', ex:'Lawn · Cotton · Blended · Khaddar', note:'Vendor is used for fabric type here, not brand — a second repurposed field in the same store as gender-in-title.'},
+    'one_be-one': {t:'N', src:'', ex:'', note:''},
+    equator: {t:'N', src:'', ex:'', note:''},
+    meme: {t:'N', src:'', ex:'', note:''},
+    breakout: {t:'D', src:'product_type (reinterpreted)', ex:'KNIT · WOVEN · DENIM', note:'What looked like a broken category field is actually a clean fabric-construction field.'},
+    monark: {t:'N', src:'', ex:'', note:''},
+    engine_clothing: {t:'N', src:'', ex:'', note:''},
+    charcoal: {t:'H', src:'tags, inconsistently', ex:'—', note:'Occasionally named, not systematic enough to rely on.'},
+    royal_tag: {t:'N', src:'', ex:'', note:''},
+    diners: {t:'H', src:'tags, inconsistently', ex:'"cambric" seen occasionally', note:'Not systematic.'},
+    cambridge: {t:'H', src:'tags, inconsistently', ex:'"Cotton" appears among top tags', note:'Not applied to most products.'},
+    uniworth: {t:'T', src:'title, occasionally', ex:'"Woven" appears sometimes', note:'Inconsistent.'},
+    cougar: {t:'N', src:'', ex:'', note:''},
+  },
+
+  stitched: {
+    outfitters: {t:'N', src:'', ex:'', note:'All stitched/ready-to-wear by definition.'},
+    furor: {t:'N', src:'', ex:'', note:''},
+    edenrobe: {t:'T', src:'"Un Stitched" keyword in product_type', ex:'"Woman Un Stitched…" vs "Men Kurta Shalwar"', note:'Presence/absence of the keyword is a reliable signal.'},
+    'one_be-one': {t:'N', src:'', ex:'', note:''},
+    equator: {t:'N', src:'', ex:'', note:''},
+    meme: {t:'N', src:'', ex:'', note:''},
+    breakout: {t:'N', src:'', ex:'', note:''},
+    monark: {t:'N', src:'', ex:'', note:''},
+    engine_clothing: {t:'N', src:'', ex:'', note:''},
+    charcoal: {t:'N', src:'', ex:'', note:''},
+    royal_tag: {t:'N', src:'', ex:'', note:''},
+    diners: {t:'M', src:'derived from category', ex:'"Unstitched 3 Piece"/"Fabric" imply unstitched; else assume stitched', note:'Workable, but a derived rule, not a direct read.'},
+    cambridge: {t:'M', src:'derived from category, low confidence', ex:'"SHALWAR KAMEEZ" implies it, but far from systematic', note:''},
+    uniworth: {t:'N', src:'', ex:'', note:''},
+    cougar: {t:'N', src:'', ex:'', note:''},
+  },
+};
+
+// ---------- render ----------
+const statStrip = document.getElementById('statStrip');
+const stats = [
+  ['15','brands mapped'],
+  ['95,992','products behind these numbers'],
+  ['8','core schema fields'],
+  ['2','deferred (Eastern-wear) fields'],
+];
+statStrip.innerHTML = stats.map(([n,l]) => `<div class="stat"><div class="n">${n}</div><div class="l">${l}</div></div>`).join('');
+
+const legendGrid = document.getElementById('legendGrid');
+legendGrid.innerHTML = Object.entries(TYPES).map(([key,t]) => `
+  <div class="legend-item">
+    <span class="badge" style="color:var(--t-${key});background:var(--t-${key}-bg);border-color:var(--t-${key})">${t.glyph}</span>
+    <span class="txt"><b>${t.label}.</b> ${t.desc}</span>
+  </div>
+`).join('');
+
+const table = document.getElementById('matrixTable');
+
+function renderTable(extended) {
+  const fields = FIELDS.filter(f => extended || f.group === 'core');
+  let thead = '<thead><tr><th class="field-col">Field</th>' +
+    BRANDS.map(([k,l]) => `<th data-brand="${k}">${l}</th>`).join('') + '</tr></thead>';
+
+  let tbody = '<tbody>';
+  let lastGroup = null;
+  fields.forEach(f => {
+    if (f.group !== lastGroup) {
+      lastGroup = f.group;
+      const label = f.group === 'core' ? 'Core schema — Western wear MVP' : 'Extended schema — Eastern / unstitched wear (deferred)';
+      tbody += `<tr class="group-head"><td class="group-label" colspan="${BRANDS.length+1}">${label}</td></tr>`;
+    }
+    tbody += `<tr data-field="${f.key}"><th class="field-col" scope="row">${f.label}<span class="grp">${f.group}</span></th>`;
+    BRANDS.forEach(([bk]) => {
+      const cell = (DATA[f.key] && DATA[f.key][bk]) || {t:'N', src:'', ex:'', note:''};
+      const type = TYPES[cell.t];
+      tbody += `<td class="cell" tabindex="0" data-field="${f.key}" data-brand="${bk}" data-type="${cell.t}">
+        <span class="badge" style="color:var(--t-${cell.t});background:var(--t-${cell.t}-bg);border-color:var(--t-${cell.t})" title="${type.label}">${type.glyph}</span>
+      </td>`;
+    });
+    tbody += '</tr>';
+  });
+  tbody += '</tbody>';
+  table.innerHTML = thead + tbody;
+  attachCellHandlers();
+}
+
+function brandLabel(key) {
+  const found = BRANDS.find(b => b[0] === key);
+  return found ? found[1] : key;
+}
+function fieldLabel(key) {
+  const found = FIELDS.find(f => f.key === key);
+  return found ? found.label : key;
+}
+
+const drawer = document.getElementById('drawer');
+const backdrop = document.getElementById('backdrop');
+const drawerBody = document.getElementById('drawerBody');
+
+function openDrawer(fieldKey, brandKey) {
+  const cell = (DATA[fieldKey] && DATA[fieldKey][brandKey]) || {t:'N', src:'', ex:'', note:''};
+  const type = TYPES[cell.t];
+  drawerBody.innerHTML = `
+    <div class="tag-line">${fieldLabel(fieldKey)} &middot; ${brandLabel(brandKey)}</div>
+    <h2>${fieldLabel(fieldKey)}</h2>
+    <div class="brand-name">${brandLabel(brandKey)}</div>
+    <div class="type-pill" style="color:var(--t-${cell.t});background:var(--t-${cell.t}-bg)">
+      <span class="badge" style="color:var(--t-${cell.t});background:transparent;border:none;width:auto;height:auto;font-size:15px">${type.glyph}</span>
+      ${type.label}
+    </div>
+    <dl>
+      ${cell.src ? `<div><dt>Source</dt><dd>${cell.src}</dd></div>` : ''}
+      ${cell.ex && cell.ex !== '—' ? `<div><dt>Example</dt><dd class="example">${cell.ex}</dd></div>` : ''}
+      ${cell.note ? `<div><dt>Note</dt><dd>${cell.note}</dd></div>` : ''}
+    </dl>
+  `;
+  drawer.classList.add('open');
+  backdrop.classList.add('open');
+}
+function closeDrawer() {
+  drawer.classList.remove('open');
+  backdrop.classList.remove('open');
+}
+document.getElementById('drawerClose').addEventListener('click', closeDrawer);
+backdrop.addEventListener('click', closeDrawer);
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDrawer(); });
+
+function attachCellHandlers() {
+  table.querySelectorAll('td.cell').forEach(td => {
+    td.addEventListener('click', () => openDrawer(td.dataset.field, td.dataset.brand));
+    td.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDrawer(td.dataset.field, td.dataset.brand); }
+    });
+  });
+}
+
+// controls
+document.getElementById('extToggle').addEventListener('change', e => renderTable(e.target.checked));
+document.getElementById('onlyMessy').addEventListener('change', e => {
+  const on = e.target.checked;
+  table.querySelectorAll('td.cell').forEach(td => {
+    td.classList.toggle('dim', on && td.dataset.type === 'D');
+  });
+});
+document.getElementById('brandFilter').addEventListener('input', e => {
+  const q = e.target.value.trim().toLowerCase();
+  const cols = BRANDS.map(([k,l]) => ({k, match: l.toLowerCase().includes(q)}));
+  table.querySelectorAll('thead th[data-brand]').forEach(th => {
+    const m = cols.find(c => c.k === th.dataset.brand);
+    th.classList.toggle('col-dim', q && m && !m.match);
+  });
+  table.querySelectorAll('td.cell').forEach(td => {
+    const m = cols.find(c => c.k === td.dataset.brand);
+    td.classList.toggle('col-dim', q && m && !m.match);
+  });
+});
+
+renderTable(true);
+</script>

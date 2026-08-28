@@ -1,0 +1,25 @@
+# Local config / secrets — never commit
+.env
+*.env
+.env.*
+
+# Dependencies
+node_modules/
+
+# Python
+__pycache__/
+*.pyc
+
+# Logs
+*.log
+
+# Raw scrape output (hundreds of MB, regenerable via db/scraper/run_scrape.py
+# or db/load_data.py — not source, doesn't belong in version control)
+scraped_data/
+
+# Local DB dump / sqlite artifacts
+*.db
+
+# Editor / OS noise
+.vscode/
+.DS_Store

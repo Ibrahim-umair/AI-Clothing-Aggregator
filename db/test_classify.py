@@ -1,0 +1,858 @@
+"""
+Regression tests — one per entry in CHANGELOG.md, using the real title/vendor/
+product_type/tags that exposed each bug. Run this after ANY change to
+classify(), guess_gender(), or CATEGORY_TREE, before trusting it against the
+full catalog:
+
+    python test_classify.py
+
+This is the guardrail for the classifier that will run against every future
+daily scrape — a change that "fixes" one thing but silently re-breaks an
+earlier fix should fail here, not get discovered by a user three weeks later.
+"""
+from load_data import classify, guess_gender, CATEGORY_TREE
+
+FAILURES = []
+PASSED = 0
+
+
+def check(label, title, product_type="", vendor="", tags="", store="test", description="",
+          expect_gender=None, expect_branch=None, expect_sub=None, expect_leaf=None):
+    global PASSED
+    result = classify(store, {}, title, product_type, tags, vendor, description)
+    problems = []
+    if result is None:
+        problems.append("classify() returned None (treated as excluded)")
+    else:
+        if expect_gender and result["gender"] != expect_gender:
+            problems.append(f"gender: expected {expect_gender!r}, got {result['gender']!r}")
+        if expect_branch and result["branch"] != expect_branch:
+            problems.append(f"branch: expected {expect_branch!r}, got {result['branch']!r}")
+        if expect_sub is not None and result.get("sub") != expect_sub:
+            problems.append(f"sub: expected {expect_sub!r}, got {result.get('sub')!r}")
+        if expect_leaf and result["leaf"] != expect_leaf:
+            problems.append(f"leaf: expected {expect_leaf!r}, got {result['leaf']!r}")
+
+    if problems:
+        FAILURES.append(f"[{label}] {title!r}\n    " + "\n    ".join(problems))
+    else:
+        PASSED += 1
+
+
+def check_leaf_exists(gender, branch, sub, leaf):
+    """Guards against fixes #7/#9-style bugs: classify() can emit a leaf name
+    that doesn't actually exist in CATEGORY_TREE for that gender, which
+    silently falls back to the branch node instead of erroring."""
+    global PASSED
+    branches = CATEGORY_TREE.get(gender, {})
+    content = branches.get(branch)
+    if content is None:
+        FAILURES.append(f"[tree] {gender}/{branch} branch does not exist at all")
+        return
+    if isinstance(content, dict):
+        leaves = content.get(sub, [])
+    else:
+        leaves = content
+    names = [n for n, _ in leaves]
+    if leaf not in names:
+        FAILURES.append(f"[tree] {gender}/{branch}/{sub} has no leaf {leaf!r} (has {names})")
+    else:
+        PASSED += 1
+
+
+# 1. Gender substring bug
+check("gender: women not swallowed by men", "Women Printed Lawn Shirt",
+      product_type="Woman Pret", expect_gender="Women")
+check("gender: men still works", "Men Straight Trouser", product_type="Men",
+      expect_gender="Men")
+
+# 4. "short" too greedy
+check("short sleeve != Shorts", "Men Off-White Color PQ Solid Short Sleeve Polo Tee",
+      expect_branch="Western", expect_sub="Upperwear", expect_leaf="Polo")
+check("real shorts still Bottomwear", "Denim Shorts", expect_branch="Western",
+      expect_sub="Bottomwear", expect_leaf="Shorts")
+
+# 5. Underwear
+check("boxer -> Underwear", "BOXER (PACK OF TWO)", product_type="UNDERWEARS/VESTS",
+      expect_branch="Accessories", expect_leaf="Underwear")
+
+# 6/7. Kurta combo sets
+check("kurta pajama -> Kurta Set (Men)", "M Grey Texture Smart Fit Kurta Pajama",
+      vendor="Men", expect_gender="Men", expect_branch="Eastern", expect_leaf="Kurta Set")
+check("boys kurta pajama -> Kurta Set (Boys)", "Light Purple Boys Kurta Pajama With Waistcoat",
+      vendor="D-Juniors Boys", expect_gender="Boys", expect_branch="Eastern", expect_leaf="Kurta Set")
+check("plain kurta stays Kurta", "Blended Kurta - EBTK19-3597", vendor="D-Juniors Boys",
+      expect_gender="Boys", expect_leaf="Kurta")
+
+# 9. Leaf-picking slug/keyword mismatch
+check("jewel -> Jewelry not Bag", "Jewel - EMUB22S-JEWEL", product_type="Men Un Stitched",
+      vendor="Blended", expect_branch="Accessories", expect_leaf="Jewelry")
+
+# 10. shawl collar false positive
+check("shawl collar sweater is not an accessory", "Shawl Collar Color-Block Sweater",
+      vendor="Boys", expect_branch="Western", expect_sub="Upperwear")
+
+# 11. Sherwani / Waistcoat
+check("sherwani -> Eastern", "Sherwani Suit - ECBTSS5-008", vendor="Boys",
+      expect_branch="Eastern", expect_leaf="Sherwani")
+check("waistcoat suit -> Eastern", "Embroidered Silk Waistcoat Suit - ECBTWCS6-106",
+      vendor="Boys", expect_branch="Eastern", expect_leaf="Waistcoat")
+
+# 13/14. Unstitched piece-count fallback
+check("SKU -3P suffix counted", "Embroidered Lawn Suit - EWU5V1-31244-3P",
+      product_type="Woman Un Stitched", vendor="Women", expect_branch="Eastern",
+      expect_sub="Unstitched", expect_leaf="3-Piece")
+check("named pieces counted (Shirt Trouser)", "Printed Khaddar Shirt Trouser - EWU24A3-29303ST",
+      product_type="Woman Un Stitched", vendor="Women", expect_branch="Eastern",
+      expect_sub="Unstitched", expect_leaf="2-Piece")
+check("no signal at all falls to Suit not branch", "Embroidered Lawn Suit",
+      product_type="Woman Un Stitched", vendor="Women", expect_branch="Eastern",
+      expect_sub="Unstitched", expect_leaf="Suit")
+
+# 15. sweatpants vs sweatshirt
+check("sweatpant -> Bottomwear not Sweatshirt", "Solid Sweatpant", vendor="Men",
+      expect_branch="Western", expect_sub="Bottomwear", expect_leaf="Joggers")
+check("real sweatshirt still Sweatshirt", "Crew Neck Sweatshirt", vendor="Men",
+      expect_branch="Western", expect_sub="Upperwear", expect_leaf="Sweatshirt")
+
+# 16. Hoodie
+check("hoodie gets its own leaf", "Pullover Hoodie", vendor="Men",
+      expect_branch="Western", expect_sub="Upperwear", expect_leaf="Hoodie")
+
+# 17. watch maker / blackwatch false positive
+check("watch maker fabric != Watch accessory", "BLENDED TEXTURED (WATCH MAKER)",
+      product_type="UNSTITCHED", vendor="Mashriq", expect_branch="Eastern")
+check("real watch still Watch", "Men's Analog Wrist Watch", vendor="Men",
+      expect_branch="Accessories", expect_leaf="Watch")
+
+# 18. Boys missing Polo leaf entirely
+check("boys polo tee -> Polo", "Boys Polo Tee", vendor="Boys",
+      expect_gender="Boys", expect_branch="Western", expect_leaf="Polo")
+
+# 19. Girls missing Sunglasses leaf entirely
+check("girls sunglasses -> Sunglasses", "Square-Framed Sunglasses", vendor="Girls",
+      expect_gender="Girls", expect_branch="Accessories", expect_leaf="Sunglasses")
+
+# 20. Girls missing a plain "Shirt" leaf (only had T-Shirt/Top/Dress)
+check("girls solid shirt -> Shirt", "SOLID SHIRT FOR GIRLS", vendor="Girls",
+      expect_gender="Girls", expect_branch="Western", expect_leaf="Shirt")
+
+# 21. "Dress Shirt" collision (dress as adjective, not the garment)
+check("dress shirt != Dress", "DRESS SHIRT BEIGE", vendor="Men",
+      expect_gender="Men", expect_branch="Western", expect_leaf="Shirt")
+check("real dress still Dress", "Floral Summer Dress", vendor="Women",
+      expect_gender="Women", expect_branch="Western", expect_leaf="Dress")
+
+# 22. Tights/leggings had no leaf and no keyword at all
+check("tights -> Bottomwear", "Solid Tight", vendor="Girls",
+      expect_gender="Girls", expect_branch="Western", expect_sub="Bottomwear", expect_leaf="Tights")
+
+# 23. "denim" without the word "jean" still Bottomwear/Jeans
+check("flared denim -> Jeans", "Girls Flared Denim", vendor="Girls",
+      expect_gender="Girls", expect_branch="Western", expect_sub="Bottomwear", expect_leaf="Jeans")
+
+# 25. Vendor must win over a noisy stray tag ("Women-Jacquard" on a girls' item)
+check("vendor beats noisy tag", "Striped Dress", vendor="COUGAR GIRL (S-V2-2026)",
+      tags="dresses,FROCK,girl-dress,Girls Dresses,Junior Girls,Women-Jacquard",
+      expect_gender="Girls", expect_branch="Western", expect_leaf="Dress")
+
+# 26. "Junior" text signal, previously not checked at all
+check("junior text -> Unisex not store default Men", "Junior Magenta Pajama Suit",
+      store="diners", expect_gender="Unisex")
+
+# 28. "frock" is not Eastern-specific — checked all 11 real Cougar uses,
+# every one is a plain Western casual dress
+check("cougar Girl Frock -> Western Dress, not Eastern", "Striped Dress",
+      product_type="Girl Frock", vendor="COUGAR GIRL (S-V2-2026)",
+      expect_gender="Girls", expect_branch="Western", expect_leaf="Dress")
+check("edenrobe frock also treated as a dress, not assumed Eastern",
+      "Frock - EGTF18W-0812", product_type="Girls Winter Frocks", vendor="Girls",
+      expect_gender="Girls", expect_branch="Western", expect_leaf="Dress")
+
+# 27. Kids sizing with zero textual signal anywhere — check() doesn't thread
+# raw variant data through classify(), so this calls guess_gender() directly.
+import load_data as _ld
+_kids_variants_rest = {
+    "options": [{"name": "Size", "values": ["5-6 Years", "7-8 Years", "9-10 Years"]}],
+    "variants": [{"option1": "5-6 Years"}, {"option1": "7-8 Years"}, {"option1": "9-10 Years"}],
+}
+_gender = _ld.guess_gender("diners", "Plain Dress", "", "", "", p=_kids_variants_rest, is_graphql=False)
+if _gender != "Unisex":
+    FAILURES.append(f"[kids sizing, no text signal] expected Unisex, got {_gender!r}")
+else:
+    PASSED += 1
+
+# 30. QA/placeholder test products and checkout packaging bags are not real
+# merchandise and must be excluded entirely, not misfiled into Upperwear.
+for label, title, ptype, vendor in [
+    ("bare 'Test' placeholder excluded", "Test", "", "Equator"),
+    ("payment-gateway test SKU excluded", "Test XPay", "", "Monark Clothing"),
+    ("(TEST) suffix excluded even on real-looking title", "MEN T-SHIRT (TEST)", "", "Breakout"),
+    ("Outfitters checkout shopping bag excluded", "Outfitters Shopping Bag", "SHOPPING BAGS", "Outfitters"),
+    ("Equator shopping bag excluded", "Shopping Bags", "", "Equator Stores"),
+]:
+    result = classify("test", {}, title, ptype, "", vendor, "")
+    if result is not None:
+        FAILURES.append(f"[{label}] {title!r} expected excluded (None), got {result}")
+    else:
+        PASSED += 1
+
+# 31. "bag"/"handbag" plural word-boundary bug (same class as jewelry/
+# sunglasses/socks) — a real bag product must still resolve to Accessories,
+# not fall through since "bags" (plural) never matched bare \bbag\b.
+check("plural 'Bag' -> Accessories", "Men Bag", vendor="Men",
+      expect_branch="Accessories", expect_leaf="Bag")
+check("Crossbody Bag -> Accessories", "Crossbody Bag", vendor="Men",
+      expect_branch="Accessories", expect_leaf="Bag")
+
+# 32. Vendor's age-only word ("junior") must not out-rank an explicit gender
+# word found in tags/product_type — vendor "CAMBRIDGE JUNIOR" was winning
+# outright and returning Unisex before ever checking tags that said "BOYS
+# SWEATER" explicitly.
+check("vendor 'junior' doesn't override explicit tag gender", "Clever Breton Stripes",
+      product_type="HALF ZIPPER SWEATER", vendor="CAMBRIDGE JUNIOR",
+      tags="Blessed Friday 22,BOYS SWEATER,CAMBRIDGE JUNIOR",
+      expect_gender="Boys", expect_branch="Western", expect_sub="Upperwear")
+check("age-only word with genuinely no gender signal still falls to Unisex",
+      "Junior Kurta Pajama Suit", product_type="JUNIOR SHALWAR SUIT", vendor="Mashriq",
+      tags="2024,junior-shalwar-suit", expect_gender="Unisex", expect_branch="Eastern",
+      expect_leaf="Kurta Set")
+
+# 33. Unisex needs real Western/Eastern branches, not just Accessories —
+# genuinely gender-ambiguous kids items still need somewhere to land.
+check_leaf_exists("Unisex", "Western", "Upperwear", "Shirt")
+check_leaf_exists("Unisex", "Eastern", "Stitched", "Shalwar Kameez")
+check_leaf_exists("Unisex", "Eastern", "Unstitched", "Suit")
+
+# 34. Boys/Girls Western branch was missing Footwear entirely even though
+# classify() can emit Footwear>Shoes for any gender.
+check_leaf_exists("Boys", "Western", "Footwear", "Shoes")
+check_leaf_exists("Girls", "Western", "Footwear", "Shoes")
+
+# 35. Boys/Girls perfumes ("BOYS STAR WARS PERFUME" etc, vendor "KIDS",
+# product_type "PERFUMES") had no Fragrance & Beauty branch at all.
+check("boys perfume -> Fragrance & Beauty", "BOYS STAR WARS PERFUME",
+      product_type="PERFUMES", vendor="KIDS", expect_gender="Boys",
+      expect_branch="Fragrance & Beauty", expect_leaf="Perfume")
+check("girls perfume -> Fragrance & Beauty", "GIRLS HELLO KITTY PERFUME",
+      product_type="PERFUMES", vendor="KIDS", expect_gender="Girls",
+      expect_branch="Fragrance & Beauty", expect_leaf="Perfume")
+
+# 36. Boys' Eastern tree missing Shalwar Kameez/Waistcoat leaves
+check("boys shalwar suit -> Shalwar Kameez", "Boys Shalwar Suit",
+      product_type="Boys Shalwar Kameez", vendor="D-Juniors Boys",
+      expect_gender="Boys", expect_branch="Eastern", expect_leaf="Shalwar Kameez")
+
+# 37. Men's Accessories missing Shawl leaf (Women's tree already had it)
+check("men shawl -> Shawl", "Black Plain Wool Blend Men Shawl", product_type="simple",
+      vendor="Saqafat", expect_gender="Men", expect_branch="Accessories", expect_leaf="Shawl")
+
+# 38. Women's tree missing Tights and Polo leaves
+check("women tights -> Tights", "Women Solid Tights", product_type="Women", vendor="ENGINE",
+      expect_gender="Women", expect_branch="Western", expect_sub="Bottomwear", expect_leaf="Tights")
+check("women polo -> Polo", "POLO SHIRT FOR WOMEN", product_type="T-Shirts For Women", vendor="MEME",
+      expect_gender="Women", expect_branch="Western", expect_sub="Upperwear", expect_leaf="Polo")
+
+# 39. "tie dye"/"front tie" false positives on the Tie accessory keyword —
+# real garments were being misfiled into Accessories>Tie or, for Boys/Girls
+# (whose tree had no Tie leaf at all), stranded on the bare Accessories
+# branch node.
+check("tie dye t-shirt is not a Tie accessory", "TIE DYE T-SHIRT FOR MEN", vendor="Men",
+      expect_gender="Men", expect_branch="Western", expect_leaf="T-Shirt")
+check("tie dye joggers is not a Tie accessory", "TIE DYE JOGGER PANT FOR MEN", vendor="Men",
+      expect_gender="Men", expect_branch="Western", expect_sub="Bottomwear", expect_leaf="Joggers")
+check("front tie top is not a Tie accessory", "Front Tie Top", vendor="COUGAR GIRL (S-V3-2026)",
+      expect_gender="Girls", expect_branch="Western", expect_leaf="Shirt")
+check("real necktie still Tie", "Poly Silk Tie", vendor="Men",
+      expect_gender="Men", expect_branch="Accessories", expect_leaf="Tie")
+check("real bow tie still Tie", "Bow Tie", vendor="Men",
+      expect_gender="Men", expect_branch="Accessories", expect_leaf="Tie")
+
+# 40. Ambiguous "BAGS & WALLETS" product_type bucket must not force a
+# specific bag/case product into a nonexistent "Wallet" leaf just because
+# "wallet" also appears in that shared bucket label.
+check("backpack under 'BAGS & WALLETS' bucket -> Bag not Wallet", "Soccer School Backpack",
+      product_type="BAGS & WALLETS", vendor="Boys", expect_gender="Boys",
+      expect_branch="Accessories", expect_leaf="Bag")
+check("pencil case under 'BAGS & WALLETS' bucket -> Bag not Wallet", "Lion Themed Pencil Case",
+      product_type="BAGS & WALLETS", vendor="Boys", expect_gender="Boys",
+      expect_branch="Accessories", expect_leaf="Bag")
+
+# 41. Boys/Girls Accessories missing Belt/Watch/Wallet/Cap leaves
+check("boys belt -> Belt", "Textured Faux Leather Belt", product_type="BELTS & BRACES",
+      vendor="Boys Junior", expect_gender="Boys", expect_branch="Accessories", expect_leaf="Belt")
+check("boys watch -> Watch", "Digital Watch With Silicone Strap", product_type="WATCHES",
+      vendor="Boys Junior", expect_gender="Boys", expect_branch="Accessories", expect_leaf="Watch")
+check("girls watch -> Watch", "Digital LED Watch", product_type="WATCHES", vendor="Girls Junior",
+      expect_gender="Girls", expect_branch="Accessories", expect_leaf="Watch")
+check("girls cap -> Cap", "GIRLS CAP", product_type="CAP", vendor="KIDS",
+      expect_gender="Girls", expect_branch="Accessories", expect_leaf="Cap")
+
+# 42. "Cap" leaf-picker substring collision — space-stripped bare substring
+# matching let "cap" match inside "cape", misfiling a real shawl as a cap.
+check("cape shawl is Shawl not Cap", "Women Printed Cape Shawl", product_type="Women",
+      vendor="ENGINE", expect_gender="Women", expect_branch="Accessories", expect_leaf="Shawl")
+
+# 43. Boys' Eastern tree missing Sherwani leaf entirely
+check("boys sherwani suit -> Sherwani", "Sherwani Suit - EBTCSS5-004",
+      product_type="Boys Sherwani Suit", vendor="edenrobe Pakistan",
+      expect_gender="Boys", expect_branch="Eastern", expect_leaf="Sherwani")
+
+# 44. "with ... belt/tie" describes an attached design detail on another
+# garment, not a standalone belt/tie product.
+check("jeans with belt detail stay Jeans", "Barrel Fit Jeans With Belt Detail",
+      product_type="JEANS", vendor="Women", expect_gender="Women",
+      expect_branch="Western", expect_sub="Bottomwear", expect_leaf="Jeans")
+check("shirt with tie detail stays Shirt", "BUTTON DOWN SHIRT WITH TIE DETAIL",
+      product_type="WOVEN", vendor="BREAKOUT", expect_branch="Western", expect_leaf="Shirt")
+check("dress with waist belt stays Dress", "Long Dress With  Waist Belt",
+      vendor="COUGAR WOMEN (S-V3-2026)", expect_gender="Women",
+      expect_branch="Western", expect_leaf="Dress")
+check("real standalone belt still Belt", "Faux Leather Belt", product_type="BELTS & BRACES",
+      vendor="Women", expect_gender="Women", expect_branch="Accessories", expect_leaf="Belt")
+
+# 45. Women's Accessories missing Belt/Cap/Wallet leaves
+check("women cap -> Cap", "Embroidered Cap", product_type="CAPS & HATS", vendor="Women",
+      expect_gender="Women", expect_branch="Accessories", expect_leaf="Cap")
+
+# 46. "Kurti" is exclusively a girls'/women's garment name in this catalog's
+# own taxonomy — a real Diners/Sohaye item had the compound tag
+# "girls-western&boys-eastern-western" (containing the literal word "boys")
+# outrank its own clean "girls-eastern" tag during gender resolution.
+check("kurti forces gender to Girls even if a stray tag said boys",
+      "Pink Embroidered Teens Kurti", product_type="Teens 2 Piece", vendor="Sohaye",
+      tags="2 Piece,cotton jacquard,D-Juniors,girls-eastern,girls-western&boys-eastern-western,Teens",
+      store="diners", expect_gender="Girls", expect_branch="Eastern", expect_leaf="Kurti")
+
+# 47. Unstitched fabric with a bare garment-name word must not resolve to a
+# Stitched-only leaf name ("Kurta") that doesn't exist under any gender's
+# Unstitched sub-tree — falls to the generic "Suit" catch-all instead.
+check("unstitched kurta collection -> Suit not Kurta", "UNSTITCHED KURTA COLLECTION",
+      product_type="UNSTITCHED", vendor="Mashriq", expect_branch="Eastern",
+      expect_sub="Unstitched", expect_leaf="Suit")
+
+# 48. "Dress...Shirt" with an intervening word (fabric-pattern name) is the
+# same men's-formal-shirt collision as bare "Dress Shirt".
+check("dress stripes shirt != Dress", "Purple Dress Stripes Shirt",
+      product_type="Premium Egyptian Cotton", vendor="Formal Shirt",
+      expect_branch="Western", expect_leaf="Shirt")
+check("plural 'dress shirts' product_type bucket != Dress", "DRESS SHIRT BLUE",
+      product_type="dress shirts", vendor="Charcoal Clothing",
+      expect_branch="Western", expect_leaf="Shirt")
+
+# 49. Hyphenated "Tie-X" compounds are a design detail, not a necktie — same
+# collision class as "Tie Dye"/"Front Tie" but written without a space.
+check("tie-waist playsuit is not a Tie accessory", "Tie-Waist Playsuit",
+      vendor="COUGAR GIRL (S-V1-2026)", expect_gender="Girls", expect_branch="Western")
+check("tie-up jumpsuit is not a Tie accessory", "Tie-Up Jumpsuit White/Blue",
+      product_type="Jump Suits", vendor="Girls", expect_gender="Girls", expect_branch="Western")
+check("hair tie -> Jewelry not Tie", "Pack of 3 Bow Hair Tie", product_type="JEWELLERY",
+      vendor="Women", expect_gender="Women", expect_branch="Accessories", expect_leaf="Jewelry")
+check("'tie up' with a space is not a Tie accessory", "Tie Up Jumpsuit White/Blue",
+      product_type="Jump Suits", vendor="Girls", expect_gender="Girls",
+      expect_branch="Western", expect_sub="Suits & Sets", expect_leaf="Co-ord Set")
+check("'tie & die' misspelling of dye is not a Tie accessory",
+      "Tie & Die Viscose Dress - FWTD24-009", vendor="Furorjeans",
+      expect_branch="Western", expect_leaf="Dress")
+
+# 50. Women's/Girls' Eastern trees missing Waistcoat; Girls' missing
+# Kurta/Kurta Set entirely (only had Kurti).
+check("women waistcoat -> Waistcoat", "Waistcoat - ELTWC19-66953",
+      product_type="Woman Waist Coat", vendor="Lawn", expect_gender="Women",
+      expect_branch="Eastern", expect_leaf="Waistcoat")
+check("girls waistcoat -> Waistcoat", "Green Infant Girl Waistcoat",
+      product_type="Infant Kurti", vendor="D-Juniors Girls", expect_gender="Girls",
+      expect_branch="Eastern", expect_leaf="Waistcoat")
+check("girls kurta -> Kurta", "Kurta", product_type="Girls", vendor="ENGINE",
+      expect_gender="Girls", expect_branch="Eastern", expect_leaf="Kurta")
+
+# 51. Men's Western Bottomwear missing Tights (athletic compression wear)
+check("men compression tights -> Tights", "Compression Tights", product_type="Tights",
+      vendor="Men", expect_gender="Men", expect_branch="Western", expect_sub="Bottomwear",
+      expect_leaf="Tights")
+
+# 52. Bare "denim" is a fabric name, not a bottomwear signal on its own —
+# real jackets/shirts/dresses/polos made of or trimmed with denim were
+# resolving to Jeans purely because "denim" appeared anywhere in the title.
+check("denim collar polo stays Polo, not Jeans", "DENIM COLLAR POLO GREY", vendor="Men",
+      expect_branch="Western", expect_leaf="Polo")
+check("polo shirt denim collar stays Polo", "POLO SHIRT DENIM COLLAR GREEN", vendor="Men",
+      expect_branch="Western", expect_leaf="Polo")
+check("denim jacket stays Jacket, not Jeans", "DENIM JACKET", vendor="Men",
+      expect_branch="Western", expect_leaf="Jacket")
+check("denim shirt stays Shirt, not Jeans", "DENIM SHIRT - BLUE", vendor="Men",
+      expect_branch="Western", expect_leaf="Shirt")
+check("denim dress stays Dress, not Jeans", "Embroidered Denim Dress", vendor="Women",
+      expect_branch="Western", expect_leaf="Dress")
+check("bare denim with no other garment word still Jeans", "Baggy Fit Denim", vendor="Men",
+      expect_branch="Western", expect_sub="Bottomwear", expect_leaf="Jeans")
+
+# 53. "Sweater" leaf existed only in Men's tree but classify() never
+# actually emitted it — real sweaters across every gender were falling
+# through to the generic "Shirt" bucket (1,482 real products confirmed).
+check("sweater -> Sweater not Shirt", "Basic Textured Sweater", product_type="SWEATERS",
+      vendor="Men", expect_gender="Men", expect_branch="Western", expect_leaf="Sweater")
+check("girls sweater -> Sweater", "Girls Cable Knit Sweater", vendor="Girls",
+      expect_gender="Girls", expect_branch="Western", expect_leaf="Sweater")
+check("sweatshirt still Sweatshirt, not confused with Sweater", "Crew Neck Sweatshirt",
+      vendor="Men", expect_branch="Western", expect_leaf="Sweatshirt")
+
+# Tree-shape guards: every leaf classify() can possibly emit must exist for
+# every gender it can be emitted under.
+for gender in ("Men", "Women", "Boys", "Girls"):
+    check_leaf_exists(gender, "Accessories", None, "Underwear")
+check_leaf_exists("Men", "Eastern", "Stitched", "Sherwani")
+check_leaf_exists("Boys", "Eastern", "Stitched", "Kurta Set")
+check_leaf_exists("Girls", "Eastern", "Stitched", "Shalwar Kameez")
+check_leaf_exists("Girls", "Western", "Bottomwear", "Jeans")
+check_leaf_exists("Girls", "Western", "Suits & Sets", "Co-ord Set")
+for gender in ("Men", "Women", "Boys", "Girls"):
+    check_leaf_exists(gender, "Eastern", "Unstitched", "Suit")
+    check_leaf_exists(gender, "Western", "Upperwear", "Hoodie")
+    check_leaf_exists(gender, "Western", "Bottomwear", "Joggers")
+    check_leaf_exists(gender, "Western", "Upperwear", "Shirt")
+check_leaf_exists("Boys", "Western", "Upperwear", "Polo")
+check_leaf_exists("Girls", "Accessories", None, "Sunglasses")
+check_leaf_exists("Boys", "Accessories", None, "Sunglasses")
+check_leaf_exists("Girls", "Western", "Bottomwear", "Tights")
+for gender in ("Men", "Women", "Boys", "Girls", "Unisex"):
+    check_leaf_exists(gender, "Accessories", None, "Bag")
+check_leaf_exists("Men", "Accessories", None, "Shawl")
+check_leaf_exists("Women", "Western", "Bottomwear", "Tights")
+check_leaf_exists("Women", "Western", "Upperwear", "Polo")
+check_leaf_exists("Boys", "Eastern", "Stitched", "Shalwar Kameez")
+check_leaf_exists("Boys", "Eastern", "Stitched", "Waistcoat")
+for gender in ("Boys", "Girls"):
+    check_leaf_exists(gender, "Accessories", None, "Belt")
+    check_leaf_exists(gender, "Accessories", None, "Watch")
+    check_leaf_exists(gender, "Accessories", None, "Wallet")
+check_leaf_exists("Girls", "Accessories", None, "Cap")
+for gender in ("Men", "Women", "Boys", "Girls"):
+    check_leaf_exists(gender, "Fragrance & Beauty", None, "Perfume")
+check_leaf_exists("Women", "Western", "Bottomwear", "Tights")
+check_leaf_exists("Women", "Accessories", None, "Belt")
+check_leaf_exists("Women", "Accessories", None, "Cap")
+check_leaf_exists("Women", "Accessories", None, "Wallet")
+check_leaf_exists("Girls", "Western", "Upperwear", "Jacket")
+check_leaf_exists("Girls", "Western", "Upperwear", "Polo")
+check_leaf_exists("Boys", "Eastern", "Stitched", "Sherwani")
+check_leaf_exists("Women", "Eastern", "Stitched", "Waistcoat")
+check_leaf_exists("Girls", "Eastern", "Stitched", "Waistcoat")
+check_leaf_exists("Girls", "Eastern", "Stitched", "Kurta")
+check_leaf_exists("Girls", "Eastern", "Stitched", "Kurta Set")
+check_leaf_exists("Men", "Western", "Bottomwear", "Tights")
+for gender in ("Men", "Women", "Boys", "Girls", "Unisex"):
+    check_leaf_exists(gender, "Western", "Upperwear", "Sweater")
+
+# 45. Women's "Shorts" catching real upperwear/dresses/outerwear —
+# three distinct real collisions found while browsing the live catalog:
+#
+# (a) "short-sleeve"/"short-sleeved" (hyphenated) never excluded — the
+# sleeve lookahead only handled a whitespace separator.
+check("hyphenated short-sleeve shirt stays Shirt, not Shorts", "Short-Sleeve Shirt",
+      vendor="cougar", expect_branch="Western", expect_leaf="Shirt")
+check("hyphenated short-sleeve button-down stays Shirt", "Short-Sleeve Button-Down",
+      vendor="cougar", expect_branch="Western", expect_leaf="Shirt")
+check("hyphenated short-sleeved sweater stays Sweater, not Shorts", "Short-Sleeved Sweater",
+      vendor="cougar", expect_branch="Western", expect_leaf="Sweater")
+check("textured short-sleeved shirt stays Shirt", "Textured Short-Sleeved Shirt",
+      vendor="cougar", expect_branch="Western", expect_leaf="Shirt")
+# (b) bare singular "short" as a length ADJECTIVE ahead of another garment
+# noun (coat/dress/jacket/blazer), not the garment "shorts" itself.
+check("'short coat' is a Jacket, not Shorts", "Oversized Short Coat",
+      vendor="cougar", expect_branch="Western", expect_leaf="Jacket")
+check("'woolen short coat' is a Jacket, not Shorts", "Woolen Short Coat - FWTSC24-001",
+      vendor="furor", product_type="Woman Coats", expect_branch="Western", expect_leaf="Jacket")
+check("'short dress' is a Dress, not Shorts", "SHORT DRESS FOR WOMEN",
+      vendor="meme", product_type="Dresses For Women", expect_branch="Western", expect_leaf="Dress")
+check("'printed short dress' is a Dress, not Shorts", "PRINTED SHORT DRESS FOR WOMEN",
+      vendor="meme", product_type="Dresses For Women", expect_branch="Western", expect_leaf="Dress")
+# genuine bare-singular "short" (no excluded noun following) must still
+# resolve to Shorts — the adjective exclusion must not overreach.
+check("bare 'short for women' with no following noun stays Shorts", "SHORT FOR WOMEN",
+      vendor="meme", product_type="Shorts For Women", expect_branch="Western", expect_leaf="Shorts")
+check("'casual short for women' stays Shorts", "CASUAL SHORT FOR WOMEN",
+      vendor="meme", product_type="Shorts For Women", expect_branch="Western", expect_leaf="Shorts")
+# (c) Engine Clothing's "Shorts Body Blazer/Jacket" line-naming
+# convention — "Shorts" here is a literal product-line prefix, never the
+# garment; vendor/tags confirm these are real winter blazers/jackets, no
+# field anywhere says "short" in the length sense.
+check("Engine 'Women Shorts Body Blazer' is a Jacket, not Shorts", "Women Shorts Body Blazer",
+      vendor="ENGINE", product_type="Women", expect_branch="Western", expect_leaf="Jacket")
+check("Engine 'Women Shorts Body Jacket' is a Jacket, not Shorts", "Women Shorts Body Jacket",
+      vendor="ENGINE", product_type="Women", expect_branch="Western", expect_leaf="Jacket")
+# (d) store's own product_type mislabeled "Shorts" on a real pair of
+# jeans — title is the more reliable signal and must win over a
+# conflicting product_type bucket.
+check("title 'Jeans' wins over mislabeled product_type 'Shorts'", "Basic Barrel Jeans",
+      vendor="Women", product_type="Shorts", expect_branch="Western", expect_leaf="Jeans")
+# a product_type-only Shorts signal (no conflicting bottomwear word in the
+# title at all) must still fall back to Shorts correctly.
+check("product_type Shorts with no title signal still resolves Shorts", "Striped Pleated Jorts",
+      vendor="Women", product_type="SHORTS", expect_branch="Western", expect_leaf="Shorts")
+# real coat line (unrelated to the Shorts collision) that was separately
+# found falling through to the generic Shirt bucket while investigating.
+check("'long coat' is a Jacket, not Shirt", "BAN COLLAR LONG COAT BLACK",
+      vendor="Charcoal Clothing", product_type="long coats",
+      expect_branch="Western", expect_leaf="Jacket")
+check("waistcoat is unaffected by the new bare-coat check", "Ash Grey Waistcoat",
+      vendor="D Man", product_type="Waist Coat", expect_branch="Eastern", expect_leaf="Waistcoat")
+
+# 46. Bare "vest" wrongly treated as an unconditional Underwear signal —
+# ~90 real products under the live Underwear category were actually
+# outerwear/activewear/formalwear vests, not undergarments. Fixed by
+# requiring an explicit undergarment signal (sando/undergarment, possibly
+# only in the description) with no outerwear signal present.
+check("sando vest is Underwear", "MEN'S COTTON SANDO VEST",
+      vendor="Accessories- undergarments", product_type="Undergarments",
+      expect_branch="Accessories", expect_leaf="Underwear")
+check("undergarment product_type vest is Underwear", "MEN'S SEAMLESS COTTON VEST",
+      vendor="Accessories- undergarments", product_type="VEST",
+      expect_branch="Accessories", expect_leaf="Underwear")
+check("boxer still Underwear, unaffected by removing bare 'vest'", "BOXER (PACK OF TWO)",
+      vendor="Cambridge", product_type="UNDERWEARS/VESTS",
+      expect_branch="Accessories", expect_leaf="Underwear")
+# Not asserting an exact leaf here: with no "jacket"/"blazer"/"coat" word
+# in product_type+title, this falls to the generic Shirt default — a
+# known, honestly-flagged residual gap (not perfectly categorized), but
+# the bug that mattered (wrongly landing in Underwear) is fixed.
+check("quilted vest is NOT Underwear (falls to Western default)", "Quilted Vest",
+      vendor="Cambridge jackets", product_type="Vest", expect_branch="Western")
+check("sweater vest is a Sweater, not Underwear", "Argyle Pattern Sweater Vest",
+      vendor="COUGAR MEN (WINTER-2025)", expect_branch="Western", expect_leaf="Sweater")
+check("active wear vest is not Underwear", "Active Wear Vest",
+      vendor="ENGINE", product_type="Men", expect_branch="Western")
+check("vest gilet is a Jacket, not Underwear", "Vest Gilet",
+      vendor="Quilted", product_type="Men Jackets", expect_branch="Western", expect_leaf="Jacket")
+check("suiting vest is not Underwear", "MENS SUITING VEST",
+      vendor="Suits", product_type="3 PC SUIT", expect_branch="Western")
+check("description-only undergarment signal still resolves Underwear", "White Plain Sleeveless Ribbed Vest",
+      vendor="Uniworth", product_type="configurable",
+      description="This amazing sleeveless vest is made with an ultra-fitting for active "
+                   "performance. our sporty undergarment will keep you cool fresh and comfortable",
+      expect_branch="Accessories", expect_leaf="Underwear")
+
+# 47. Women's CATEGORY_TREE only ever had a "Kurti" leaf under
+# Eastern/Stitched, never "Kurta" — but classify() has always been able
+# to emit leaf="Kurta" for a Women's product (any title saying "kurta"
+# without "kurti"), with nowhere for it to resolve. Found via the
+# branch-level-orphan audit after adding Zellbury, whose real listings
+# ("Embroidered Kurta - 2274", "Kurta Dupatta Trouser - 0762", 111 real
+# products) use "Kurta" for women's wear.
+check("women's 'Kurta' (not Kurti) resolves to its own Kurta leaf", "Embroidered Kurta - 2274",
+      vendor="ZELLBURY WOMEN", product_type="Essential Pret",
+      expect_gender="Women", expect_branch="Eastern", expect_sub="Stitched", expect_leaf="Kurta")
+check("women's 'Kurti' still resolves Kurti, unaffected by the new Kurta leaf", "Printed Kurti",
+      vendor="Women", expect_gender="Women", expect_branch="Eastern", expect_sub="Stitched", expect_leaf="Kurti")
+check_leaf_exists("Women", "Eastern", "Stitched", "Kurta")
+
+# 48. "waist tie" (a garment's self-tie closure detail) was matching the
+# Tie ACCESSORY_RE/leaf check meant for actual neckties — same collision
+# class as the existing "front tie"/"hair tie" exclusions. Real example
+# found by the same branch-level-orphan audit: "TEXTURED WAIST TIE TOP"
+# (Breakout, Women) — CATEGORY_TREE has no Tie leaf for Women at all
+# (only Men/Unisex), so this was stranding on the bare Accessories branch
+# node.
+check("'waist tie top' is a Shirt, not a Tie accessory", "TEXTURED WAIST TIE TOP",
+      vendor="BREAKOUT", product_type="WOVEN", tags="WOMEN,WOVEN,WOVEN SHIRT",
+      expect_gender="Women", expect_branch="Western", expect_leaf="Shirt")
+check("real necktie still resolves Tie, unaffected by the waist exclusion", "Poly Silk Tie",
+      vendor="Men", expect_gender="Men", expect_branch="Accessories", expect_leaf="Tie")
+
+# 49. "keychain" was never recognized as an accessory anywhere in
+# classify() — 9 real Furor products (product_type literally "Key
+# Chains") had nowhere to resolve. The 2 with "jeans" in the title
+# ("Furor Jeans Club Keychain", "Furor Jeans Keychain" — "Jeans" here is
+# the brand's own line name, Furor's vendor is literally "Furorjeans")
+# fell through to the bare-"jeans" Bottomwear check and landed in Men's
+# Jeans; the other 7 (no "jeans" in the title) fell through every branch
+# to the generic Western Upperwear "Shirt" default. Added "keychain" to
+# ACCESSORY_RE/_KEYWORD_LEAVES and a new "Keychain" leaf to Men's
+# CATEGORY_TREE — recognizing the actual accessory type fixes the Jeans
+# collision at the source rather than special-casing "jeans" again.
+check("'Furor Jeans Club Keychain' is a Keychain, not Jeans", "Furor Jeans Club Keychain - FAKC24-009",
+      vendor="Furorjeans", product_type="Key Chains", tags="Men,Men_Accessories",
+      expect_gender="Men", expect_branch="Accessories", expect_leaf="Keychain")
+check("'Furor Jeans Keychain' is a Keychain, not Jeans", "Furor Jeans Keychain - FAKC24-002",
+      vendor="Furorjeans", product_type="Key Chains", tags="Men,Men_Accessories",
+      expect_gender="Men", expect_branch="Accessories", expect_leaf="Keychain")
+check("plain 'Acrylic Keychain' (no jeans collision) also resolves Keychain", "Acrylic Keychain - FAKC24-005",
+      vendor="Furorjeans", product_type="Key Chains", tags="Men,Men_Accessories",
+      expect_gender="Men", expect_branch="Accessories", expect_leaf="Keychain")
+check_leaf_exists("Men", "Accessories", None, "Keychain")
+check("real jeans still Jeans, unaffected by the Keychain leaf", "Loose Fit Jeans - FMBP6-034",
+      vendor="Furorjeans", product_type="Men Denim Jeans", tags="Men,Men_Bottoms",
+      expect_gender="Men", expect_branch="Western", expect_sub="Bottomwear", expect_leaf="Jeans")
+
+# 50. "vest" and plural garment nouns ("jackets", not just singular
+# "jacket") missing from the bare-"denim" exclusion list — real example
+# "Hooded Denim Vest" (Furor, product_type literally "Men Jackets",
+# PLURAL — the original singular-only "jacket" never matched it) was
+# resolving to Jeans purely because of "denim" in the title, same
+# collision class as "DENIM JACKET"/"Denim Shirt" (fix #43).
+check("'Hooded Denim Vest' is not Jeans", "Hooded Denim Vest - FMTJD21-018",
+      vendor="Furorjeans", product_type="Men Jackets", tags="Men,Men_Winter_Wear,winter",
+      expect_gender="Men", expect_branch="Western", expect_sub="Upperwear")
+
+# 51. Two more real evidence-driven CATEGORY_TREE gender-tree gaps found
+# by the same branch-level-orphan audit while verifying #49/#50, both the
+# same latent-gap class as #47 (a leaf classify() can emit for a gender
+# but that gender's tree never defined):
+# (a) real Zellbury "Kurta Shalwar" combo listings (6 products) hit
+# KURTA_COMBO_RE and resolve leaf="Kurta Set", which Men/Boys/Girls
+# already had but Women's tree didn't (only added plain "Kurta" in #47).
+check("women's 'Kurta Shalwar' combo resolves Kurta Set", "Kurta Shalwar - 1679",
+      vendor="ZELLBURY WOMEN", product_type="Essential Pret",
+      expect_gender="Women", expect_branch="Eastern", expect_sub="Stitched", expect_leaf="Kurta Set")
+check_leaf_exists("Women", "Eastern", "Stitched", "Kurta Set")
+# (b) real Outfitters "Multi-Charm Keychain"/"Crochet Keychain"/etc. (5
+# products, vendor "Women", product_type "JEWELLERY") — the "Keychain"
+# leaf added for #49 only went to Men's tree.
+check("women's 'Multi-Charm Keychain' resolves Keychain, not stranded", "Multi-Charm Keychain",
+      vendor="Women", product_type="JEWELLERY",
+      expect_gender="Women", expect_branch="Accessories", expect_leaf="Keychain")
+check_leaf_exists("Women", "Accessories", None, "Keychain")
+
+# 52. "SHORT BLOCK HEEL" (Meme) — a low-heeled shoe, "short" describing
+# heel height, was matching bare SHORTS_RE with 0 intervening words (same
+# collision shape as "Short Coat"/"Short Dress"). Excluded "heel(s)" the
+# same way, and added "heel" to the footwear leaf check so it lands on
+# Shoes instead of falling through further.
+check("'short block heel' is a Shoe, not Shorts", "SHORT BLOCK HEEL",
+      vendor="Women", expect_gender="Women", expect_branch="Western",
+      expect_sub="Footwear", expect_leaf="Shoes")
+
+# 53. Unisex's Western/Upperwear tree had no "Dress" leaf — classify() can
+# emit gender=Unisex (the honest "no gender signal anywhere" fallback)
+# independent of whether the garment is a dress. Real example: Lama's
+# "PETERPAN DRESS" (vendor "LAMA", no gendered tag/vendor/product_type
+# anywhere) was stranding on the bare Western branch node.
+check("gender-less 'Peterpan Dress' resolves Dress under Unisex", "PETERPAN DRESS",
+      vendor="LAMA", product_type="DRESSES", tags="collection-last-chance",
+      expect_gender="Unisex", expect_branch="Western", expect_leaf="Dress")
+check_leaf_exists("Unisex", "Western", "Upperwear", "Dress")
+
+# 54. "Spider Man" (two words) collided with bare `\bman\b` in
+# GENDER_PATTERNS, and with "men"/"man" checked before "boys"/"girls" in
+# the list, the incidental "Man" from the character name won over a real
+# product's own explicit "BOYS" signal. Real example: Breakout's "BOYS
+# DROP SHOULDER SPIDER MAN PRINTED TEE" (vendor "KIDS", tags include
+# "BOYS") was resolving to Men. Reordered boys/girls ahead of men/man —
+# no equivalent collision exists for boys/girls.
+check("'Spider Man' doesn't override an explicit BOYS signal", "BOYS DROP SHOULDER SPIDER MAN PRINTED TEE",
+      vendor="KIDS", product_type="WOVEN", tags="100% Cotton,25-SUM,BOYS,FLAT50,H/S,Kids Top,KNIT,SALE",
+      expect_gender="Boys", expect_branch="Western", expect_leaf="T-Shirt")
+check("real 'FOR MEN' item still resolves Men, unaffected by the reorder", "BATMAN T-SHIRT FOR MEN",
+      vendor="MEME", tags="Batman,Character Shop",
+      expect_gender="Men", expect_branch="Western", expect_leaf="T-Shirt")
+check("one-word 'Spiderman' never collided in the first place, still Boys", "BOYS SPIDERMAN PRINT SHORTS",
+      vendor="KIDS", tags="BOYS", expect_gender="Boys", expect_branch="Western",
+      expect_sub="Bottomwear", expect_leaf="Shorts")
+
+# 55/56. Full audit (prompted directly by user feedback that fixes were
+# too narrow and testing needed to be more thorough) of everything sitting
+# under an Upperwear leaf for two more classes of real "obviously wrong
+# branch" bug — perfumes and footwear, 131 + 1,024 real products.
+#
+# 55. FRAGRANCE_RE was singular-only — plural product_type "FRAGRANCES"
+# (Outfitters) / titles that are just scent names with no fragrance word
+# at all ("Spiced Rage", user-reported) never matched.
+check("plural product_type 'FRAGRANCES' resolves Perfume, not Shirt", "Spiced Rage",
+      vendor="Men", product_type="FRAGRANCES", tags="Fragrances,Perfumes",
+      expect_branch="Fragrance & Beauty", expect_leaf="Perfume")
+check("perfume with a bare scent-name title, no gender word", "AMALFI ORANGE",
+      vendor="LAMA", product_type="PERFUMES", expect_gender="Unisex",
+      expect_branch="Fragrance & Beauty", expect_leaf="Perfume")
+
+# 56. Footwear detection only ever recognized shoe/sandal/sneaker/heel —
+# every other real footwear word in this catalog (boots, pumps, slippers,
+# slides, loafers, trainers, mules, khussa, 3 real moccasin misspellings)
+# fell through to the generic Shirt/T-Shirt default. Real examples across
+# Diners/French Emporio, Lama, Outfitters, ONE (Be-One), Furor, Engine.
+check("'Black Formal Shoes For Men' resolves Shoes, not Shirt", "Black Formal Shoes For Men",
+      vendor="French Emporio", product_type="Men Shoes",
+      expect_gender="Men", expect_branch="Western", expect_sub="Footwear", expect_leaf="Shoes")
+check("'AXL BIKER BOOTS' resolves Shoes", "AXL BIKER BOOTS", vendor="LAMA", product_type="BOOTS",
+      expect_branch="Western", expect_sub="Footwear", expect_leaf="Shoes")
+check("'ANYA MAMA FLATS' (PUMPS product_type) resolves Shoes", "ANYA MAMA FLATS",
+      vendor="LAMA", product_type="PUMPS", expect_branch="Western", expect_sub="Footwear", expect_leaf="Shoes")
+check("real misspelling 'Mocassins' resolves Shoes", "Black Casual Mocassins Shoes",
+      vendor="French Emporio", product_type="Men Shoes",
+      expect_branch="Western", expect_sub="Footwear", expect_leaf="Shoes")
+check("'Men Loafers' resolves Shoes", "Men Loafers", vendor="ENGINE",
+      expect_gender="Men", expect_branch="Western", expect_sub="Footwear", expect_leaf="Shoes")
+# Sandal-shaped words route Women specifically to the dedicated Sandals
+# leaf (CATEGORY_TREE only defines it for Women); everything else,
+# including for Women, still goes to the generic Shoes leaf.
+check("women's 'Bejewelled Sandals' resolves the dedicated Sandals leaf", "Bejewelled Sandals",
+      vendor="Women", product_type="Sandals",
+      expect_gender="Women", expect_branch="Western", expect_sub="Footwear", expect_leaf="Sandals")
+check("women's Khussa (traditional sandal) resolves Sandals leaf", "Black Ladies Casual Khussa",
+      vendor="French Emporio", product_type="WOMEN SHOES", tags="Women",
+      expect_gender="Women", expect_branch="Western", expect_sub="Footwear", expect_leaf="Sandals")
+check("men's boots stay on the generic Shoes leaf (no Sandals leaf for Men)", "AXL BIKER BOOTS",
+      vendor="Men", product_type="BOOTS",
+      expect_gender="Men", expect_branch="Western", expect_sub="Footwear", expect_leaf="Shoes")
+# sanity: a real upperwear item with an unrelated "flat" (fabric texture,
+# not "ballet flats") must not be caught by the new footwear list.
+check("'flat knit' fabric texture is not footwear", "Black Flat Knit Polo",
+      vendor="D Man", product_type="T-Shirt", expect_branch="Western", expect_leaf="Polo")
+# Unisex's Western tree had no Footwear branch at all — real gender-less
+# footwear (Lama's "LEATHER COWBOY BOOTS"/"MADDIE MAMA LOAFERS", vendor
+# just the store name) was stranding on the bare Western branch node.
+check("gender-less boots resolve Shoes under Unisex", "LEATHER COWBOY BOOTS",
+      vendor="LAMA", product_type="BOOTS", expect_gender="Unisex",
+      expect_branch="Western", expect_sub="Footwear", expect_leaf="Shoes")
+check_leaf_exists("Unisex", "Western", "Footwear", "Shoes")
+
+# 57. Found while auditing the whole catalog (not just Upperwear) for the
+# same two bug classes: Cougar's shared product_type bucket "Men Joggers
+# Shoes" (5 real products) named both categories at once, and since the
+# Joggers check ran before the Footwear check, real shoes with no
+# jogger/sweatpant/track-pant word anywhere in their own title ("Mesh
+# Lace-Up Trainers", "Suede Mesh Trainers") landed in Joggers. Fixed the
+# same way as the Basic Barrel Jeans case: trust the title over a shared
+# product_type bucket when they conflict.
+check("Cougar's merged 'Men Joggers Shoes' bucket: title wins, resolves Shoes", "Mesh Lace-Up Trainers",
+      vendor="COUGAR MEN (S-V3-2026)", product_type="Men Joggers Shoes",
+      expect_branch="Western", expect_sub="Footwear", expect_leaf="Shoes")
+check("genuine jogger pants whose OWN title says 'Trainers' stays Joggers", "Men Trainers Jogger",
+      vendor="ENGINE", product_type="Men",
+      expect_branch="Western", expect_sub="Bottomwear", expect_leaf="Joggers")
+
+# 58. ACCESSORY_RE's outer gate was singular-only for belt/cap/wallet/
+# cufflink/bracelet/necklace/earring/clutch/watch — even though some of
+# these were ALREADY plural-safe in _KEYWORD_LEAVES further down, the
+# plural form never got past this gate to reach them. Found by a
+# user-requested full audit of the T-Shirt/Shirt leaf across every
+# gender (not just the two categories reported before this). Real,
+# large-scale: 361 "Belts", 546 "Caps", 156 "Wallets", 752 "Cufflinks",
+# 86 "Bracelets", 40 "Necklaces", 230 "Earrings", 25 "Watches",
+# 4 "Clutches" — real product lines (Cambridge/Diners/Furor's entire
+# "Belts - CBT-4901"-style listings, "CUFFLINKS", "Caps For Men") were
+# landing in the generic Shirt default.
+check("plural 'Belts' resolves the Belt leaf, not Shirt", "Belts - CBT-4901",
+      vendor="Men", product_type="Belts", expect_branch="Accessories", expect_leaf="Belt")
+check("plural 'CUFFLINKS' resolves Cufflink, not Shirt", "CUFFLINKS",
+      vendor="Men", product_type="CUFF LINKS", expect_branch="Accessories", expect_leaf="Cufflink")
+check("plural 'Caps For Men' resolves Cap, not Shirt", "Caps For Men",
+      vendor="Men", product_type="Accessories", expect_branch="Accessories", expect_leaf="Cap")
+check("plural 'Watches' resolves Watch, not Shirt", "Analog Watches Collection",
+      vendor="Men", product_type="Watches", expect_branch="Accessories", expect_leaf="Watch")
+# "hat"/"beanie" fold into the same Cap leaf (no separate Hat leaf exists)
+check("'Boonie Hat' resolves the Cap leaf", "Boonie Hat - FAH21-001",
+      vendor="Men", product_type="Men Caps", expect_branch="Accessories", expect_leaf="Cap")
+check("'Ribbed Beanie' resolves the Cap leaf", "Ribbed Beanie",
+      vendor="Boys", product_type="CAPS & HATS", expect_gender="Boys",
+      expect_branch="Accessories", expect_leaf="Cap")
+# "bracelet"/"necklace"/"earring" fold into the same Jewelry leaf
+check("'Gold Bracelet' resolves Jewelry, not Shirt", "Gold Bracelet",
+      vendor="Women", product_type="Jewellery", expect_branch="Accessories", expect_leaf="Jewelry")
+check("'Crystal Earrings' resolves Jewelry", "Crystal Earrings",
+      vendor="Women", product_type="Jewellery", expect_branch="Accessories", expect_leaf="Jewelry")
+
+# 59. Found while finishing the Jeans-leaf audit: ONE (Be-One)'s "String
+# Sports Shoes" has product_type literally "Jeans" (a store mislabel —
+# tags say "Girls Footwear"/"KIDS_FOOTWEAR") and was resolving to Jeans
+# because that check runs before the footwear one. Same "title beats a
+# conflicting product_type" fix as Basic Barrel Jeans (#45d), applied in
+# the other direction (footwear over bottomwear this time).
+check("product_type mislabeled 'Jeans' loses to a title that says Shoes", "String Sports Shoes",
+      vendor="Girls", product_type="Jeans", tags="Girls Footwear,KIDS_FOOTWEAR",
+      expect_gender="Girls", expect_branch="Western", expect_sub="Footwear", expect_leaf="Shoes")
+check("'Boot Cut Jeans' (a real fit descriptor) still resolves Jeans", "Relaxed Boot Cut Jeans",
+      vendor="Men", product_type="Jeans", expect_branch="Western", expect_sub="Bottomwear", expect_leaf="Jeans")
+
+# 60. GARMENT_DETAIL_RE ("with...belt/tie" = a design detail on another
+# garment, not a standalone accessory) was unconditional — Equator's
+# "Black With Brown Contrast Leather Belt" (tags explicitly "Accessories"/
+# "BELT") is a genuine standalone belt describing its OWN two-tone color
+# ("black, with brown contrast"), not a garment with a belt detail, and
+# had no garment noun anywhere in its title. Stripping "with...belt" from
+# it left nothing for ACCESSORY_RE to match, so it fell to the generic
+# Shirt default. Fixed: only strip when a real garment noun (shirt/top/
+# dress/jeans/etc.) is also present in the same text — every genuine
+# "with...belt/tie" garment-detail example already names its garment.
+check("belt describing its own color ('With Brown...') is a real Belt, not stripped", "Black With Brown Contrast Leather Belt",
+      vendor="Equator", tags="Accessories,BELT", expect_branch="Accessories", expect_leaf="Belt")
+check("genuine 'Jeans With Belt Detail' still excluded, stays Jeans", "Barrel Fit Jeans With Belt Detail",
+      vendor="Women", product_type="Jeans", expect_branch="Western", expect_sub="Bottomwear", expect_leaf="Jeans")
+check("genuine 'Dress With Waist Belt' still excluded, stays Dress", "Long Dress With  Waist Belt",
+      vendor="Women", product_type="Dress", expect_branch="Western", expect_leaf="Dress")
+
+# 61-62. Full catalog-wide leaf-cross-check (every leaf against every
+# other leaf's signal words) found two more real bugs among a lot of
+# noise (most hits were false positives — combo-naming that classify()
+# already resolves correctly via its priority order, e.g. "Kurta
+# Trouser" correctly staying Kurta via the Eastern-branch check that
+# runs before Bottomwear is ever considered — each candidate was
+# verified against classify() itself before being treated as a bug).
+#
+# 61. `\btee\b` (T-Shirt leaf trigger) was singular-only — 906 real
+# products (ONE Be-One's/Diners' entire product_type: "Tees" line, "Net
+# Top Yellow", "Soccer Ball Print Tees") fell to the generic Shirt
+# default.
+check("plural product_type 'Tees' resolves T-Shirt, not Shirt", "Net Top Yellow",
+      vendor="Unisex", product_type="Tees", expect_branch="Western", expect_leaf="T-Shirt")
+check("plural 'Tees' in the title resolves T-Shirt", "Soccer Ball Print Tees",
+      vendor="Boys", product_type="Boys T-Shirts", expect_gender="Boys",
+      expect_branch="Western", expect_leaf="T-Shirt")
+# 62. "Paper bag"/"paperbag" is a bottomwear FIT STYLE (a waist
+# silhouette), not an actual bag — 23 real products (Outfitters' "High-
+# Waist Paper Bag Jeans", Meme's "PAPER BAG DENIM JEANS FOR GIRLS",
+# Charcoal's "LINEN PAPERBAG PANTS") were resolving to the Bag accessory
+# leaf, since that check runs before Bottomwear.
+check("'Paper Bag Fit Jeans' resolves Jeans, not Bag", "Paper Bag Fit Jeans",
+      vendor="Women", product_type="JEANS", expect_branch="Western", expect_sub="Bottomwear", expect_leaf="Jeans")
+check("one-word 'Paperbag Pants' resolves Trouser, not Bag", "LINEN PAPERBAG PANTS",
+      vendor="Women", product_type="PANTS", expect_branch="Western", expect_sub="Bottomwear", expect_leaf="Trouser")
+check("real handbag is unaffected by the paper-bag exclusion", "Leather Handbag",
+      vendor="Women", product_type="Bags", expect_branch="Accessories", expect_leaf="Bag")
+
+# 63. "jorts" (an unambiguous portmanteau for jean shorts) wasn't
+# recognized at all — real examples "Baggy Denim jorts"/"Denim Bermuda
+# Jorts" have no literal "short(s)" word, and the bare "denim" they do
+# have defaults to Jeans via the title-first bottomwear check, never
+# reaching a correct product_type "SHORTS" fallback.
+check("'jorts' resolves Shorts even with no literal 'short' word", "Baggy Denim jorts",
+      vendor="Unisex", product_type="Shorts", expect_branch="Western", expect_sub="Bottomwear", expect_leaf="Shorts")
+check("'Denim Bermuda Jorts' resolves Shorts, not Jeans", "Denim Bermuda Jorts",
+      vendor="Unisex", product_type="SHORTS", expect_branch="Western", expect_sub="Bottomwear", expect_leaf="Shorts")
+
+# 64. A footwear word immediately followed by an Upperwear garment noun
+# is a themed PRINT on that garment, not an actual shoe — real example,
+# Cougar's "Flip Flops T-Shirt" (a t-shirt with a flip-flops print, same
+# naming pattern as "Spider Man Printed Tee"), was resolving to Shoes.
+check("'Flip Flops T-Shirt' is a T-Shirt, not footwear", "Flip Flops T-Shirt",
+      vendor="COUGAR WOMEN", expect_branch="Western", expect_leaf="T-Shirt")
+check("real khussa sandals unaffected by the flip-flops-print exclusion", "Black Ladies Casual Khussa",
+      vendor="Women", product_type="WOMEN SHOES", expect_branch="Western", expect_sub="Footwear", expect_leaf="Sandals")
+
+# 65. product_type mislabeled "Jeans" losing to a title that unambiguously
+# says Jacket — same pattern as String Sports Shoes (#59), applied to
+# Jacket instead of Footwear. Real example: ONE (Be-One)'s "Basic Denim
+# Jacket".
+check("product_type mislabeled 'Jeans' loses to a title that says Jacket", "Basic Denim Jacket",
+      vendor="Unisex", product_type="Jeans", expect_branch="Western", expect_sub="Upperwear", expect_leaf="Jacket")
+check("real denim jacket (no product_type conflict) still resolves Jacket", "Denim Jacket",
+      vendor="Men", product_type="Men", expect_branch="Western", expect_leaf="Jacket")
+
+# 66. The final Upperwear leaf ternary checked a MERGED product_type+
+# title blob against a fixed priority order (T-Shirt before Sweatshirt),
+# so a coarser product_type bucket could outrank the title's own, more
+# specific word. Real example: Outfitters' "Character Graphic Sweatshirt"
+# has product_type "TEES" — the title explicitly says "Sweatshirt", but
+# "tee" (from product_type) was checked first in the priority list and
+# won. Fixed the same way as every other leaf resolution this session:
+# title alone is checked first, full blob (product_type included) only
+# as a fallback.
+check("title's own 'Sweatshirt' wins over product_type 'TEES'", "Character Graphic Sweatshirt",
+      vendor="Unisex", product_type="TEES", expect_branch="Western", expect_leaf="Sweatshirt")
+
+
+print(f"{PASSED} passed, {len(FAILURES)} failed")
+if FAILURES:
+    print()
+    for f in FAILURES:
+        print(f, "\n")
+    raise SystemExit(1)

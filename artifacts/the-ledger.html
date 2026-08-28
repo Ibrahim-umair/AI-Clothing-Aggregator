@@ -1,0 +1,191 @@
+<title>The Ledger</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fjalla+One&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --paper: #eef1f3; --surface: #ffffff; --surface-2: #f6f8f9;
+    --ink: #1d2126; --ink-muted: #5b6570; --ink-faint: #8992a0;
+    --line: #d7dce0; --line-strong: #b9c1c7;
+    --h1: #1d8a7a; --h1-bg: #e1f2ef;   /* Edenrobe suit */
+    --h2: #2f6fb0; --h2-bg: #e4eef8;   /* Outfitters tee */
+    --h3: #c0862a; --h3-bg: #faf0dd;   /* Royal Tag belt */
+    --h4: #6c4fcb; --h4-bg: #ece7fb;   /* Cougar perfume */
+    --other-bg: #f2f3f5;
+    color-scheme: light dark;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #14171c; --surface: #1b1f26; --surface-2: #21262e;
+      --ink: #e7eaee; --ink-muted: #8a93a0; --ink-faint: #626b78;
+      --line: #2a2f37; --line-strong: #383f49;
+      --h1: #3fb6a3; --h1-bg: #17332f;
+      --h2: #5b9bdb; --h2-bg: #1c2c3d;
+      --h3: #e0a83e; --h3-bg: #362a12;
+      --h4: #9b82e8; --h4-bg: #2a2340;
+      --other-bg: #21262e;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #14171c; --surface: #1b1f26; --surface-2: #21262e;
+    --ink: #e7eaee; --ink-muted: #8a93a0; --ink-faint: #626b78;
+    --line: #2a2f37; --line-strong: #383f49;
+    --h1: #3fb6a3; --h1-bg: #17332f; --h2: #5b9bdb; --h2-bg: #1c2c3d;
+    --h3: #e0a83e; --h3-bg: #362a12; --h4: #9b82e8; --h4-bg: #2a2340;
+    --other-bg: #21262e;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: radial-gradient(circle at 1px 1px, rgba(29,33,38,0.08) 1px, transparent 1.6px) 0 0/16px 16px, var(--paper);
+    color: var(--ink); font-family: "IBM Plex Sans", sans-serif; -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 36px 26px 80px; }
+  h1 { font-family: "Fjalla One", sans-serif; font-weight: 400; font-size: clamp(28px,4vw,40px); margin: 0 0 8px; }
+  .eyebrow { font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-muted); margin-bottom: 8px; }
+  .dek { color: var(--ink-muted); font-size: 14.5px; max-width: 68ch; line-height: 1.6; margin: 0 0 24px; }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; border: 1px solid var(--line); background: var(--surface); padding: 14px 18px; margin-bottom: 30px; }
+  .legend .item { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+  .legend .dot { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+  .legend .item b { font-family: "IBM Plex Mono", monospace; font-weight: 500; }
+
+  .table-block { margin-bottom: 30px; }
+  .table-name { font-family: "IBM Plex Mono", monospace; font-size: 15px; font-weight: 500; margin-bottom: 3px; }
+  .table-note { font-size: 12px; color: var(--ink-faint); margin-bottom: 10px; }
+  .scroll { overflow-x: auto; border: 1px solid var(--line); background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+  th, td { padding: 7px 11px; border-bottom: 1px solid var(--line); border-right: 1px solid var(--line); white-space: nowrap; text-align: left; font-family: "IBM Plex Mono", monospace; }
+  th { background: var(--surface-2); font-weight: 500; font-size: 11px; letter-spacing: 0.03em; text-transform: uppercase; color: var(--ink-muted); }
+  td.null { color: var(--ink-faint); font-style: italic; }
+  tr.other td { color: var(--ink-faint); background: var(--other-bg); }
+  tr.h1 td:first-child { box-shadow: inset 3px 0 0 var(--h1); }
+  tr.h2 td:first-child { box-shadow: inset 3px 0 0 var(--h2); }
+  tr.h3 td:first-child { box-shadow: inset 3px 0 0 var(--h3); }
+  tr.h4 td:first-child { box-shadow: inset 3px 0 0 var(--h4); }
+  .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 50%; border: 1px solid var(--line-strong); margin-right: 5px; vertical-align: -1px; }
+  .foot { font-size: 12.5px; color: var(--ink-faint); line-height: 1.6; border-top: 1px dashed var(--line); padding-top: 16px; margin-top: 10px; }
+</style>
+
+<div class="wrap">
+  <div class="eyebrow">Populated schema walkthrough &middot; every value below is real, pulled from the actual scrape</div>
+  <h1>The Ledger</h1>
+  <p class="dek">Four real products, threaded across every table in the finalized schema, so you can trace one row's whole journey and spot anything that doesn't sit right. Colored rows belong to one of the four; grey rows are other real data shown for scale/context, not filled in for this walkthrough.</p>
+
+  <div class="legend">
+    <div class="item"><span class="dot" style="background:var(--h1)"></span><b>#1</b> Edenrobe &mdash; Printed Lawn Suit (unstitched, mixed-fabric 3-piece)</div>
+    <div class="item"><span class="dot" style="background:var(--h2)"></span><b>#2</b> Outfitters &mdash; Textured Slogan Print T-Shirt (Western basic)</div>
+    <div class="item"><span class="dot" style="background:var(--h3)"></span><b>#3</b> Royal Tag &mdash; Signature Belt (accessory, one-size)</div>
+    <div class="item"><span class="dot" style="background:var(--h4)"></span><b>#4</b> Cougar &mdash; 12AM (perfume, non-apparel branch)</div>
+  </div>
+
+  <div class="table-block">
+    <div class="table-name">brands</div>
+    <div class="table-note">15 rows total &mdash; showing the 4 relevant here</div>
+    <div class="scroll"><table>
+      <tr><th>id</th><th>slug</th><th>name</th><th>platform_type</th></tr>
+      <tr class="h1"><td>1</td><td>edenrobe</td><td>Edenrobe</td><td>liquid_rest</td></tr>
+      <tr class="h2"><td>2</td><td>outfitters</td><td>Outfitters</td><td>liquid_rest</td></tr>
+      <tr class="h3"><td>3</td><td>royal_tag</td><td>Royal Tag</td><td>liquid_rest</td></tr>
+      <tr class="h4"><td>4</td><td>cougar</td><td>Cougar</td><td>hydrogen_graphql</td></tr>
+      <tr class="other"><td>&hellip;</td><td colspan="3">11 more &mdash; Furor, Meme, Charcoal, Diners, Cambridge, Uniworth&hellip;</td></tr>
+    </table></div>
+  </div>
+
+  <div class="table-block">
+    <div class="table-name">categories</div>
+    <div class="table-note">adjacency-list tree &mdash; leaf nodes are what products.category_id actually points to</div>
+    <div class="scroll"><table>
+      <tr><th>id</th><th>parent_id</th><th>name</th><th>slug</th></tr>
+      <tr class="other"><td>1</td><td class="null">null</td><td>Men</td><td>men</td></tr>
+      <tr class="other"><td>2</td><td class="null">null</td><td>Women</td><td>women</td></tr>
+      <tr class="h2"><td>3</td><td>1</td><td>Western</td><td>men-western</td></tr>
+      <tr class="h2"><td>4</td><td>3</td><td>Upperwear</td><td>upperwear</td></tr>
+      <tr class="h2"><td>5</td><td>4</td><td><b>T-Shirt</b> (leaf)</td><td>t-shirt</td></tr>
+      <tr class="h3"><td>6</td><td>1</td><td>Accessories</td><td>accessories</td></tr>
+      <tr class="h3"><td>7</td><td>6</td><td><b>Belt</b> (leaf)</td><td>belt</td></tr>
+      <tr class="h4"><td>8</td><td>1</td><td>Fragrance &amp; Beauty</td><td>fragrance-beauty</td></tr>
+      <tr class="h4"><td>9</td><td>8</td><td><b>Perfume</b> (leaf)</td><td>perfume</td></tr>
+      <tr class="h1"><td>10</td><td>2</td><td>Eastern</td><td>women-eastern</td></tr>
+      <tr class="h1"><td>11</td><td>10</td><td>Unstitched</td><td>unstitched</td></tr>
+      <tr class="h1"><td>12</td><td>11</td><td><b>3-Piece Suit</b> (leaf)</td><td>3-piece-suit</td></tr>
+    </table></div>
+  </div>
+
+  <div class="table-block">
+    <div class="table-name">fabrics</div>
+    <div class="table-note">used only by the Edenrobe suit's pieces here &mdash; the other 3 products have no fabric row at all, correctly</div>
+    <div class="scroll"><table>
+      <tr><th>id</th><th>name</th></tr>
+      <tr class="h1"><td>1</td><td>Lawn</td></tr>
+      <tr class="h1"><td>2</td><td>Cambric</td></tr>
+      <tr class="other"><td>&hellip;</td><td>23 more &mdash; Khaddar, Cotton, Silk, Chiffon, Denim, Polyester&hellip;</td></tr>
+    </table></div>
+  </div>
+
+  <div class="table-block">
+    <div class="table-name">colors</div>
+    <div class="table-note">canonicalized once here &mdash; every brand's own spelling of "Off-White" etc. resolves to one row</div>
+    <div class="scroll"><table>
+      <tr><th>id</th><th>canonical_name</th><th>hex_approx</th></tr>
+      <tr class="h2"><td>1</td><td><span class="swatch" style="background:#c7b299"></span>Mushroom</td><td>#c7b299</td></tr>
+      <tr class="h2"><td>2</td><td><span class="swatch" style="background:#1c1c1c"></span>Black</td><td>#1c1c1c</td></tr>
+      <tr class="h3"><td>3</td><td><span class="swatch" style="background:#5a3a28"></span>Coffee</td><td>#5a3a28</td></tr>
+      <tr class="h1"><td>4</td><td><span class="swatch" style="background:#2f5fa8"></span>Blue</td><td>#2f5fa8</td></tr>
+    </table></div>
+  </div>
+
+  <div class="table-block">
+    <div class="table-name">products</div>
+    <div class="table-note">95,992 rows in production &mdash; the 4 heroes, in full</div>
+    <div class="scroll"><table>
+      <tr><th>id</th><th>brand_id</th><th>native_product_id</th><th>title</th><th>category_id</th><th>style_family</th><th>construction_status</th><th>age_group</th><th>piece_count</th><th>is_browsable</th></tr>
+      <tr class="h1"><td>101</td><td>1</td><td>11178104193297</td><td>Printed Lawn Suit &mdash; EWU6A1-36756-3P</td><td>12</td><td>eastern</td><td>unstitched_fabric</td><td>adult</td><td>3</td><td>true</td></tr>
+      <tr class="h2"><td>102</td><td>2</td><td>8327995162815</td><td>Textured Slogan Print T-Shirt</td><td>5</td><td>western</td><td>ready_to_wear</td><td>adult</td><td class="null">null</td><td>true</td></tr>
+      <tr class="h3"><td>103</td><td>3</td><td>9001970401454</td><td>Signature Belt</td><td>7</td><td>western</td><td>not_applicable</td><td>adult</td><td class="null">null</td><td>true</td></tr>
+      <tr class="h4"><td>104</td><td>4</td><td>gid://shopify/Product/10310854967612</td><td>12AM</td><td>9</td><td>not_applicable</td><td>not_applicable</td><td>adult</td><td class="null">null</td><td>true</td></tr>
+    </table></div>
+  </div>
+
+  <div class="table-block">
+    <div class="table-name">product_pieces <span style="color:var(--ink-faint); font-weight:400;">&mdash; the new table, solving the multi-fabric problem</span></div>
+    <div class="table-note">only product 101 has rows &mdash; products 102/103/104 correctly have zero, this is not missing data</div>
+    <div class="scroll"><table>
+      <tr><th>product_id</th><th>piece_name</th><th>fabric_id</th><th>length_meters</th><th>sort_order</th></tr>
+      <tr class="h1"><td>101</td><td>Shirt</td><td>1 (Lawn)</td><td>3.0</td><td>1</td></tr>
+      <tr class="h1"><td>101</td><td>Trouser</td><td>2 (Cambric)</td><td>1.8</td><td>2</td></tr>
+      <tr class="h1"><td>101</td><td>Dupatta</td><td>1 (Lawn)</td><td>2.5</td><td>3</td></tr>
+    </table></div>
+  </div>
+
+  <div class="table-block">
+    <div class="table-name">product_images</div>
+    <div class="scroll"><table>
+      <tr><th>product_id</th><th>url</th><th>position</th></tr>
+      <tr class="h1"><td>101</td><td>cdn.shopify.com/.../0N9A3420_36756.webp</td><td>0</td></tr>
+      <tr class="h2"><td>102</td><td>cdn.shopify.com/.../F1926106814_8a2d6a58&hellip;.jpg</td><td>0</td></tr>
+      <tr class="h3"><td>103</td><td>cdn.shopify.com/.../PBT-5808_2.jpg</td><td>0</td></tr>
+      <tr class="h4"><td>104</td><td>cdn.shopify.com/.../IMG_5161copy.webp</td><td>0</td></tr>
+    </table></div>
+  </div>
+
+  <div class="table-block">
+    <div class="table-name">variants</div>
+    <div class="table-note">Outfitters actually has 8 (2 colors &times; 4 sizes) &mdash; showing 2. Note: unstitched suit has no size at all; perfume has size but no color.</div>
+    <div class="scroll"><table>
+      <tr><th>id</th><th>product_id</th><th>native_variant_id</th><th>color_id</th><th>size_label</th><th>size_system</th><th>current_price</th><th>current_available</th></tr>
+      <tr class="h1"><td>1</td><td>101</td><td>54245941870865</td><td>4 (Blue)</td><td class="null">null</td><td>none</td><td>3500.00</td><td>true</td></tr>
+      <tr class="h2"><td>2</td><td>102</td><td>45220178690239</td><td>1 (Mushroom)</td><td>S</td><td>alpha</td><td>1590.00</td><td>true</td></tr>
+      <tr class="h2"><td>3</td><td>102</td><td>45220178821311</td><td>2 (Black)</td><td>S</td><td>alpha</td><td>1590.00</td><td>true</td></tr>
+      <tr class="other"><td>&hellip;</td><td>102</td><td colspan="6">6 more &mdash; the rest of the 2&times;4 color/size grid</td></tr>
+      <tr class="h3"><td>4</td><td>103</td><td>47477996486830</td><td>3 (Coffee)</td><td>One Size</td><td>one_size</td><td>4680.00</td><td>true</td></tr>
+      <tr class="h4"><td>5</td><td>104</td><td>gid://shopify/ProductVariant/52806905233724</td><td class="null">null</td><td>100 ml</td><td>volume_ml</td><td>3849.00</td><td>true</td></tr>
+    </table></div>
+  </div>
+
+  <p class="foot">
+    <b>variant_snapshots</b> and <b>scrape_runs</b> aren't shown populated here &mdash; they're append-only history tables, and inventing fake multi-day history would break the "every value is real" rule this whole project has run on. They'll start filling for real the moment the daily scrape job runs against this schema.<br><br>
+    Notice what the color-coding makes visible for free: the unstitched suit (teal) is the <em>only</em> row anywhere with a real <code>product_pieces</code> entry — and its one variant has no size at all, because unstitched fabric isn't sized the way a garment is. The perfume (purple) is the only row with <code>size_system = volume_ml</code> and a null color. Nothing was forced to look uniform across categories, which was the whole point.
+  </p>
+</div>

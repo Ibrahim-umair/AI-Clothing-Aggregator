@@ -1,0 +1,755 @@
+<title>The Rack</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,500&family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --bg: #edeff2;
+    --surface: #ffffff;
+    --surface-2: #f5f6f8;
+    --ink: #191d22;
+    --ink-muted: #5c6570;
+    --ink-faint: #8b93a0;
+    --line: #dadfe3;
+    --line-strong: #c3cad0;
+    --accent: #b8721b;
+    --accent-bg: #f7e9d6;
+    --accent-ink: #ffffff;
+    --sale: #a83226;
+    --sale-bg: #f8e2df;
+    --stock-ok: #227a5c;
+    --stock-ok-bg: #dcf0e7;
+    --stock-out: #7a5a52;
+    --stock-out-bg: #ece3df;
+    color-scheme: light dark;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #14181c;
+      --surface: #1b2126;
+      --surface-2: #212830;
+      --ink: #f2efe7;
+      --ink-muted: #9ba3aa;
+      --ink-faint: #6a7278;
+      --line: #2a323a;
+      --line-strong: #394048;
+      --accent: #e8a23d;
+      --accent-bg: #3a2c14;
+      --accent-ink: #1a1200;
+      --sale: #e2685a;
+      --sale-bg: #3a201c;
+      --stock-ok: #4fbf97;
+      --stock-ok-bg: #163229;
+      --stock-out: #b98d80;
+      --stock-out-bg: #2c2420;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #14181c; --surface: #1b2126; --surface-2: #212830;
+    --ink: #f2efe7; --ink-muted: #9ba3aa; --ink-faint: #6a7278;
+    --line: #2a323a; --line-strong: #394048;
+    --accent: #e8a23d; --accent-bg: #3a2c14; --accent-ink: #1a1200;
+    --sale: #e2685a; --sale-bg: #3a201c;
+    --stock-ok: #4fbf97; --stock-ok-bg: #163229;
+    --stock-out: #b98d80; --stock-out-bg: #2c2420;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Work Sans", -apple-system, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection { background: var(--accent); color: var(--accent-ink); }
+  a { color: inherit; }
+
+  .wrap { max-width: 1280px; margin: 0 auto; padding: 0 28px 90px; }
+
+  /* ---- schema strip ---- */
+  .schema-strip {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 12px;
+    color: var(--ink-muted);
+    padding: 10px 28px;
+    border-bottom: 1px solid var(--line);
+    background: var(--surface-2);
+  }
+  .schema-strip b { color: var(--ink); font-weight: 600; }
+  .schema-strip .dot { color: var(--line-strong); }
+  .schema-btn {
+    margin-left: auto;
+    font-family: "Work Sans", sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--accent);
+    background: none;
+    border: 1px solid var(--line-strong);
+    padding: 5px 12px;
+    cursor: pointer;
+    border-radius: 999px;
+  }
+  .schema-btn:hover { border-color: var(--accent); }
+
+  /* ---- hero / heading ---- */
+  header.top {
+    padding: 36px 0 22px;
+  }
+  .eyebrow {
+    font-size: 11.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin-bottom: 10px;
+  }
+  h1 {
+    font-family: "Fraunces", Georgia, serif;
+    font-weight: 500;
+    font-style: normal;
+    font-size: clamp(30px, 4.4vw, 44px);
+    margin: 0 0 6px;
+    text-wrap: balance;
+    letter-spacing: -0.01em;
+  }
+  .sub { color: var(--ink-muted); font-size: 14.5px; max-width: 56ch; line-height: 1.55; margin: 0; }
+
+  /* ---- taxonomy nav ---- */
+  nav.taxonomy {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin: 26px 0 30px;
+  }
+  .tax-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .tax-label {
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    width: 96px;
+    flex-shrink: 0;
+  }
+  .chip {
+    font-family: "Work Sans", sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 7px 15px;
+    border-radius: 999px;
+    border: 1px solid var(--line-strong);
+    background: var(--surface);
+    color: var(--ink-muted);
+    cursor: pointer;
+    transition: all 0.12s ease;
+    white-space: nowrap;
+  }
+  .chip:hover:not(.disabled) { border-color: var(--accent); color: var(--ink); }
+  .chip.active {
+    background: var(--ink);
+    border-color: var(--ink);
+    color: var(--bg);
+  }
+  .chip.disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    background: var(--surface-2);
+  }
+  .chip .n { color: var(--ink-faint); font-size: 11.5px; margin-left: 4px; }
+  .chip.active .n { color: var(--bg); opacity: 0.7; }
+
+  .result-line {
+    font-size: 12.5px;
+    color: var(--ink-faint);
+    margin-bottom: 18px;
+  }
+  .result-line b { color: var(--ink); }
+
+  /* ---- grid ---- */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    gap: 26px 22px;
+  }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    transition: border-color 0.15s ease, transform 0.15s ease;
+  }
+  .card:hover { border-color: var(--line-strong); transform: translateY(-2px); }
+  .card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .card .imgwrap {
+    position: relative;
+    aspect-ratio: 3/4;
+    overflow: hidden;
+    background: var(--surface-2);
+  }
+  .card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .card .badge-sale {
+    position: absolute; top: 10px; left: 10px;
+    background: var(--sale-bg); color: var(--sale);
+    font-size: 10.5px; font-weight: 600; letter-spacing: 0.03em;
+    padding: 4px 8px;
+  }
+  .card .badge-oos {
+    position: absolute; inset: 0;
+    background: rgba(20,20,20,0.42);
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-size: 12px; font-weight: 600; letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .card .body { padding: 13px 14px 15px; display: flex; flex-direction: column; gap: 5px; flex: 1; }
+  .card .brand {
+    font-size: 10.5px; letter-spacing: 0.09em; text-transform: uppercase;
+    color: var(--accent); font-weight: 600;
+  }
+  .card .title {
+    font-family: "Fraunces", serif;
+    font-size: 15.5px;
+    font-weight: 500;
+    line-height: 1.28;
+    min-height: 38px;
+  }
+  .card .meta-line { font-size: 11.5px; color: var(--ink-faint); }
+  .card .price-row {
+    margin-top: auto;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    font-variant-numeric: tabular-nums;
+  }
+  .card .price { font-size: 14px; font-weight: 600; }
+  .card .compare { font-size: 12px; color: var(--ink-faint); text-decoration: line-through; }
+  .card .swatches { display: flex; gap: 4px; margin-top: 2px; }
+  .swatch { width: 13px; height: 13px; border-radius: 50%; border: 1px solid var(--line-strong); }
+
+  /* ---- detail overlay ---- */
+  .overlay {
+    position: fixed; inset: 0;
+    background: rgba(10,11,12,0.5);
+    display: flex; align-items: flex-start; justify-content: center;
+    padding: 40px 20px;
+    overflow-y: auto;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.18s ease;
+    z-index: 20;
+  }
+  .overlay.open { opacity: 1; pointer-events: auto; }
+  .panel {
+    background: var(--surface);
+    max-width: 980px;
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1.1fr 1fr;
+    position: relative;
+    border: 1px solid var(--line);
+  }
+  .panel-close {
+    position: absolute; top: 14px; right: 14px;
+    width: 32px; height: 32px;
+    background: var(--surface);
+    border: 1px solid var(--line-strong);
+    color: var(--ink-muted);
+    cursor: pointer;
+    z-index: 2;
+    font-size: 16px;
+  }
+  .panel-close:hover { color: var(--ink); }
+  .panel-media { background: var(--surface-2); display: flex; flex-direction: column; }
+  .panel-media .main-img { aspect-ratio: 3/4; overflow: hidden; }
+  .panel-media .main-img img { width: 100%; height: 100%; object-fit: cover; }
+  .panel-media .thumbs { display: flex; gap: 8px; padding: 10px; }
+  .panel-media .thumbs img {
+    width: 56px; height: 72px; object-fit: cover; cursor: pointer;
+    border: 1px solid var(--line); opacity: 0.7;
+  }
+  .panel-media .thumbs img.active { opacity: 1; border-color: var(--accent); }
+
+  .panel-info { padding: 30px 30px 30px; display: flex; flex-direction: column; gap: 18px; overflow-y: auto; max-height: 88vh; }
+  .panel-info .brand { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent); font-weight: 700; }
+  .panel-info h2 { font-family: "Fraunces", serif; font-weight: 500; font-size: 24px; margin: 4px 0 2px; text-wrap: balance; }
+  .panel-info .price-row { display: flex; align-items: baseline; gap: 10px; font-variant-numeric: tabular-nums; }
+  .panel-info .price { font-size: 20px; font-weight: 600; }
+  .panel-info .compare { font-size: 14px; color: var(--ink-faint); text-decoration: line-through; }
+  .panel-info .pct-off { font-size: 12px; color: var(--sale); font-weight: 600; }
+
+  .stock-pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 11.5px; font-weight: 600; padding: 4px 10px; border-radius: 999px;
+    width: fit-content;
+  }
+  .stock-pill.ok { background: var(--stock-ok-bg); color: var(--stock-ok); }
+  .stock-pill.out { background: var(--stock-out-bg); color: var(--stock-out); }
+  .stock-pill .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+  .schema-fields {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    border-top: 1px solid var(--line);
+    border-left: 1px solid var(--line);
+  }
+  .field {
+    border-right: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    padding: 11px 14px;
+  }
+  .field.span2 { grid-column: 1 / -1; }
+  .field dt {
+    font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase;
+    color: var(--ink-faint); margin-bottom: 4px;
+  }
+  .field dd { margin: 0; font-size: 13.5px; }
+  .field dd.empty { color: var(--ink-faint); font-style: italic; }
+  .field .note {
+    display: block;
+    font-size: 11px;
+    color: var(--ink-faint);
+    margin-top: 4px;
+    line-height: 1.4;
+    font-style: italic;
+  }
+  .size-chips, .color-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 2px; }
+  .size-chip {
+    font-size: 11.5px; font-variant-numeric: tabular-nums;
+    padding: 3px 8px; border: 1px solid var(--line-strong); background: var(--surface-2);
+  }
+  .color-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 11.5px; padding: 3px 8px 3px 4px; border: 1px solid var(--line-strong); background: var(--surface-2);
+  }
+
+  .desc { font-size: 13px; line-height: 1.6; color: var(--ink-muted); }
+  .tag-cloud { display: flex; flex-wrap: wrap; gap: 5px; }
+  .tag-pill { font-size: 10.5px; color: var(--ink-faint); background: var(--surface-2); padding: 3px 8px; border-radius: 999px; }
+
+  .provenance {
+    font-size: 11px; color: var(--ink-faint);
+    display: flex; flex-wrap: wrap; gap: 4px 14px;
+    padding-top: 12px; border-top: 1px dashed var(--line);
+  }
+  .provenance a { color: var(--accent); text-decoration: none; }
+  .provenance a:hover { text-decoration: underline; }
+
+  /* schema info modal */
+  .info-modal {
+    position: fixed; inset: 0;
+    background: rgba(10,11,12,0.5);
+    display: flex; align-items: center; justify-content: center;
+    padding: 24px;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.18s ease;
+    z-index: 30;
+  }
+  .info-modal.open { opacity: 1; pointer-events: auto; }
+  .info-card {
+    background: var(--surface); border: 1px solid var(--line);
+    max-width: 480px; width: 100%; padding: 28px;
+    position: relative;
+  }
+  .info-card h3 { font-family: "Fraunces", serif; font-weight: 500; font-size: 20px; margin: 0 0 10px; }
+  .info-card p { font-size: 13.5px; line-height: 1.6; color: var(--ink-muted); margin: 0 0 14px; }
+  .info-card ul { margin: 0; padding-left: 18px; font-size: 13px; color: var(--ink-muted); line-height: 1.8; }
+  .info-close {
+    position: absolute; top: 14px; right: 14px;
+    width: 30px; height: 30px; border: 1px solid var(--line-strong);
+    background: var(--surface); cursor: pointer; color: var(--ink-muted);
+  }
+
+  @media (max-width: 760px) {
+    .panel { grid-template-columns: 1fr; }
+    .panel-info { max-height: none; }
+    .schema-fields { grid-template-columns: 1fr; }
+    .field.span2, .field { grid-column: 1 / -1; }
+    .tax-label { width: auto; }
+  }
+</style>
+
+<div class="schema-strip">
+  <span>Browsing on <b>Unified Aggregator Taxonomy — v0.1</b></span>
+  <span class="dot">&middot;</span>
+  <span>Gender &rarr; Category &rarr; Subcategory</span>
+  <button class="schema-btn" id="schemaInfoBtn">What's this?</button>
+</div>
+
+<div class="wrap">
+  <header class="top">
+    <div class="eyebrow">Prototype &middot; 8 real listings, 5 brands, one schema</div>
+    <h1>The Rack</h1>
+    <p class="sub">Every brand lists things its own way. This is what it looks like once everything is forced through one schema — same fields, same taxonomy, regardless of which of the 15 stores it came from.</p>
+  </header>
+
+  <nav class="taxonomy" id="taxonomy"></nav>
+  <div class="result-line" id="resultLine"></div>
+  <div class="grid" id="grid"></div>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="panel" id="panel"></div>
+</div>
+
+<div class="info-modal" id="infoModal">
+  <div class="info-card">
+    <button class="info-close" id="infoClose">&times;</button>
+    <h3>The taxonomy behind this page</h3>
+    <p>Every product is filed under one shared tree, no matter which brand it came from:</p>
+    <ul>
+      <li><b>Gender</b> — Men / Women / Unisex</li>
+      <li><b>Category</b> — Upperwear, Bottomwear, Footwear, Accessories, Ethnic Wear</li>
+      <li><b>Subcategory</b> — T-Shirt, Polo, Shirt, Trouser, Belt, etc.</li>
+    </ul>
+    <p>Chips shown greyed out are real branches of the schema with no demo listing behind them yet — most of Ethnic Wear is deliberately deferred (unstitched suits open up a much larger fabric/stitching taxonomy of their own).</p>
+  </div>
+</div>
+
+<script>
+const PRODUCTS = [
+  {
+    id: 'outfitters-tee', brand: 'Outfitters', gender: 'Men', category: 'Upperwear', subcategory: 'T-Shirt',
+    title: 'Textured Slogan Print T-Shirt', price: 1590, compareAt: 3290,
+    colors: [{name:'Mushroom', hex:'#c7b299'}, {name:'Black', hex:'#1c1c1c'}],
+    sizes: ['S','M','L','XL'], available: true,
+    fabric: null, stitched: null,
+    desc: 'Relaxed comfort fit with drop shoulders — sits between oversized and regular, made for easy movement.',
+    tags: ['Graphic','Men','SS-26'],
+    genderNote: 'Read from the vendor field, which Outfitters uses for gender rather than an actual vendor name.',
+    colorNote: null, categoryNote: 'Direct from product_type ("TEES").',
+    images: [
+      'https://cdn.shopify.com/s/files/1/2290/7887/files/F1926106814_8a2d6a58-4bc8-468b-b9e8-7b3a35cc1227.jpg?v=1776926009',
+      'https://cdn.shopify.com/s/files/1/2290/7887/files/F1926106814.jpg?v=1776926009',
+      'https://cdn.shopify.com/s/files/1/2290/7887/files/F1926106814._6b57d43b-0586-4245-8b36-6b984efa251e.jpg?v=1776926009',
+    ],
+    url: 'https://outfitters.com.pk/products/f1926-106', nativeId: '8327995162815',
+  },
+  {
+    id: 'cougar-tee', brand: 'Cougar', gender: 'Men', category: 'Upperwear', subcategory: 'T-Shirt',
+    title: 'Interlock T-Shirt', price: 1649, compareAt: null,
+    colors: [{name:'Slate Grey', hex:'#7c7f82'}],
+    sizes: ['S','M','L','XL'], available: true,
+    fabric: null, stitched: null,
+    desc: 'Crew neck, full sleeves, straight cut hem. Regular fit in interlock cotton.',
+    tags: ['Basic','Men Full Sleeves T-Shirts'],
+    genderNote: 'Cougar is the only store in the set with an explicit, structured Gender variant option — no parsing needed.',
+    colorNote: null, categoryNote: 'product_type is "Men Tee" — gender prefix stripped to get the category.',
+    images: [
+      'https://cdn.shopify.com/s/files/1/0268/9715/4090/files/2_a6399701-feee-4fb3-a20e-03152e5d9294.webp?v=1760618764',
+      'https://cdn.shopify.com/s/files/1/0268/9715/4090/files/1_cc667c75-2466-4220-bdc9-4aca2b1cf244.webp?v=1759931200',
+      'https://cdn.shopify.com/s/files/1/0268/9715/4090/files/5_06006bdb-f51f-43cd-97c2-6e404e849c58.webp?v=1759931200',
+    ],
+    url: 'https://cougar.com.pk/products/interlock-t-shirt-tf2501', nativeId: 'gid://shopify/Product/10172879372604',
+  },
+  {
+    id: 'meme-tee', brand: 'Meme', gender: 'Women', category: 'Upperwear', subcategory: 'T-Shirt',
+    title: 'Cropped T-Shirt For Women', price: 995, compareAt: 1990,
+    colors: [{name:'Aqua', hex:'#7fc3c9'}],
+    sizes: ['XS','S','M','L','XL'], available: true,
+    fabric: null, stitched: null,
+    desc: 'Soft cropped tee with a classic crew neck and short sleeves. Lightweight, textured, everyday wear.',
+    tags: ['MEME-FOR-SUMMER','SS26'],
+    genderNote: 'Parsed from the "For Women" suffix on product_type.',
+    colorNote: null, categoryNote: 'Parsed from the product_type prefix before "For".',
+    images: [
+      'https://cdn.shopify.com/s/files/1/0575/1000/2859/files/0003_8230420247844_2.jpg?v=1784181797',
+      'https://cdn.shopify.com/s/files/1/0575/1000/2859/files/0001_8230420247844_4.jpg?v=1784181797',
+      'https://cdn.shopify.com/s/files/1/0575/1000/2859/files/0002_8230420247844_3.jpg?v=1784181797',
+    ],
+    url: 'https://shopatmeme.com/products/cropped-t-shirt-for-women-l-ais225-l241295-aqua', nativeId: '15052564365684',
+  },
+  {
+    id: 'monark-polo', brand: 'Monark', gender: 'Men', category: 'Upperwear', subcategory: 'Polo',
+    title: 'Off-White Johnny Polo Shirt', price: 4850, compareAt: null,
+    colors: [{name:'Off-White (from title)', hex:'#efe8da'}],
+    sizes: ['S','M','L','XL'], available: true,
+    fabric: null, stitched: null,
+    desc: 'Textured, breathable Johnny-collar polo with a subtle green trim. Modern, minimal, everyday comfort.',
+    tags: ['Elevated Comfort Experience','New Arrivals'],
+    genderNote: 'No field states gender anywhere — inferred from catalog contents (shirts/polos/pants/suits). Flagged low-confidence.',
+    colorNote: 'Monark has no Color variant option at all (0% of its catalog) — this value is parsed from the leading word of the title instead.',
+    categoryNote: 'Direct from product_type ("Polos").',
+    images: [
+      'https://cdn.shopify.com/s/files/1/0041/8797/9905/files/AKS03502.jpg?v=1786967860',
+      'https://cdn.shopify.com/s/files/1/0041/8797/9905/files/AKS03501.jpg?v=1786967860',
+      'https://cdn.shopify.com/s/files/1/0041/8797/9905/files/AKS03507.jpg?v=1786967860',
+    ],
+    url: 'https://monark.com.pk/products/rt2623', nativeId: '7047351992449',
+  },
+  {
+    id: 'furor-shirt', brand: 'Furor', gender: 'Men', category: 'Upperwear', subcategory: 'Shirt',
+    title: 'Button Down Shirt', price: 4990, compareAt: null,
+    colors: [{name:'Black', hex:'#1c1c1c'}],
+    sizes: ['S','M','L','XXL'], available: true,
+    fabric: null, stitched: null,
+    desc: "Men's casual shirt, smart fit, chambray fabric.",
+    tags: ['Men_Tops','Summer-New-Arrivals 25-26'],
+    genderNote: 'Store-level constant — every one of Furor’s top 8 categories is "Men "-prefixed. Confirmed from data, not assumed.',
+    colorNote: null, categoryNote: 'product_type "Men Shirts", gender prefix stripped. Raw title also carries an internal SKU suffix (FMTS6-32456), stripped for display.',
+    images: [
+      'https://cdn.shopify.com/s/files/1/0733/3432/5537/files/FMTS6-32456_13_Thumbnail.webp?v=1785568464',
+      'https://cdn.shopify.com/s/files/1/0733/3432/5537/files/FMTS6-32456_11.webp?v=1785568463',
+      'https://cdn.shopify.com/s/files/1/0733/3432/5537/files/FMTS6-32456_3.webp?v=1785568463',
+    ],
+    url: 'https://furorjeans.com/products/botton-down-shirt-fmts6-32456', nativeId: '10447751610657',
+  },
+  {
+    id: 'engine-trouser', brand: 'Engine Clothing', gender: 'Men', category: 'Bottomwear', subcategory: 'Trouser',
+    title: 'Men Straight Trouser', price: 2750, compareAt: 5499,
+    colors: [{name:'Heather Grey', hex:'#9a9a9a'}],
+    sizes: ['S','M','L','XL','XXL'], available: false,
+    fabric: null, stitched: null,
+    desc: 'Machine or hand-wash up to 30°C, gentle cycle. Do not bleach or iron directly on prints.',
+    tags: ['Bottoms','Sale23'],
+    genderNote: 'product_type is purely a gender field at this store (only 4 values total: Men/Boys/Girls/Women) — category has to come from the title instead.',
+    colorNote: null, categoryNote: 'Parsed from the title, after the gender word ("Men Straight Trouser" → Trouser).',
+    images: [
+      'https://cdn.shopify.com/s/files/1/0553/3774/6621/files/a1_f2415a26-d856-41f8-b9a9-da84e71e60fb.jpg?v=1787046489',
+      'https://cdn.shopify.com/s/files/1/0553/3774/6621/files/a3_50fa8a56-6b81-40a8-b905-96303844dfbf.jpg?v=1787046490',
+      'https://cdn.shopify.com/s/files/1/0553/3774/6621/files/a2_d2d59770-661b-417b-86b1-a7e8592ad915.jpg?v=1787046490',
+    ],
+    url: 'https://engine.com.pk/products/fu6040-hgy', nativeId: '9382949945595',
+  },
+  {
+    id: 'charcoal-trouser', brand: 'Charcoal', gender: 'Men', category: 'Bottomwear', subcategory: 'Trouser',
+    title: 'Straight Fit Casual Trouser', price: 5695, compareAt: null,
+    colors: [{name:'Beige', hex:'#d9c7a3'}],
+    sizes: ['30','32','34','36','38'], sizeSystem: 'Waist (inches) — not the S–XL scale used elsewhere',
+    available: false,
+    fabric: null, stitched: null,
+    desc: 'Elasticated waistband with drawstring, open bottom, cross pocket front / bone pocket back. 100% polyester.',
+    tags: ['ALL CASUAL','CASUAL TROUSER'],
+    genderNote: 'No field states gender — inferred from catalog contents, flagged low-confidence like Monark and Royal Tag.',
+    colorNote: 'This item happens to carry a Color option, but only ~11% of Charcoal’s catalog does — most of its color data has to come from the trailing word of the title instead.',
+    categoryNote: 'product_type is empty for this item (true for 63% of Charcoal’s catalog) — category parsed entirely from the ALL-CAPS title.',
+    priceNote: 'Source compare_at_price was literally "0.00" — a Shopify "not set" artifact, not a real original price of Rs. 0. Suppressed rather than shown as a fake 100%-off badge.',
+    images: [
+      'https://cdn.shopify.com/s/files/1/0419/6171/7922/files/DSC06673_8c725231-ad4f-4643-bb48-d005dc7cfce0.webp?v=1786533608',
+      'https://cdn.shopify.com/s/files/1/0419/6171/7922/files/DSC04623.webp?v=1786533608',
+      'https://cdn.shopify.com/s/files/1/0419/6171/7922/files/DSC06680_a82cdc92-f993-4033-9ca5-645006cd28b0.webp?v=1786533608',
+    ],
+    url: 'https://charcoal.com.pk/products/straight-fit-casual-trouser-beige', nativeId: '9300555989218',
+  },
+  {
+    id: 'royaltag-belt', brand: 'Royal Tag', gender: 'Men', category: 'Accessories', subcategory: 'Belt',
+    title: 'Signature Belt', price: 4680, compareAt: 5850,
+    colors: [{name:'Coffee', hex:'#5a3a28'}],
+    sizes: ['One size'], available: true,
+    fabric: null, stitched: null,
+    desc: 'Durable, stylish belt for casual or formal wear. Secure fit, year-round versatility.',
+    tags: ['SP126 BELTS'],
+    genderNote: 'No field states gender — inferred from catalog contents (polos, ties, belts), flagged low-confidence.',
+    colorNote: 'Structured Color option here, and it agrees with the leading word of the title — a reinforcing, high-confidence case.',
+    categoryNote: 'product_type carries an internal collection code ("SP126 BELTS") — stripped to get the category.',
+    images: [
+      'https://cdn.shopify.com/s/files/1/1033/9361/files/PBT-5808_2.jpg?v=1770621363',
+    ],
+    url: 'https://royaltag.com.pk/products/pbt-5808', nativeId: '9001970401454',
+  },
+];
+
+const TAXONOMY = {
+  gender: [
+    {key:'Men', count: PRODUCTS.filter(p=>p.gender==='Men').length},
+    {key:'Women', count: PRODUCTS.filter(p=>p.gender==='Women').length},
+    {key:'Unisex', count: 0},
+  ],
+  category: [
+    {key:'Upperwear', count: null},
+    {key:'Bottomwear', count: null},
+    {key:'Footwear', count: 0},
+    {key:'Accessories', count: null},
+    {key:'Ethnic Wear', count: 0, note:'Phase 2'},
+  ],
+  subcategory: {
+    'Upperwear': ['T-Shirt','Polo','Shirt','Jacket','Sweatshirt'],
+    'Bottomwear': ['Trouser','Jeans','Shorts'],
+    'Footwear': ['Sneakers','Sandals'],
+    'Accessories': ['Belt','Tie','Cap'],
+    'Ethnic Wear': ['Shalwar Kameez','Unstitched Suit'],
+  },
+};
+
+let state = { gender: 'All', category: 'All', subcategory: 'All' };
+
+function chipHTML(level, value, label, active, disabled, count) {
+  const countHTML = (count !== null && count !== undefined) ? `<span class="n">${count}</span>` : '';
+  return `<button class="chip ${active?'active':''} ${disabled?'disabled':''}" data-level="${level}" data-value="${value}">${label}${countHTML}</button>`;
+}
+
+function renderGrid() {
+  const filtered = PRODUCTS.filter(p =>
+    (state.gender==='All' || p.gender===state.gender) &&
+    (state.category==='All' || p.category===state.category) &&
+    (state.subcategory==='All' || p.subcategory===state.subcategory)
+  );
+  document.getElementById('resultLine').innerHTML = `<b>${filtered.length}</b> listing${filtered.length===1?'':'s'} across <b>${new Set(filtered.map(p=>p.brand)).size}</b> brand${new Set(filtered.map(p=>p.brand)).size===1?'':'s'}`;
+
+  const grid = document.getElementById('grid');
+  grid.innerHTML = filtered.map(p => {
+    const pct = p.compareAt ? Math.round((1 - p.price/p.compareAt) * 100) : null;
+    return `
+    <div class="card" tabindex="0" data-id="${p.id}">
+      <div class="imgwrap">
+        <img src="${p.images[0]}" loading="lazy" alt="${p.title}">
+        ${pct ? `<span class="badge-sale">${pct}% OFF</span>` : ''}
+        ${!p.available ? `<span class="badge-oos">Out of stock</span>` : ''}
+      </div>
+      <div class="body">
+        <div class="brand">${p.brand}</div>
+        <div class="title">${p.title}</div>
+        <div class="meta-line">${p.gender} &middot; ${p.subcategory}</div>
+        <div class="swatches">${p.colors.map(c=>`<span class="swatch" style="background:${c.hex}"></span>`).join('')}</div>
+        <div class="price-row">
+          <span class="price">Rs. ${p.price.toLocaleString()}</span>
+          ${p.compareAt ? `<span class="compare">Rs. ${p.compareAt.toLocaleString()}</span>` : ''}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  grid.querySelectorAll('.card').forEach(el => {
+    el.addEventListener('click', () => openPanel(el.dataset.id));
+    el.addEventListener('keydown', e => { if (e.key==='Enter') openPanel(el.dataset.id); });
+  });
+}
+
+function fieldHTML(label, value, note, span2) {
+  const empty = value === null || value === undefined || value === '';
+  return `<div class="field ${span2?'span2':''}">
+    <dt>${label}</dt>
+    <dd class="${empty?'empty':''}">${empty ? 'Not applicable' : value}</dd>
+    ${note ? `<span class="note">${note}</span>` : ''}
+  </div>`;
+}
+
+function openPanel(id) {
+  const p = PRODUCTS.find(x => x.id === id);
+  const pct = p.compareAt ? Math.round((1 - p.price/p.compareAt) * 100) : null;
+  const panel = document.getElementById('panel');
+  panel.innerHTML = `
+    <button class="panel-close" id="panelClose">&times;</button>
+    <div class="panel-media">
+      <div class="main-img"><img id="mainImg" src="${p.images[0]}" alt="${p.title}"></div>
+      <div class="thumbs">${p.images.map((src,i)=>`<img src="${src}" class="${i===0?'active':''}" data-src="${src}">`).join('')}</div>
+    </div>
+    <div class="panel-info">
+      <div>
+        <div class="brand">${p.brand}</div>
+        <h2>${p.title}</h2>
+        <div class="price-row">
+          <span class="price">Rs. ${p.price.toLocaleString()}</span>
+          ${p.compareAt ? `<span class="compare">Rs. ${p.compareAt.toLocaleString()}</span><span class="pct-off">${pct}% off</span>` : ''}
+        </div>
+        ${p.priceNote ? `<span class="note">${p.priceNote}</span>` : ''}
+      </div>
+      <span class="stock-pill ${p.available?'ok':'out'}"><span class="dot"></span>${p.available?'In stock':'Out of stock'}</span>
+
+      <dl class="schema-fields">
+        ${fieldHTML('Gender', p.gender, p.genderNote)}
+        ${fieldHTML('Category', p.category, p.categoryNote)}
+        ${fieldHTML('Subcategory', p.subcategory)}
+        ${fieldHTML('Fabric', p.fabric, 'Western ready-to-wear — reserved for the Ethnic Wear taxonomy.')}
+        ${fieldHTML('Stitched status', p.stitched, 'Only meaningful within the unstitched/Ethnic Wear line.')}
+        <div class="field span2">
+          <dt>Color</dt>
+          <dd><div class="color-chips">${p.colors.map(c=>`<span class="color-chip"><span class="swatch" style="background:${c.hex}"></span>${c.name}</span>`).join('')}</div></dd>
+          ${p.colorNote ? `<span class="note">${p.colorNote}</span>` : ''}
+        </div>
+        <div class="field span2">
+          <dt>Size</dt>
+          <dd><div class="size-chips">${p.sizes.map(s=>`<span class="size-chip">${s}</span>`).join('')}</div></dd>
+          ${p.sizeSystem ? `<span class="note">${p.sizeSystem}</span>` : ''}
+        </div>
+      </dl>
+
+      <div>
+        <dt style="font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:6px;">Description</dt>
+        <p class="desc">${p.desc}</p>
+      </div>
+
+      <div>
+        <dt style="font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:6px;">Tags (cleaned)</dt>
+        <div class="tag-cloud">${p.tags.map(t=>`<span class="tag-pill">${t}</span>`).join('')}</div>
+      </div>
+
+      <div class="provenance">
+        <span>Brand: ${p.brand}</span>
+        <span>Native ID: ${p.nativeId}</span>
+        <span><a href="${p.url}" target="_blank" rel="noopener">View on store site &rarr;</a></span>
+      </div>
+    </div>
+  `;
+  document.getElementById('overlay').classList.add('open');
+  panel.querySelectorAll('.thumbs img').forEach(img => {
+    img.addEventListener('click', () => {
+      document.getElementById('mainImg').src = img.dataset.src;
+      panel.querySelectorAll('.thumbs img').forEach(i=>i.classList.remove('active'));
+      img.classList.add('active');
+    });
+  });
+  document.getElementById('panelClose').addEventListener('click', closePanel);
+}
+function closePanel() { document.getElementById('overlay').classList.remove('open'); }
+document.getElementById('overlay').addEventListener('click', e => { if (e.target.id === 'overlay') closePanel(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { closePanel(); closeInfo(); } });
+
+function openInfo(){ document.getElementById('infoModal').classList.add('open'); }
+function closeInfo(){ document.getElementById('infoModal').classList.remove('open'); }
+document.getElementById('schemaInfoBtn').addEventListener('click', openInfo);
+document.getElementById('infoClose').addEventListener('click', closeInfo);
+document.getElementById('infoModal').addEventListener('click', e => { if (e.target.id==='infoModal') closeInfo(); });
+
+function renderTaxonomy() {
+  const nav = document.getElementById('taxonomy');
+  const totalAll = PRODUCTS.filter(p => true).length;
+
+  const genderRow = ['All', ...TAXONOMY.gender.map(g=>g.key)].map(key => {
+    const count = key==='All' ? totalAll : TAXONOMY.gender.find(g=>g.key===key).count;
+    return chipHTML('gender', key, key, state.gender===key, key!=='All' && count===0, count);
+  }).join('');
+
+  const genderFiltered = PRODUCTS.filter(p => state.gender==='All' || p.gender===state.gender);
+  const catRow = ['All', ...TAXONOMY.category.map(c=>c.key)].map(key => {
+    if (key === 'All') return chipHTML('category','All','All', state.category==='All', false, genderFiltered.length);
+    const c = TAXONOMY.category.find(c=>c.key===key);
+    const count = genderFiltered.filter(p=>p.category===key).length;
+    const label = c.note ? `${key} · ${c.note}` : key;
+    return chipHTML('category', key, label, state.category===key, count===0, count);
+  }).join('');
+
+  let subRow = '';
+  if (state.category !== 'All') {
+    const subs = TAXONOMY.subcategory[state.category] || [];
+    const catFiltered = genderFiltered.filter(p => p.category === state.category);
+    subRow = `<div class="tax-row"><span class="tax-label">Subcategory</span>` +
+      ['All', ...subs].map(key => {
+        if (key==='All') return chipHTML('subcategory','All','All', state.subcategory==='All', false, catFiltered.length);
+        const count = catFiltered.filter(p=>p.subcategory===key).length;
+        return chipHTML('subcategory', key, key, state.subcategory===key, count===0, count);
+      }).join('') + `</div>`;
+  }
+
+  nav.innerHTML = `
+    <div class="tax-row"><span class="tax-label">Gender</span>${genderRow}</div>
+    <div class="tax-row"><span class="tax-label">Category</span>${catRow}</div>
+    ${subRow}
+  `;
+
+  nav.querySelectorAll('.chip').forEach(el => {
+    el.addEventListener('click', () => {
+      if (el.classList.contains('disabled')) return;
+      const level = el.dataset.level, val = el.dataset.value;
+      if (level === 'gender') { state.gender = val; state.category='All'; state.subcategory='All'; }
+      if (level === 'category') { state.category = val; state.subcategory='All'; }
+      if (level === 'subcategory') { state.subcategory = val; }
+      renderTaxonomy();
+      renderGrid();
+    });
+  });
+}
+
+renderTaxonomy();
+renderGrid();
+</script>

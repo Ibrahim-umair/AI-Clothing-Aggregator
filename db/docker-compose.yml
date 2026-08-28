@@ -1,0 +1,22 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: libas-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: libas
+      POSTGRES_PASSWORD: libas_dev_password
+      POSTGRES_DB: libas
+    ports:
+      - "5433:5432"
+    volumes:
+      - libas_pg_data:/var/lib/postgresql/data
+      - ./init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U libas -d libas"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  libas_pg_data:

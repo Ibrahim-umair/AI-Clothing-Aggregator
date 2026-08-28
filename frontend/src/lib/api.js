@@ -1,0 +1,60 @@
+// Thin fetch client for the local Libas API (server/index.js), which
+// queries Postgres directly — see vite.config.js for the /api dev proxy to
+// http://localhost:4000.
+const API_BASE = "/api";
+
+async function getJSON(path) {
+  const res = await fetch(`${API_BASE}${path}`);
+  if (!res.ok) {
+    // status is attached (not just embedded in the message string) so
+    // callers can tell "the thing you asked for doesn't exist" (404) apart
+    // from "the server/network is broken" (everything else) without
+    // parsing text — e.g. ProductDetail shows different copy for a
+    // genuinely deleted product vs. a real outage.
+    const err = new Error(`API ${path} failed: ${res.status}`);
+    err.status = res.status;
+    throw err;
+  }
+  return res.json();
+}
+
+function selectionParams(selection = {}) {
+  const params = new URLSearchParams();
+  if (selection.gender) params.set("gender", selection.gender);
+  if (selection.branch) params.set("branch", selection.branch);
+  if (selection.sub) params.set("sub", selection.sub);
+  if (selection.category) params.set("category", selection.category);
+  if (selection.store) params.set("brand", selection.store);
+  return params;
+}
+
+export function fetchProducts(
+  selection = {},
+  { page = 1, pageSize = 24, sort, minPrice, maxPrice, sizes, colors, q, onSale, includeOutOfStock } = {}
+) {
+  const params = selectionParams(selection);
+  params.set("page", page);
+  params.set("pageSize", pageSize);
+  if (sort) params.set("sort", sort);
+  if (minPrice) params.set("minPrice", minPrice);
+  if (maxPrice) params.set("maxPrice", maxPrice);
+  if (sizes?.length) params.set("size", sizes.join(","));
+  if (colors?.length) params.set("color", colors.join(","));
+  if (q) params.set("q", q);
+  if (onSale) params.set("onSale", "true");
+  if (includeOutOfStock) params.set("includeOutOfStock", "true");
+  return getJSON(`/products?${params.toString()}`);
+}
+
+export function fetchProduct(id) {
+  return getJSON(`/products/${id}`);
+}
+
+export function fetchTaxonomy(selection = {}) {
+  const params = selectionParams(selection);
+  return getJSON(`/taxonomy?${params.toString()}`);
+}
+
+export function fetchBrands() {
+  return getJSON("/brands");
+}

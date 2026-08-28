@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><path d='M50 14c-7 0-11 6-6 11l6 5' fill='none' stroke='%2333427a' stroke-width='7' stroke-linecap='round' stroke-linejoin='round'/><path d='M50 30 L12 58 L88 58 Z' fill='none' stroke='%2333427a' stroke-width='7' stroke-linejoin='round' stroke-linecap='round'/></svg>" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      // Runs synchronously, before first paint, so the correct theme is
+      // already on <html> by the time CSS applies — otherwise the browser
+      // paints once using the OS's prefers-color-scheme (via the guarded
+      // @media rule in index.css) and only gets corrected to the actual
+      // saved/intended theme after React mounts and its useEffect runs
+      // (useTheme.js), which is the flash that was being reported.
+      (function () {
+        try {
+          var stored = window.localStorage.getItem("libas-theme");
+          var theme =
+            stored === "light" || stored === "dark"
+              ? stored
+              : window.matchMedia("(prefers-color-scheme: dark)").matches
+                ? "dark"
+                : "light";
+          document.documentElement.setAttribute("data-theme", theme);
+        } catch (e) {}
+      })();
+    </script>
+    <title>Libas — Pakistani Fashion, All in One Place</title>
+    <meta name="description" content="Browse thousands of real products from 15 Pakistani apparel brands in one place." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@400;500;600;700;800;900&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

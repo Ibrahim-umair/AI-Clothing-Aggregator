@@ -1,0 +1,468 @@
+<title>Fetched From</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Shantell+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --paper: #eef2f7;
+    --surface: #ffffff;
+    --ink: #2b6a74;
+    --ink-soft: #6a9aa2;
+    --ink-faint: #9dbcc2;
+    --line: #bcd8dc;
+    --card-line: #5c9aa3;
+    --already: #2b6a74;
+    --fetched: #b8641f;
+    --fetched-bg: #fbeee0;
+    --already-bg: #e2eef0;
+    --sale: #a83226;
+    --warn-bg: #fbeee0;
+    color-scheme: light dark;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #12191c;
+      --surface: #182226;
+      --ink: #6fd0da;
+      --ink-soft: #4c8b93;
+      --ink-faint: #3c6167;
+      --line: #274248;
+      --card-line: #3f7d85;
+      --already: #6fd0da;
+      --fetched: #e8a35c;
+      --fetched-bg: #2e2519;
+      --already-bg: #16292c;
+      --sale: #e2685a;
+      --warn-bg: #2e2519;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #12191c; --surface: #182226; --ink: #6fd0da; --ink-soft: #4c8b93; --ink-faint: #3c6167;
+    --line: #274248; --card-line: #3f7d85; --already: #6fd0da; --fetched: #e8a35c;
+    --fetched-bg: #2e2519; --already-bg: #16292c; --sale: #e2685a; --warn-bg: #2e2519;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Shantell Sans", "Comic Sans MS", cursive, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  svg.arrow { position: absolute; overflow: visible; pointer-events: none; }
+  svg.arrow path.shaft { fill: none; stroke: var(--ink); stroke-width: 2.5; stroke-linecap: round; }
+  svg.arrow path.head { fill: var(--ink); }
+
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 34px 26px 80px; }
+
+  header.top { margin-bottom: 30px; }
+  .eyebrow { font-size: 13px; color: var(--ink-soft); letter-spacing: 0.02em; margin-bottom: 6px; }
+  h1 { font-size: clamp(30px, 4vw, 42px); font-weight: 700; margin: 0 0 8px; }
+  .sub { font-size: 16px; color: var(--ink-soft); max-width: 62ch; line-height: 1.5; margin: 0; }
+
+  /* ---- ER sketch ---- */
+  .er-section { margin: 34px 0 46px; }
+  .er-title { font-size: 19px; font-weight: 600; margin-bottom: 18px; }
+  .er-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .er-box {
+    border: 2.5px solid var(--card-line);
+    border-radius: 16px;
+    background: var(--surface);
+    padding: 16px 20px;
+    min-width: 190px;
+  }
+  .er-box .name { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+  .er-box .field { font-size: 13.5px; color: var(--ink-soft); line-height: 1.6; }
+  .er-arrow-label {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    font-size: 13px;
+    color: var(--ink-soft);
+    padding: 0 4px;
+  }
+  .er-arrow-label svg { width: 46px; height: 20px; }
+  .er-arrow-label svg path { stroke: var(--ink-soft); fill: none; stroke-width: 2.2; stroke-linecap: round; }
+  .er-arrow-label svg .er-head { fill: var(--ink-soft); stroke: none; }
+
+  /* ---- brand picker ---- */
+  .picker-title { font-size: 15px; color: var(--ink-soft); margin: 0 0 10px; }
+  .picker { display: flex; flex-wrap: wrap; gap: 9px; margin-bottom: 44px; }
+  .pchip {
+    font-family: inherit;
+    font-size: 14.5px;
+    font-weight: 600;
+    padding: 8px 16px;
+    border-radius: 12px;
+    border: 2px solid var(--card-line);
+    background: var(--surface);
+    color: var(--ink);
+    cursor: pointer;
+  }
+  .pchip.active { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+
+  /* ---- annotated stage ---- */
+  .stage {
+    position: relative;
+    min-height: 760px;
+    margin-bottom: 40px;
+  }
+  .callout {
+    position: absolute;
+    max-width: 230px;
+    font-size: 14px;
+    line-height: 1.45;
+  }
+  .callout .tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11.5px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 8px;
+    margin-bottom: 4px;
+  }
+  .callout .tag.already { background: var(--already-bg); color: var(--already); }
+  .callout .tag.fetched { background: var(--fetched-bg); color: var(--fetched); }
+  .callout .eg { color: var(--ink-soft); font-style: italic; }
+
+  .cl-cat     { top: 6px;    left: 0; }
+  .cl-title   { top: 6px;    right: 0; text-align: right; }
+  .cl-priceav { top: 300px;  right: 0; text-align: right; }
+  .cl-desc    { bottom: 130px; right: 0; text-align: right; }
+  .cl-colsize { bottom: 6px; left: 0; }
+
+  /* ---- card ---- */
+  .card {
+    position: absolute;
+    left: 50%; top: 190px;
+    transform: translateX(-50%);
+    width: 430px;
+    background: var(--surface);
+    border: 2.5px solid var(--card-line);
+    border-radius: 20px;
+    padding: 20px 22px 22px;
+  }
+  .card .crumb { font-size: 14px; color: var(--ink-soft); margin-bottom: 12px; }
+  .card .imgwrap {
+    border: 2.5px solid var(--card-line);
+    border-radius: 14px;
+    overflow: hidden;
+    aspect-ratio: 4/3;
+    background: var(--paper);
+    margin-bottom: 14px;
+    position: relative;
+  }
+  .card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .card .oos {
+    position: absolute; inset: 0; background: rgba(20,20,20,0.4);
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-weight: 700; font-size: 15px;
+  }
+  .card h2 { font-size: 22px; font-weight: 700; margin: 0 0 8px; }
+  .card .desc { font-size: 14px; color: var(--ink-soft); line-height: 1.55; margin: 0 0 14px; font-style: italic; }
+  .card .price-row { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; }
+  .card .price { font-size: 19px; font-weight: 700; }
+  .card .compare { font-size: 14px; color: var(--ink-faint); text-decoration: line-through; }
+  .card .avail { font-size: 13.5px; font-weight: 700; }
+  .card .avail.ok { color: var(--already); }
+  .card .avail.out { color: var(--sale); }
+  .card .row-label { font-size: 12px; color: var(--ink-soft); margin: 10px 0 4px; }
+  .card .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .card .chip {
+    border: 2px solid var(--card-line);
+    border-radius: 9px;
+    padding: 3px 9px;
+    font-size: 13px;
+  }
+  .card .swatch { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--card-line); display: inline-block; vertical-align: -2px; margin-right: 5px; }
+
+  /* ---- non-visual fields strip ---- */
+  .extra {
+    border: 2.5px dashed var(--card-line);
+    border-radius: 16px;
+    padding: 18px 22px;
+    background: var(--surface);
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    margin-bottom: 30px;
+  }
+  .extra h3 { grid-column: 1/-1; font-size: 15px; margin: 0 0 2px; }
+  .extra .item .k { font-size: 13px; font-weight: 700; }
+  .extra .item .v { font-size: 13.5px; color: var(--ink-soft); line-height: 1.5; }
+
+  .foot { font-size: 13px; color: var(--ink-faint); text-align: center; margin-top: 10px; }
+
+  @media (max-width: 880px) {
+    .stage { min-height: 0; display: flex; flex-direction: column; gap: 18px; }
+    .card, .callout { position: static; transform: none; width: 100%; max-width: 100%; text-align: left !important; }
+    svg.arrow { display: none; }
+    .callout { border-left: 3px solid var(--card-line); padding-left: 10px; }
+  }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="eyebrow">Schema walkthrough &middot; annotated on real listings</div>
+    <h1>Fetched From</h1>
+    <p class="sub">One schema, eight brands, eight different ways of hiding the same information. Pick a brand — every label below shows exactly where that field's value actually comes from in its raw data.</p>
+  </header>
+
+  <div class="er-section">
+    <div class="er-title">How the schema is related</div>
+    <div class="er-row">
+      <div class="er-box">
+        <div class="name">Brand</div>
+        <div class="field">id, name</div>
+      </div>
+      <div class="er-arrow-label">
+        <svg viewBox="0 0 46 20"><path d="M2 10 C 16 2, 30 18, 44 10" /><path class="er-head" d="M44 10 L37 6.5 L38.5 11 L34 12.5 Z"/></svg>
+        has many
+      </div>
+      <div class="er-box">
+        <div class="name">Product</div>
+        <div class="field">title, description, gender,<br>category, subcategory,<br>fabric, stitched_status, tags[]</div>
+      </div>
+      <div class="er-arrow-label">
+        <svg viewBox="0 0 46 20"><path d="M2 10 C 16 18, 30 2, 44 10" /><path class="er-head" d="M44 10 L37 6.5 L38.5 11 L34 12.5 Z"/></svg>
+        has many
+      </div>
+      <div class="er-box">
+        <div class="name">Variant</div>
+        <div class="field">color, size, price,<br>compare_at_price,<br>sku, available</div>
+      </div>
+    </div>
+  </div>
+
+  <p class="picker-title">Show me how it works for &darr;</p>
+  <div class="picker" id="picker"></div>
+
+  <div class="stage" id="stage"></div>
+
+  <div class="extra" id="extra"></div>
+
+  <p class="foot">Every value shown is real, pulled from the actual scrape &mdash; nothing on this page is a placeholder.</p>
+</div>
+
+<script>
+const BRANDS = {
+  outfitters: {
+    name: 'Outfitters',
+    crumb: 'Men &gt; Upperwear &gt; T-Shirt',
+    crumbSrc: {tag:'fetched', label:'Gender from the vendor field, Category from product_type', eg:'vendor: "Men"  ·  product_type: "TEES"'},
+    title: 'Textured Slogan Print T-Shirt',
+    titleSrc: {tag:'already', label:'Copied straight from the title field'},
+    desc: 'Relaxed comfort fit with drop shoulders — sits between oversized and regular, made for easy movement.',
+    descSrc: {tag:'already', label:'Copied from body_html, tags stripped'},
+    price: 1590, compareAt: 3290, available: true,
+    priceSrc: {tag:'already', label:'Variant price + compare_at_price, cast to numbers'},
+    colors: [{name:'Mushroom', hex:'#c7b299'},{name:'Black', hex:'#1c1c1c'}],
+    sizes: ['S','M','L','XL'],
+    colSizeSrc: {tag:'already', label:'Structured Color + Size variant options'},
+    image: 'https://cdn.shopify.com/s/files/1/2290/7887/files/F1926106814_8a2d6a58-4bc8-468b-b9e8-7b3a35cc1227.jpg?v=1776926009',
+  },
+  cougar: {
+    name: 'Cougar',
+    crumb: 'Men &gt; Upperwear &gt; T-Shirt',
+    crumbSrc: {tag:'already', label:'Gender is an explicit "Gender" variant option here — Category is product_type with the gender word stripped', eg:'Gender: "Men"  ·  product_type: "Men Tee"'},
+    title: 'Interlock T-Shirt',
+    titleSrc: {tag:'already', label:'Copied straight from the title field'},
+    desc: 'Crew neck, full sleeves, straight cut hem. Regular fit in interlock cotton.',
+    descSrc: {tag:'already', label:'Copied from descriptionHtml'},
+    price: 1649, compareAt: null, available: true,
+    priceSrc: {tag:'already', label:'Read from priceRange.minVariantPrice'},
+    colors: [{name:'Slate Grey', hex:'#7c7f82'}],
+    sizes: ['S','M','L','XL'],
+    colSizeSrc: {tag:'already', label:'Structured Color + Size variant options'},
+    image: 'https://cdn.shopify.com/s/files/1/0268/9715/4090/files/2_a6399701-feee-4fb3-a20e-03152e5d9294.webp?v=1760618764',
+  },
+  meme: {
+    name: 'Meme',
+    crumb: 'Women &gt; Upperwear &gt; T-Shirt',
+    crumbSrc: {tag:'fetched', label:'Both pulled out of product_type — split on the word "For"', eg:'product_type: "T-Shirts For Women"'},
+    title: 'Cropped T-Shirt For Women',
+    titleSrc: {tag:'already', label:'Copied straight from the title field'},
+    desc: 'Soft cropped tee with a classic crew neck and short sleeves. Lightweight, textured, everyday wear.',
+    descSrc: {tag:'already', label:'Copied from body_html'},
+    price: 995, compareAt: 1990, available: true,
+    priceSrc: {tag:'already', label:'Variant price + compare_at_price'},
+    colors: [{name:'Aqua', hex:'#7fc3c9'}],
+    sizes: ['XS','S','M','L','XL'],
+    colSizeSrc: {tag:'already', label:'Structured Color + Size variant options'},
+    image: 'https://cdn.shopify.com/s/files/1/0575/1000/2859/files/0003_8230420247844_2.jpg?v=1784181797',
+  },
+  monark: {
+    name: 'Monark',
+    crumb: 'Men &gt; Upperwear &gt; Polo',
+    crumbSrc: {tag:'fetched', label:'Gender is stated nowhere — inferred from the catalog (shirts/polos/pants/suits). Category from product_type.', eg:'product_type: "Polos"  ·  gender: not in source'},
+    title: 'Off-White Johnny Polo Shirt',
+    titleSrc: {tag:'already', label:'Copied straight from the title field'},
+    desc: 'Textured, breathable Johnny-collar polo with a subtle green trim. Modern, minimal, everyday comfort.',
+    descSrc: {tag:'already', label:'Copied from body_html'},
+    price: 4850, compareAt: null, available: true,
+    priceSrc: {tag:'already', label:'Variant price'},
+    colors: [{name:'Off-White', hex:'#efe8da'}],
+    sizes: ['S','M','L','XL'],
+    colSizeSrc: {tag:'fetched', label:'Size is structured, but Monark has NO Color option anywhere — color comes from the leading word of the title instead', eg:'title starts with "Off-White…"'},
+    image: 'https://cdn.shopify.com/s/files/1/0041/8797/9905/files/AKS03502.jpg?v=1786967860',
+  },
+  furor: {
+    name: 'Furor',
+    crumb: 'Men &gt; Upperwear &gt; Shirt',
+    crumbSrc: {tag:'fetched', label:'Gender is a store-wide constant (100% menswear) — Category is product_type with "Men " stripped', eg:'product_type: "Men Shirts"  ·  vendor: "Furorjeans" (always)'},
+    title: 'Button Down Shirt',
+    titleSrc: {tag:'fetched', label:'Raw title carries an internal SKU suffix, stripped for display', eg:'raw: "Button Down Shirt - FMTS6-32456"'},
+    desc: "Men's casual shirt, smart fit, chambray fabric.",
+    descSrc: {tag:'already', label:'Copied from body_html'},
+    price: 4990, compareAt: null, available: true,
+    priceSrc: {tag:'already', label:'Variant price'},
+    colors: [{name:'Black', hex:'#1c1c1c'}],
+    sizes: ['S','M','L','XXL'],
+    colSizeSrc: {tag:'already', label:'Structured Color + Size variant options'},
+    image: 'https://cdn.shopify.com/s/files/1/0733/3432/5537/files/FMTS6-32456_13_Thumbnail.webp?v=1785568464',
+  },
+  engine_clothing: {
+    name: 'Engine Clothing',
+    crumb: 'Men &gt; Bottomwear &gt; Trouser',
+    crumbSrc: {tag:'fetched', label:'product_type IS the gender here (only 4 values total) — Category has to come from the title instead', eg:'product_type: "Men"  ·  title: "Men Straight Trouser" → Trouser'},
+    title: 'Men Straight Trouser',
+    titleSrc: {tag:'already', label:'Copied straight from the title field'},
+    desc: 'Machine or hand-wash up to 30°C, gentle cycle. Do not bleach or iron directly on prints.',
+    descSrc: {tag:'fetched', label:'This brand’s "description" field sometimes holds care instructions, not marketing copy — copied as-is either way', eg:'body_html for this item is a wash-care list'},
+    price: 2750, compareAt: 5499, available: false,
+    priceSrc: {tag:'already', label:'Variant price + compare_at_price'},
+    colors: [{name:'Heather Grey', hex:'#9a9a9a'}],
+    sizes: ['S','M','L','XL','XXL'],
+    colSizeSrc: {tag:'already', label:'Structured Color + Size variant options'},
+    image: 'https://cdn.shopify.com/s/files/1/0553/3774/6621/files/a1_f2415a26-d856-41f8-b9a9-da84e71e60fb.jpg?v=1787046489',
+  },
+  charcoal: {
+    name: 'Charcoal',
+    crumb: 'Men &gt; Bottomwear &gt; Trouser',
+    crumbSrc: {tag:'fetched', label:'Gender inferred (unstated). product_type is empty for 63% of this store — Category parsed from the ALL-CAPS title', eg:'title: "STRAIGHT FIT CASUAL TROUSER BEIGE"'},
+    title: 'Straight Fit Casual Trouser',
+    titleSrc: {tag:'fetched', label:'Trailing color word trimmed off the raw title for display', eg:'raw: "…CASUAL TROUSER BEIGE"'},
+    desc: 'Elasticated waistband with drawstring, open bottom, cross pocket front / bone pocket back. 100% polyester.',
+    descSrc: {tag:'already', label:'Copied from body_html'},
+    price: 5695, compareAt: null, available: false,
+    priceSrc: {tag:'fetched', label:'Source compare_at_price was literally "0.00" — a not-set artifact, suppressed rather than shown as a fake 100%-off badge', eg:'raw compare_at_price: "0.00"'},
+    colors: [{name:'Beige', hex:'#d9c7a3'}],
+    sizes: ['30','32','34','36','38'],
+    colSizeSrc: {tag:'fetched', label:'Color here got lucky (~11% of Charcoal has this option) — usually needs the trailing-title-word fallback. Sizes are waist inches, not S–XL.', eg:'Size option spelled 6 different ways store-wide'},
+    image: 'https://cdn.shopify.com/s/files/1/0419/6171/7922/files/DSC06673_8c725231-ad4f-4643-bb48-d005dc7cfce0.webp?v=1786533608',
+  },
+  royal_tag: {
+    name: 'Royal Tag',
+    crumb: 'Men &gt; Accessories &gt; Belt',
+    crumbSrc: {tag:'fetched', label:'Gender inferred (unstated). Category is product_type with an internal collection code stripped', eg:'product_type: "SP126 BELTS" → Belt'},
+    title: 'Signature Belt',
+    titleSrc: {tag:'already', label:'Copied straight from the title field'},
+    desc: 'Durable, stylish belt for casual or formal wear. Secure fit, year-round versatility.',
+    descSrc: {tag:'already', label:'Copied from body_html'},
+    price: 4680, compareAt: 5850, available: true,
+    priceSrc: {tag:'already', label:'Variant price + compare_at_price'},
+    colors: [{name:'Coffee', hex:'#5a3a28'}],
+    sizes: ['One size'],
+    colSizeSrc: {tag:'already', label:'Structured Color option, reinforced by the title. Size is a placeholder — belts don’t really have one.'},
+    image: 'https://cdn.shopify.com/s/files/1/1033/9361/files/PBT-5808_2.jpg?v=1770621363',
+  },
+};
+
+function arrowSVG(kind) {
+  const paths = {
+    'top-left':     'M4 60 C 40 10, 55 55, 90 12',
+    'top-right':    'M96 60 C 60 10, 45 55, 10 12',
+    'right':        'M96 30 C 60 10, 55 50, 10 30',
+    'bottom-right': 'M96 4 C 60 55, 45 10, 6 60',
+    'bottom-left':  'M4 4 C 40 55, 55 10, 94 60',
+  };
+  const heads = {
+    'top-left':     'M90 12 L79 10 L86 17 L82 22 Z',
+    'top-right':    'M10 12 L21 10 L14 17 L18 22 Z',
+    'right':        'M10 30 L21 26 L16 33 L21 37 Z',
+    'bottom-right': 'M6 60 L10 49 L15 58 L20 55 Z',
+    'bottom-left':  'M94 60 L90 49 L85 58 L80 55 Z',
+  };
+  return `<svg class="arrow" viewBox="0 0 100 66"><path class="shaft" d="${paths[kind]}"/><path class="head" d="${heads[kind]}"/></svg>`;
+}
+
+function tagHTML(src) {
+  if (!src) return '';
+  const label = src.tag === 'already' ? 'Already here' : 'Fetched from source';
+  return `<span class="tag ${src.tag}">${src.tag==='already' ? '&#10003;' : '&#8618;'} ${label}</span>`;
+}
+
+function calloutBody(src) {
+  return `${tagHTML(src)}<div>${src.label}</div>${src.eg ? `<div class="eg">${src.eg}</div>` : ''}`;
+}
+
+function render(key) {
+  const b = BRANDS[key];
+  document.querySelectorAll('.pchip').forEach(el => el.classList.toggle('active', el.dataset.key === key));
+
+  const stage = document.getElementById('stage');
+  stage.innerHTML = `
+    <div class="callout cl-cat">${calloutBody(b.crumbSrc)}</div>
+    <div class="callout cl-title">${calloutBody(b.titleSrc)}</div>
+    <div class="callout cl-priceav">${calloutBody(b.priceSrc)}</div>
+    <div class="callout cl-desc">${calloutBody(b.descSrc)}</div>
+    <div class="callout cl-colsize">${calloutBody(b.colSizeSrc)}</div>
+
+    <div style="position:absolute; top:70px; left:70px;">${arrowSVG('top-left')}</div>
+    <div style="position:absolute; top:70px; right:70px;">${arrowSVG('top-right')}</div>
+    <div style="position:absolute; top:330px; right:110px;">${arrowSVG('right')}</div>
+    <div style="position:absolute; bottom:170px; right:80px;">${arrowSVG('bottom-right')}</div>
+    <div style="position:absolute; bottom:60px; left:90px;">${arrowSVG('bottom-left')}</div>
+
+    <div class="card">
+      <div class="crumb">${b.crumb}</div>
+      <div class="imgwrap">
+        <img src="${b.image}" alt="${b.title}">
+        ${!b.available ? '<div class="oos">Out of stock</div>' : ''}
+      </div>
+      <h2>${b.title}</h2>
+      <p class="desc">${b.desc}</p>
+      <div class="price-row">
+        <span class="price">Rs. ${b.price.toLocaleString()}</span>
+        ${b.compareAt ? `<span class="compare">Rs. ${b.compareAt.toLocaleString()}</span>` : ''}
+        <span class="avail ${b.available?'ok':'out'}">${b.available?'In stock':'Out of stock'}</span>
+      </div>
+      <div class="row-label">Color</div>
+      <div class="chips">${b.colors.map(c=>`<span class="chip"><span class="swatch" style="background:${c.hex}"></span>${c.name}</span>`).join('')}</div>
+      <div class="row-label">Size</div>
+      <div class="chips">${b.sizes.map(s=>`<span class="chip">${s}</span>`).join('')}</div>
+    </div>
+  `;
+
+  document.getElementById('extra').innerHTML = `
+    <h3>Also in the schema — not visible on this card</h3>
+    <div class="item">
+      <div class="k">Fabric</div>
+      <div class="v">Not applicable for ${b.name} — Western wear. Reserved for Ethnic Wear, e.g. Edenrobe fetches this from its <em>vendor</em> field ("Lawn", "Khaddar", "Cotton").</div>
+    </div>
+    <div class="item">
+      <div class="k">Stitched status</div>
+      <div class="v">Not applicable for ${b.name}. For Ethnic Wear brands it's fetched from a keyword in product_type, e.g. "Un Stitched" appearing or not.</div>
+    </div>
+    <div class="item">
+      <div class="k">Brand</div>
+      <div class="v">Already here — it's simply which of the 15 stores this listing was scraped from, never read from the vendor field.</div>
+    </div>
+  `;
+}
+
+document.getElementById('picker').innerHTML = Object.entries(BRANDS)
+  .map(([key,b]) => `<button class="pchip" data-key="${key}">${b.name}</button>`).join('');
+document.querySelectorAll('.pchip').forEach(el => el.addEventListener('click', () => render(el.dataset.key)));
+
+render('outfitters');
+</script>

@@ -1,0 +1,14 @@
+Seeded: 15 brands, 13 fabrics, 20 colors, 113 categories
+Traceback (most recent call last):
+  File "C:\Work\scraping-init\db\load_data.py", line 388, in <module>
+    cur.close()
+    ^^^^^^
+  File "C:\Work\scraping-init\db\load_data.py", line 373, in main
+                        (pid, piece, fid, float(length) if length else None, total_pieces),
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+    conn.commit()
+    ^
+psycopg2.errors.ForeignKeyViolation: insert or update on table "scrape_runs" violates foreign key constraint "scrape_runs_brand_id_fkey"
+DETAIL:  Key (brand_id)=(1) is not present in table "brands".
+
