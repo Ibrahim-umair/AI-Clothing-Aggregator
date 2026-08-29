@@ -48,11 +48,13 @@ function filterChips(filters) {
 
 export default function AiSearch() {
   const [draft, setDraft] = useState("");
-  // null = no explicit preference, let the model infer gender from the
-  // text itself. Set, it overrides that inference server-side (see
-  // runSearch's genderOverride) — a person who taps "Men" and types "red
-  // kurta" means Men's kurtas regardless of whether the text says so.
-  const [genderFilter, setGenderFilter] = useState(null);
+  // Defaults to "Men" (matching the supplied reference). Whatever is
+  // selected overrides what the model would infer from the text itself
+  // (see runSearch's genderOverride) — a person who has "Men" selected
+  // and types "red kurta" means Men's kurtas regardless of whether the
+  // text says so. Clicking the active button clears it back to null,
+  // which is a real state meaning "let the AI decide from what I typed".
+  const [genderFilter, setGenderFilter] = useState("Men");
   const [query, setQuery] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);

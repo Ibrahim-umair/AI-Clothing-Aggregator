@@ -1905,9 +1905,9 @@ ul { margin: 0; padding: 0; list-style: none; }
 
 /* Segmented toggle — an explicit gender filter that OVERRIDES whatever
    the model would infer from the text (see runSearch's genderOverride).
-   Neither pressed is a real third state here (not just an unstyled
-   default), meaning "let the AI decide from what I typed" — a person who
-   doesn't care to specify shouldn't be forced into Men or Women. */
+   Defaults to Men, matching the supplied reference. Clicking the active
+   button clears it, which is a real third state (not just an unstyled
+   default) meaning "let the AI decide from what I typed". */
 .ai-search__gender-toggle {
   display: inline-flex;
   padding: 4px;
