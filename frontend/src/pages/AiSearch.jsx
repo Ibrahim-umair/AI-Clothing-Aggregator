@@ -235,7 +235,7 @@ export default function AiSearch() {
             <>
               <div className="ai-search__answer ai-search__answer--loading">
                 <SparklesIcon size={15} />
-                <span className="skeleton-line" style={{ width: "60%" }} />
+                <span className="skeleton-line" />
               </div>
               <div className="product-grid product-grid--5">
                 {Array.from({ length: 10 }, (_, i) => (

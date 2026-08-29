@@ -2035,20 +2035,45 @@ ul { margin: 0; padding: 0; list-style: none; }
   padding: 0 clamp(16px, 3.5vw, 40px);
 }
 
+/* Hugs its own text rather than spanning the full grid width — the
+   sentence is short ("Here are smart casual shirts under Rs. 3,000.")
+   and a full-bleed bar for one short line read as an empty slab,
+   especially in the loading state where a single thin skeleton line sat
+   marooned in it. */
 .ai-search__answer {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 9px;
-  padding: 14px 18px;
+  max-width: 100%;
+  padding: 12px 18px;
   margin-bottom: 14px;
   background: var(--accent-soft);
-  border-radius: var(--radius-md);
+  border-radius: 999px;
   color: var(--accent-strong);
   font-size: 14px;
   font-weight: 600;
 }
 .ai-search__answer svg { flex-shrink: 0; }
-.ai-search__answer--loading .skeleton-line { background: color-mix(in srgb, var(--accent-strong) 18%, transparent); }
+/* Sized to a plausible sentence and given the real line-height of the
+   text it stands in for, so the placeholder occupies the same space the
+   answer will — rather than a hairline rule across the whole viewport. */
+.ai-search__answer--loading .skeleton-line {
+  width: 260px;
+  max-width: 60vw;
+  height: 14px;
+  border-radius: 999px;
+  /* Kept as a gradient, not a flat color-mix fill: .skeleton-block's
+     shimmer animates background-position, which is invisible against a
+     solid background — this tints the shimmer to the banner's accent
+     instead of silently disabling it. */
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--accent-strong) 14%, transparent) 25%,
+    color-mix(in srgb, var(--accent-strong) 30%, transparent) 50%,
+    color-mix(in srgb, var(--accent-strong) 14%, transparent) 75%
+  );
+  background-size: 200% 100%;
+}
 
 .ai-search__chips {
   display: flex;
@@ -2073,18 +2098,7 @@ ul { margin: 0; padding: 0; list-style: none; }
 }
 
 /* Result cards on this page are denser (5-up rather than 4-up, see the
-   product-grid--5 class in AiSearch.jsx) and carry a light outline.
-   Scoped to .ai-search__results rather than applied to .card globally on
-   purpose: Shop/Home use the borderless card treatment deliberately, and
-   silently restyling every card in the app is a bigger change than was
-   asked for. One-line promotion if it should be the site-wide look. */
-.ai-search__results .card {
-  padding: 8px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  transition: border-color 0.15s ease;
-}
-.ai-search__results .card:hover { border-color: var(--text-faint); }
-.ai-search__results .card__media { border-radius: var(--radius-sm); }
-.ai-search__results .card__body { padding: 10px 4px 2px; }
+   product-grid--5 class in AiSearch.jsx). Deliberately NO border/outline
+   — an outlined variant was tried and read as dated; the density alone
+   was what actually needed fixing, and borderless keeps this consistent
+   with the Shop/Home card treatment. */

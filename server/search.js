@@ -19,6 +19,11 @@ if (existsSync(new URL(".env", import.meta.url))) {
 
 export const openai = process.env.OPENAI_API_KEY ? new OpenAI() : null;
 
+// Overridable without a code change (SEARCH_MODEL in server/.env) so the
+// extraction model can be swapped/rolled back without a deploy — it's the
+// single biggest latency and cost lever in this pipeline.
+export const SEARCH_MODEL = process.env.SEARCH_MODEL || "gpt-5.6-luna";
+
 // Every real leaf category name in the live taxonomy (43, as of this
 // writing) — refresh this list if CATEGORY_TREE changes (db/load_data.py).
 // Added after a real, verified failure: without this, "furor jeans" ranked
@@ -92,7 +97,17 @@ export async function extractSearchFilters(query) {
   // Both defeat the point of the field, since the textual retrieval leg
   // matches on it directly.
   const completion = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
+    model: SEARCH_MODEL,
+    // Required on the gpt-5.x reasoning models: /v1/chat/completions
+    // rejects function tools outright unless reasoning is off ("Function
+    // tools with reasoning_effort are not supported for gpt-5.6-luna ...
+    // set reasoning_effort to 'none'"). Turning it off is the right call
+    // here regardless of the constraint — this is a well-specified
+    // extraction task with a strict schema, not something that benefits
+    // from deliberation, so reasoning would buy latency and nothing else.
+    // Sent conditionally so SEARCH_MODEL can still be rolled back to a
+    // pre-5.x model (gpt-4o-mini), which rejects the parameter instead.
+    ...(/^gpt-5/.test(SEARCH_MODEL) ? { reasoning_effort: "none" } : {}),
     messages: [
       {
         role: "system",
@@ -344,9 +359,14 @@ export async function runSearch(query, { debug = false, genderOverride = null } 
     variant_count: Number(r.variant_count) || 0,
   }));
 
-  const shown = products.length;
+  // Just the model's confirmation sentence — no appended counts. The
+  // "Showing N best matches (M match the filters)" suffix was accurate
+  // but told the reader nothing they wanted: M is the raw hard-filter
+  // match count, which for a semantic query is mostly items that merely
+  // passed gender/price, not things actually relevant. `total` is still
+  // returned in the payload for anything that genuinely needs it.
   const result = {
-    response_text: `${filters.response_text} Showing ${shown} best match${shown === 1 ? "" : "es"}${total > shown ? ` (${total} match the filters).` : "."}`,
+    response_text: filters.response_text,
     filters,
     total,
     products,
