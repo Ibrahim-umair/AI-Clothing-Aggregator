@@ -1,159 +1,172 @@
 # Natural-language search — `POST /api/search`
 
-Built overnight 2026-08-29, following the RAG architecture discussed and agreed
-on beforehand — not a unilateral design, this is that plan implemented. See
-the conversation for the full reasoning; this file is the "how to run/verify
-it" reference, same role as `db/scraper/COMMANDS.md`.
+Originally built 2026-08-29 on Node/Express; migrated to Python/FastAPI
+2026-08-29/30 (see `MIGRATION_REPORT.md` at the repo root for the migration
+itself — this file is the pipeline design reference, same role as
+`db/scraper/COMMANDS.md`). The architecture and every hard-won fix below
+carried over unchanged; only the language/framework did.
 
 ## What it does
 
 ```
 POST /api/search
-{"query": "cozy warm sweaters for women under 5000"}
+{"query": "cozy warm sweaters for women under 5000", "gender": "Women"}
 ```
 
-One request does, **concurrently**, not sequentially:
-1. An OpenAI tool-call (`gpt-4o-mini`, forced `search_filters` function,
-   `strict: true`) extracts objective filters (gender/price/brand/sale/
-   sizes/colors) plus a semantic residual and a confirmation sentence — one
+One request does, **concurrently** (`asyncio.gather`, was `Promise.all`),
+not sequentially:
+1. An OpenAI tool-call (`gpt-5.6-luna`, forced `search_filters` function,
+   `strict: true`, `reasoning_effort: "none"` — required on gpt-5.x reasoning
+   models for function-tool calls) extracts objective filters
+   (gender/category/price/brand/sale/sizes/colors) plus a semantic residual,
+   a confirmation sentence, and 2-4 next-query refinement suggestions — one
    call, and the model's job ends there. It never sees the actual product
-   results, so there's no second round-trip to narrate anything.
+   results.
 2. The raw query text gets embedded (`text-embedding-3-large`, truncated to
    1536 dims via OpenAI's `dimensions` param — **must** match
    `db/embed_products.py`'s dimensions or the vector distance is
    meaningless).
 
-Those two calls were originally sequential (~2.5s combined) — made
-concurrent since they don't depend on each other, cutting to whichever one is
-slower (~1.5-2s as measured, see below). The DB step is one query: the
-extracted filters become a SQL `WHERE`, narrowing the candidate set; the
-embedding drives `ORDER BY p.embedding <=> $vector` within that already-
-narrowed set — filter-then-rank, not two searches merged afterward.
+The DB step: the extracted filters (gender, category — expanded through the
+taxonomy tree, price, brand, size, color) become a hard SQL `WHERE`,
+narrowing the candidate set; TWO retrieval legs then run concurrently within
+that narrowed set (see "Hybrid retrieval" below), fused with RRF.
 
 Response:
 ```json
 {
-  "response_text": "Here are cozy warm sweaters for women under Rs. 5,000. Showing 50 best matches (3054 match the filters).",
-  "filters": { "gender": "Women", "maxPrice": 5000, "semantic_query": "cozy warm sweaters", ... },
-  "total": 3054,
-  "products": [ /* same shape as GET /api/products */ ]
+  "response_text": "Here are cozy warm sweaters for women under Rs. 5,000.",
+  "filters": {
+    "gender": "Women", "categories": ["Sweater"], "maxPrice": 5000,
+    "semantic_query": "cozy warm", "suggested_refinements": ["Crew neck", "Turtleneck", "Cardigan"],
+    "..." : "..."
+  },
+  "total": 85,
+  "products": [ /* same shape as GET /api/products, id as a STRING (see below) */ ]
 }
 ```
 
-`total` is every product matching the HARD filters (gender/price/brand/etc)
-— it does NOT mean "this many are semantically relevant," since vector
-ranking only reorders the candidate pool (capped at 50), it never narrows
-the SQL row count. `response_text` is phrased to reflect what's actually
-shown, not the raw filter-match count, for exactly this reason — see the
-comment above the response in `server/index.js` if that phrasing needs
-revisiting.
+`total` is every product matching the HARD filters — it does NOT mean "this
+many are semantically relevant," since ranking only reorders the candidate
+pool (capped at 50), it never narrows the SQL row count.
 
 ## Setup
 
-- `server/.env` needs `OPENAI_API_KEY` (loaded automatically at startup via
-  Node's built-in `process.loadEnvFile()` — no `dotenv` dependency). Same
-  persistence lesson as `db/scraper/.env`/`COUGAR_STOREFRONT_TOKEN`: a key
-  set only in a shell session is gone next time the process starts.
-- Requires `db/embed_products.py` to have run — `/api/search` silently
-  excludes any product with `embedding IS NULL` (the `WHERE ... AND
-  p.embedding IS NOT NULL` clause), so an incomplete embedding pass just
-  means a smaller, still-correct candidate pool, not broken results.
-- pgvector extension: installed into the live `libas-postgres` container via
-  `apt-get install postgresql-16-pgvector` (see the comment at the top of
-  `db/init/01_schema.sql` — the base `postgres:16` image doesn't have it,
-  a fresh setup needs the same package or a `pgvector/pgvector:pg16` image).
+- `server/.env` needs `OPENAI_API_KEY` (loaded via `python-dotenv`, same
+  persistence lesson as `db/scraper/.env` — a key set only in a shell
+  session is gone next time the process starts).
+- `pip install -r server/requirements.txt` (fastapi, uvicorn, asyncpg,
+  pydantic, openai, python-dotenv).
+- Requires `db/embed_products.py` to have run — same as before, an
+  incomplete embedding pass just means a smaller, still-correct candidate
+  pool.
+- pgvector extension: same as before, installed into the live
+  `libas-postgres` container.
+- `docker compose up -d` in `db/` also brings up Grafana now (see
+  "Monitoring" below) — reuses the same Postgres instance, no separate DB.
 
 ## Running it
 
 ```powershell
 cd server
-node index.js          # picks up .env automatically
+python -m uvicorn main:app --port 4000 --reload
 ```
 
 ```powershell
 curl -X POST http://localhost:4000/api/search -H "Content-Type: application/json" -d '{"query":"formal kurta for a wedding, men, under 8000"}'
 ```
 
-## Measured, finished-state numbers
+CLI introspection tool (every stage visible — extracted filters, both legs'
+independent rankings, final RRF fusion), same as before, now interactive
+about gender rather than never passing one:
+```powershell
+python cli.py "furor jeans" --gender=1
+```
 
-Embedding pass completed (113,322/113,322), HNSW index built
-(`idx_products_embedding_hnsw`, cosine ops), server restarted clean:
+## A real driver gotcha found during the migration
 
-- **DB query alone**: ~35-50ms (was ~650ms brute-force before the index —
-  see the `hnsw.ef_search` note below for why it's 50ms and not the ~3ms a
-  plain unfiltered HNSW lookup would be).
-- **Full `/api/search` request, steady state**: ~1.4-1.6s. Essentially all
-  of this is the OpenAI extraction call (`gpt-4o-mini` tool-call, measured
-  standalone at ~1.6s) — the embedding call runs concurrently with it (see
-  the code comment above the handler) and the DB step is now negligible.
-  **The extraction call is the one remaining latency lever** if this needs
-  to get faster — a smaller/faster model, or the regex/lookup fast-path
-  for common query shapes discussed earlier (skip the LLM call entirely
-  when a query is simple enough), are the next places to look, not the
-  retrieval side.
+`products.id` is `bigint`. Node's `pg` driver serializes bigint columns as a
+**string** by default (avoiding silent precision loss past 2^53); Python's
+`asyncpg` returns a native `int` (no precision issue in Python, but a
+different wire shape). Every place a product id is returned is now cast
+`str(...)` explicitly to match the old contract exactly — a strict `===`
+against a URL param (always a string) would otherwise have silently broken.
+Verified via a byte-for-byte diff against the live Node server before
+cutover (see `MIGRATION_REPORT.md`).
 
-**A real pgvector gotcha found and fixed while measuring this:** HNSW under
-a selective `WHERE` filter can silently return FEWER rows than `LIMIT` even
-when more exist — it stops exploring the index graph after
-`hnsw.ef_search` candidates (default 40), regardless of how many passed the
-filter. Measured directly on the "Women + under Rs. 5,000" filter above:
-7 of 50 real matching rows at the default `ef_search`, 50/50 at
-`ef_search = 400` (~50ms, still negligible). The fix required checking out
-a dedicated client via `pool.connect()` rather than two separate
-`pool.query()` calls — `SET` only affects the session that runs it, and the
-pool doesn't guarantee two `pool.query()` calls land on the same
-connection. See the code comment directly above where `client = await
-pool.connect()` is used.
+## Measured numbers (post-migration)
 
-## Hybrid retrieval (vector + textual, fused with RRF)
+- **DB query alone**: ~35-50ms, unchanged (same SQL, same HNSW index).
+- **Full `/api/search` request, steady state**: ~2.2s average (101-query
+  parity run), vs. ~1.5-2.7s measured on the Node version — comparable, not
+  a regression. Still essentially all OpenAI extraction-call latency; still
+  the one lever if this needs to get faster.
 
-Added after the initial build: `/api/search` now runs the objective-filtered
-candidate set through TWO independent legs — vector similarity (as before)
-and Postgres full-text search (`search_vector`, a generated+`STORED`
-`tsvector` column with a GIN index — this stack's BM25-equivalent; pgvector
-has no native BM25, and `ts_rank` over a GIN index is the standard
-in-Postgres analog, no new infra) — then fuses them with Reciprocal Rank
-Fusion (`score = Σ weight/(60 + rank)` per leg an id appears in). Both legs
-run concurrently (`Promise.all`), each pulling 60 candidates; fused down to
-50 for the response.
+**The pgvector `hnsw.ef_search` gotcha** (HNSW under a selective `WHERE`
+filter silently returns fewer rows than `LIMIT` unless `ef_search` is raised
+— default 40 returned 7/50 real matches on a real filtered query, `400`
+returns 50/50 at ~50ms) carried over unchanged: `SET hnsw.ef_search = 400`
+runs via `asyncpg`'s `pool.acquire()` (a dedicated connection), same
+reasoning as the old `pool.connect()` — `SET` only affects the session that
+issued it.
 
-Weighted 0.7 vector / 0.3 textual rather than an even split — **found and
-verified a real ranking failure while testing this build**: searching
-"furor jeans" ranked "Furor Jeans Club Keychain" (a rubber keychain,
-`product_type: "Key Chains"`, whose title happens to literally contain the
-word "Jeans" as Furor's own product-line naming) above actual jeans.
-Weighting toward vector didn't fully fix this one — traced it further and
-found the vector leg *itself* ranks the keychain #1 for this query (cosine
-0.6255 vs. 0.6239 for the top real jeans match, measured directly), because
-general-purpose text embeddings are still meaningfully influenced by a
-literal shared word ("Jeans") between the query and the product's own
-embedded text, not purely conceptual similarity. **This is not an RRF bug —
-it's the direct, now-confirmed consequence of the `gender`-only filter
-limitation already flagged below**: there's no category/product-type hard
-filter to rule out "Keychain" when someone is clearly asking for the
-Bottomwear "Jeans" leaf. Left unfixed rather than patched further tonight —
-fixing it properly means deciding whether to extend extraction with a
-category signal, which is a real scope question, not a 3am judgment call to
-make alone. The 0.7/0.3 weighting is kept because it's still a reasonable
-general default (vector genuinely is more reliable on average, this
-specific case just also has a literal-word collision no weighting alone
-resolves) — see the code comment above the RRF fusion block.
+## Hybrid retrieval (vector + textual, fused with RRF) — unchanged
 
-## Known limitations (v1, not yet addressed)
+Both legs (vector similarity, Postgres full-text via `search_vector`/
+`ts_rank`) run concurrently, 60 candidates each, fused with RRF
+(`score = Σ weight/(60 + rank)`, weighted 0.7 vector / 0.3 textual) down to
+50. The textual leg matches on `semantic_query` only (not the raw query) and
+is skipped entirely when that residual is empty — re-matching an
+already-hard-filtered category/price/brand word was diluting the one
+genuinely distinctive term to 1-of-N signal. `plainto_tsquery`'s `&` is
+converted to `|` (safe because it only reranks within the already-filtered
+set) since requiring every lexeme present in one product's text simultaneously
+matched almost nothing for real multi-word queries.
 
-- **No conversational/session state.** Each request is stateless — no
-  memory of a prior search's filters for follow-ups ("cheaper", "the second
-  one"). That was explicitly designed as a *later* layer, not part of this
-  build — see the conversation.
-- **`gender` is the only taxonomy filter the extraction model can set** —
-  branch/sub/category (e.g. specifically "Upperwear > T-Shirt", or ruling
-  out "Accessories" entirely for a bottomwear query) are deliberately left
-  to semantic ranking rather than making the model navigate the full
-  category tree, which would need the whole tree fed into every extraction
-  call. See the "Furor Jeans Club Keychain" case directly above — this is
-  now a confirmed real gap, not just a theoretical one, and the next
-  concrete thing worth deciding on.
-- **Not touched:** the existing `GET /api/products` endpoint. This is a
-  fully separate route reusing its small helper functions
-  (`categoryIdsFromQuery`, `resolveBrandId`, `expandSizeAliasesForQuery`) —
-  zero risk to the existing, working product-listing/filter UI.
+**The "furor jeans -> keychain ranked above real jeans" issue mentioned in
+earlier drafts of this doc is fixed** — `categories` is now a hard
+structured filter (not left to semantic ranking alone), resolved through the
+full taxonomy tree including grouping nodes (`"Upperwear"`, `"Western"`,
+...) expanded to their leaf descendants. A related bug found via 100-query
+testing and fixed: when the model names both a leaf AND its own ancestor
+grouping node together (e.g. `["3-Piece","Unstitched"]`), the ancestor's
+much larger descendant set used to swallow the leaf's precision entirely —
+`categoryIdsForSearch`/`category_ids_for_search` now prunes ancestors when a
+descendant is also present in the same request.
+
+## Monitoring (new)
+
+Every search is logged asynchronously (FastAPI `BackgroundTasks`, fires
+after the response is already sent — logging must never add latency to a
+request) to a `search_logs` table in the same Postgres database: query text,
+resolved filters, total matches, per-OpenAI-call token counts/latency/cost.
+Grafana (`http://localhost:3001`, admin/admin) is provisioned automatically
+via `docker compose up -d` in `db/` — dashboard "Libas Search Quality":
+recent searches, zero-result-rate (our proxy for search quality — this
+pipeline doesn't generate a text answer for an LLM judge to score, unlike a
+FAQ-style RAG app), gender/model breakdown, response-time/cost/token-usage
+over time.
+
+**OpenTelemetry is deliberately not built yet** — planned for when this
+goes to production, not part of this pass. One hook-point comment marks
+where it goes in `main.py`'s `lifespan`.
+
+## Known limitations (still open, not part of this migration)
+
+- **No conversational/session state.** Each request is stateless. The
+  "suggested_refinements" next-query chips work around this by folding the
+  refinement into the query TEXT (a fresh, complete search), not by the
+  backend remembering anything — see the AI Search page's chat-session UI.
+- **Color filtering under-recalls.** `colors` matches an EXACT lowercase
+  `canonical_name` — the `colors` table has ~1,784 raw, unnormalized store
+  spellings ("Blue", "Sky Blue", "Royal Blue", "Navy Blue" all separate
+  rows), so a "blue" filter misses everything not spelled exactly "blue"
+  (~40% average recall loss measured across 12 real colors). Known,
+  documented, not touched by this migration — needs a real alias/
+  normalization scheme, scoped separately.
+- **"Kids" has no single gender value.** A query like "kids shoes" can't be
+  expressed as Boys ∪ Girls in the extraction schema's single-value
+  `gender` field — the AI Search page's Kids-mode toggle works around this
+  by requiring an explicit Boys/Girls pick, but a bare-text "kids" query
+  with no UI override still resolves too narrowly. Two of the 101 parity
+  test queries fail for exactly this reason (documented, not a regression).

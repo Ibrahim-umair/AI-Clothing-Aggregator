@@ -1,12 +1,28 @@
-// One-shot diagnostic harness: runs 100 real hand-written NL queries (2 sets
-// of 50) through the actual runSearch() pipeline, then independently
-// re-derives ground truth for each objective constraint straight from
-// Postgres (never trusting the LLM's own extracted `filters` as proof of
-// correctness) to measure real accuracy and surface root causes.
+// Parity check for the Python/FastAPI migration: the SAME 101 real
+// queries and ground-truth checks as server/test_100_queries.js, but
+// calling the new Python service over HTTP (POST /api/search) instead of
+// importing runSearch() in-process — the pipeline moved languages, but
+// this harness (and the DB it independently checks against) didn't need
+// to, so reusing it directly is the lowest-risk way to prove parity
+// rather than re-writing the same 101 hand-checked cases in Python.
 //
-// Usage: node test_100_queries.js [--limit N] [--concurrency N]
-import { runSearch } from "./search.js";
-import { pool } from "./db.js";
+// Usage: node test_parity.js [--limit N] [--concurrency N] [--port N]
+// Needs its own `pg` install (`npm install pg` in this directory) —
+// deliberately self-contained rather than importing the Node server's
+// db.js, since that file no longer exists post-cutover.
+import pg from "pg";
+
+const pool = new pg.Pool({
+  host: process.env.PGHOST || "localhost",
+  port: Number(process.env.PGPORT || 5433),
+  database: process.env.PGDATABASE || "libas",
+  user: process.env.PGUSER || "libas",
+  password: process.env.PGPASSWORD || "libas_dev_password",
+  max: 10,
+});
+
+const PORT = parseInt(process.argv.find((a) => a.startsWith("--port="))?.split("=")[1] || "8000", 10);
+const BASE_URL = `http://localhost:${PORT}`;
 
 const CONCURRENCY = parseInt(process.argv.find((a) => a.startsWith("--concurrency="))?.split("=")[1] || "5", 10);
 const LIMIT = parseInt(process.argv.find((a) => a.startsWith("--limit="))?.split("=")[1] || "1000", 10);
@@ -288,7 +304,13 @@ async function runOne(tc) {
   const t0 = Date.now();
   let result;
   try {
-    result = await runSearch(tc.query, { genderOverride: tc.uiGender });
+    const res = await fetch(`${BASE_URL}/api/search`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query: tc.query, gender: tc.uiGender }),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+    result = await res.json();
   } catch (e) {
     return { ...tc, error: String(e), ms: Date.now() - t0 };
   }
