@@ -86,6 +86,39 @@ async function categoryIdsFromQuery(q) {
   return { ids: descendantIds(tree, id), notFound: false };
 }
 
+// Purpose-built for /api/search, deliberately separate from
+// categoryIdsFromQuery above: that one resolves to a SINGLE node (correct
+// for the Home page's "one specific card was clicked" case, via
+// resolveNodeId/findDescendantByName's first-match semantics), but a
+// gender-less NL search needs the OPPOSITE — every leaf with this exact
+// name, across every gender it exists under, not just the first one a
+// tree walk happens to visit. Real bug this fixes: "furor jeans" (no
+// gender extracted) with categoryIdsFromQuery({category: "Jeans"}) was
+// silently resolving to only ONE gender's Jeans leaf (whichever BFS
+// visited first), matching zero of Furor's real (Men's) jeans products.
+async function categoryIdsForSearch(gender, category) {
+  if (!gender && !category) return { ids: null, notFound: false };
+  const tree = await getTree();
+  const genderRoots = gender
+    ? [(tree.childrenOf.get(null) || []).find((id) => tree.byId.get(id).name.toLowerCase() === gender.toLowerCase())].filter((x) => x != null)
+    : tree.childrenOf.get(null) || [];
+  if (gender && genderRoots.length === 0) return { ids: [], notFound: true };
+
+  if (!category) {
+    // Gender only: every category under that one root (categoryIdsFromQuery
+    // already does exactly this correctly for a single known root).
+    return categoryIdsFromQuery({ gender });
+  }
+
+  const leafIds = genderRoots.flatMap((rootId) => {
+    const id = findDescendantByName(tree, rootId, category);
+    return id != null ? [id] : [];
+  });
+  if (leafIds.length === 0) return { ids: [], notFound: true };
+  // Leaves have no descendants of their own — this is already the final id set.
+  return { ids: leafIds, notFound: false };
+}
+
 async function resolveBrandId(brandParam) {
   if (!brandParam) return null;
   const { rows } = await pool.query(
@@ -246,6 +279,24 @@ app.get("/api/products", async (req, res) => {
 //   3. response_text is templated with the real result count after the
 //      query runs — the model estimates nothing about results it hasn't
 //      seen.
+// Every real leaf category name in the live taxonomy (43, as of this
+// writing) — refresh this list if CATEGORY_TREE changes (db/load_data.py).
+// Added after a real, verified failure: without this, "furor jeans"
+// ranked a keychain above real jeans, because NOTHING excluded the
+// Accessories/Keychain leaf before ranking ever ran — "jeans" was being
+// treated as purely fuzzy/semantic intent, but it's actually a
+// well-defined, objective category, exactly like gender or price. This
+// is the real fix for that (RRF leg-weighting alone could not fix it —
+// see SEARCH.md); it's a hard SQL filter now, same as gender.
+const KNOWN_CATEGORIES = [
+  "1-Piece", "2-Piece", "3-Piece", "Bag", "Belt", "Cap", "Co-ord Set", "Cufflink",
+  "Dress", "Frock", "Hoodie", "Jacket", "Jeans", "Jewelry", "Joggers", "Keychain",
+  "Kurta", "Kurta Set", "Kurta Shalwar", "Kurti", "Perfume", "Polo", "Sandals",
+  "Saree", "Shalwar Kameez", "Shawl", "Sherwani", "Shirt", "Shoes", "Shorts",
+  "Socks", "Suit", "Sunglasses", "Sweater", "Sweatshirt", "Tie", "Tights", "Top",
+  "Trouser", "T-Shirt", "Underwear", "Waistcoat", "Wallet", "Watch",
+];
+
 const SEARCH_TOOL = {
   type: "function",
   function: {
@@ -256,16 +307,22 @@ const SEARCH_TOOL = {
       type: "object",
       properties: {
         gender: { type: ["string", "null"], enum: ["Women", "Men", "Boys", "Girls", "Unisex", null], description: "Who the product is for, if stated or clearly implied. null if not mentioned." },
+        category: {
+          type: ["string", "null"],
+          enum: [...KNOWN_CATEGORIES, null],
+          description:
+            "The specific product TYPE being searched for, ONLY if it clearly maps to exactly one of the known category names, and the query is genuinely about that type of product (not just mentioning the word in passing — e.g. a query for an accessory that happens to share a word with a garment name must NOT be confused with the garment itself). null if the query doesn't name a specific product type, or could plausibly mean more than one category.",
+        },
         minPrice: { type: ["number", "null"], description: "Minimum price in PKR, if a lower bound is stated. null otherwise." },
         maxPrice: { type: ["number", "null"], description: "Maximum price in PKR, if an upper bound or budget is stated (e.g. 'under 5000', 'cheap' does NOT count as a number — leave null for vague budget words). null otherwise." },
         brand: { type: ["string", "null"], description: "One of the known brand names, ONLY if the user names a real brand explicitly. Known brands: Breakout, Cambridge, Charcoal, Cougar, Diners, Edenrobe, Engine Clothing, Equator, Furor, Lama, Meme, Monark, ONE (Be-One), Outfitters, Royal Tag, Uniworth, Zellbury. null otherwise — never invent a brand name." },
         sizes: { type: "array", items: { type: "string" }, description: "Sizes explicitly requested (e.g. ['M'], ['L','XL']). Empty array if none." },
         colors: { type: "array", items: { type: "string" }, description: "Colors explicitly requested, lowercase canonical English names (e.g. ['blue']). Empty array if none." },
         onSale: { type: "boolean", description: "true only if the user explicitly asks for sale/discounted items." },
-        semantic_query: { type: "string", description: "The remaining descriptive intent NOT already captured above — garment type, style, occasion, material, mood (e.g. 'cozy warm sweater', 'formal wedding kurta'). This is what drives semantic ranking, so keep it focused on the product itself, not the filters already extracted." },
+        semantic_query: { type: "string", description: "The remaining descriptive intent NOT already captured above — style, occasion, material, mood (e.g. 'cozy warm', 'formal wedding'). Do not repeat the category/gender/price/brand already extracted above. This is what drives semantic ranking." },
         response_text: { type: "string", description: "A short, natural one-sentence confirmation of what's being searched for, written in present tense as if results are being shown now (e.g. 'Here are cozy sweaters for women under Rs. 5,000.'). Do NOT mention a specific count — that gets filled in separately." },
       },
-      required: ["gender", "minPrice", "maxPrice", "brand", "sizes", "colors", "onSale", "semantic_query", "response_text"],
+      required: ["gender", "category", "minPrice", "maxPrice", "brand", "sizes", "colors", "onSale", "semantic_query", "response_text"],
       additionalProperties: false,
     },
     strict: true,
@@ -317,9 +374,14 @@ app.post("/api/search", async (req, res) => {
       embedText(query),
     ]);
 
-    const { ids: categoryIds } = filters.gender
-      ? await categoryIdsFromQuery({ gender: filters.gender })
-      : { ids: null };
+    // notFound means the extracted gender+category combination doesn't
+    // actually exist in the tree — same as /api/products, that's
+    // genuinely zero results, not "ignore the category and show
+    // everything".
+    const { ids: categoryIds, notFound: categoryNotFound } = await categoryIdsForSearch(filters.gender, filters.category);
+    if (categoryNotFound) {
+      return res.json({ response_text: `${filters.response_text} No matches found.`, filters, total: 0, products: [] });
+    }
     const brandId = filters.brand ? await resolveBrandId(filters.brand) : null;
 
     const where = [
