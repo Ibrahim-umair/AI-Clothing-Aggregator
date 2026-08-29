@@ -38,10 +38,6 @@ export default function App() {
           </ErrorBoundary>
         </div>
       </main>
-      <footer className="site-footer">
-        <span>Libas — a browsing frontend over the real, live product database.</span>
-        <span>Prices and stock shown as last scraped; always confirm on the brand's site.</span>
-      </footer>
     </div>
   );
 }

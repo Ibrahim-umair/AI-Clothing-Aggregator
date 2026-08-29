@@ -1198,19 +1198,6 @@ ul { margin: 0; padding: 0; list-style: none; }
 
 .empty-state h3 { color: var(--text-soft); }
 
-/* ---------- Footer ---------- */
-.site-footer {
-  margin-top: auto;
-  border-top: 1px solid var(--border);
-  padding: 28px clamp(16px, 3.5vw, 40px) 34px;
-  color: var(--text-faint);
-  font-size: 12.5px;
-  display: flex;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
 /* ---------- Buttons ---------- */
 .btn {
   display: inline-flex;
@@ -1903,31 +1890,85 @@ ul { margin: 0; padding: 0; list-style: none; }
   line-height: 1.6;
 }
 
+/* Very quiet page-level wash while shopping in Boys/Girls — a single soft
+   radial tint behind the hero, using the same accent-2 pairing as the
+   toggle below rather than a new color, and faded to nothing by 70% so it
+   reads as "the light in the room changed slightly," not a themed page. */
+.ai-search--kids {
+  background: radial-gradient(ellipse 900px 460px at 50% 0%, var(--accent-2-soft), transparent 70%);
+}
+
+.ai-search__mode-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+}
+
 /* Segmented toggle — an explicit gender filter that OVERRIDES whatever
    the model would infer from the text (see runSearch's genderOverride).
    Defaults to Men, matching the supplied reference. Clicking the active
    button clears it, which is a real third state (not just an unstyled
-   default) meaning "let the AI decide from what I typed". */
+   default) meaning "let the AI decide from what I typed" — Boys/Girls is
+   the one exception (see toggleGender in AiSearch.jsx): there's no way to
+   ask the backend for "kids, unspecified," so one of the two stays active
+   at all times whenever the Kids toggle is on. */
 .ai-search__gender-toggle {
   display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: center;
   padding: 4px;
   background: var(--surface-muted);
   border: 1px solid var(--border);
   border-radius: 999px;
-  margin-top: 2px;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+/* Boys/Girls are real, independent genders (see AiSearch.jsx) — this isn't
+   a third mode, just a quiet tint on the SAME toggle so the page reads as
+   "a child gender is active" without a reskin. Kept off the active pill's
+   own fill (which inverts to --text/--bg per theme, where a single accent
+   color can't stay legible against both) and on the neutral container
+   instead, using accent-2 the same way the rest of the app pairs an
+   accent with its -soft background variant. */
+.ai-search__gender-toggle--kids {
+  background: var(--accent-2-soft);
+  border-color: var(--accent-2);
 }
 
 .ai-search__gender-btn {
-  padding: 9px 26px;
+  padding: 9px 22px;
   border-radius: 999px;
   font-size: 13px;
   font-weight: 700;
   color: var(--text-soft);
+  white-space: nowrap;
   transition: background 0.15s ease, color 0.15s ease;
 }
 .ai-search__gender-btn--active {
   background: var(--text);
   color: var(--bg);
+}
+
+/* The button that swaps the toggle above between Men/Women and
+   Boys/Girls — kept visually separate from the segmented pills (its own
+   outlined pill, not a third option inside that group) since it changes
+   WHICH pair is showing rather than picking a value within one pair. */
+.ai-search__kids-toggle {
+  padding: 9px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-faint);
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.ai-search__kids-toggle:hover { color: var(--text-soft); border-color: var(--text-faint); }
+.ai-search__kids-toggle--active {
+  background: var(--accent-2-soft);
+  border-color: var(--accent-2);
+  color: var(--accent-2-strong);
 }
 
 /* Composer-shaped rather than a single-line input bar — text sits on top
@@ -1999,6 +2040,77 @@ ul { margin: 0; padding: 0; list-style: none; }
 .ai-search__submit:hover:not(:disabled) { background: var(--accent); }
 .ai-search__submit:disabled { opacity: 0.35; }
 
+/* Leaves room at the bottom of the results so the last row of cards
+   never sits underneath the fixed composer below it. */
+.ai-search__results--chat {
+  padding-bottom: 100px;
+}
+
+/* The "new chat session" bar — replaces the hero composer once a search
+   is underway. Fixed (not sticky-in-flow) and centered independently of
+   the results column beneath it, so it reads as a persistent input
+   rather than part of the page that happens to be at the bottom. */
+.ai-search__sticky-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 0 16px;
+  z-index: 30;
+  pointer-events: none;
+}
+.ai-search__sticky-bar > * { pointer-events: auto; }
+
+.ai-search__composer--sticky {
+  flex-direction: row;
+  align-items: center;
+  width: 100%;
+  max-width: 560px;
+  padding: 8px 8px 8px 8px;
+  border-radius: 999px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.14);
+}
+.ai-search__composer-input--sticky {
+  padding: 0 4px;
+}
+
+.ai-search__filter-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  color: var(--text-faint);
+  background: var(--surface-muted);
+  border: 1px solid transparent;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.ai-search__filter-toggle:hover { color: var(--text-soft); }
+.ai-search__filter-toggle--active {
+  background: var(--accent-2-soft);
+  border-color: var(--accent-2);
+  color: var(--accent-2-strong);
+}
+
+.ai-search__submit--sticky { width: 38px; height: 38px; }
+
+/* Floats above the composer rather than pushing it up, so opening it
+   never shifts the input the user is about to type into. */
+.ai-search__sticky-filters {
+  padding: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.14);
+}
+.ai-search__sticky-filters .ai-search__mode-row { margin-top: 0; }
+
 .ai-search__examples {
   display: flex;
   flex-wrap: wrap;
@@ -2040,6 +2152,9 @@ ul { margin: 0; padding: 0; list-style: none; }
    and a full-bleed bar for one short line read as an empty slab,
    especially in the loading state where a single thin skeleton line sat
    marooned in it. */
+/* Deliberately grey/neutral, not the app's olive --accent — that read
+   fine in light mode but turned muddy in dark mode, and this banner is a
+   system message (what the AI understood), not a themed brand moment. */
 .ai-search__answer {
   display: inline-flex;
   align-items: center;
@@ -2047,9 +2162,9 @@ ul { margin: 0; padding: 0; list-style: none; }
   max-width: 100%;
   padding: 12px 18px;
   margin-bottom: 14px;
-  background: var(--accent-soft);
+  background: var(--surface-muted);
   border-radius: 999px;
-  color: var(--accent-strong);
+  color: var(--text-soft);
   font-size: 14px;
   font-weight: 600;
 }
@@ -2064,13 +2179,12 @@ ul { margin: 0; padding: 0; list-style: none; }
   border-radius: 999px;
   /* Kept as a gradient, not a flat color-mix fill: .skeleton-block's
      shimmer animates background-position, which is invisible against a
-     solid background — this tints the shimmer to the banner's accent
-     instead of silently disabling it. */
+     solid background — this tints the shimmer grey to match the banner. */
   background: linear-gradient(
     90deg,
-    color-mix(in srgb, var(--accent-strong) 14%, transparent) 25%,
-    color-mix(in srgb, var(--accent-strong) 30%, transparent) 50%,
-    color-mix(in srgb, var(--accent-strong) 14%, transparent) 75%
+    color-mix(in srgb, var(--text-soft) 16%, transparent) 25%,
+    color-mix(in srgb, var(--text-soft) 34%, transparent) 50%,
+    color-mix(in srgb, var(--text-soft) 16%, transparent) 75%
   );
   background-size: 200% 100%;
 }
@@ -2082,7 +2196,11 @@ ul { margin: 0; padding: 0; list-style: none; }
   margin-bottom: 24px;
 }
 
-.ai-search__chip {
+/* Now next-query suggestions (see suggested_refinements), not a readout
+   of applied filters — real buttons, styled like the hero's example
+   chips so the two read as the same kind of thing: something to click to
+   search further, not a passive label. */
+.ai-search__chip--action {
   padding: 6px 13px;
   border-radius: 999px;
   background: var(--surface-muted);
@@ -2090,11 +2208,12 @@ ul { margin: 0; padding: 0; list-style: none; }
   color: var(--text-soft);
   font-size: 12px;
   font-weight: 600;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
 }
-.ai-search__chip--muted {
-  color: var(--text-faint);
-  font-weight: 500;
-  font-style: italic;
+.ai-search__chip--action:hover {
+  border-color: var(--accent);
+  color: var(--accent-strong);
+  background: var(--accent-soft);
 }
 
 /* Result cards on this page are denser (5-up rather than 4-up, see the
