@@ -553,3 +553,91 @@ class of bug (a store's `product_type` bucket conflicting with what its own titl
 #45d, #57, #59, #65, and #66 are all the same root cause applied to a different leaf pair each
 time; worth remembering as a standing category of risk for any future store onboarding, not
 just something to re-discover per-brand.
+
+## 2026-08-29 (fourteenth pass — four parallel category audits, prompted by real tank tops/
+## pocket squares/vests found in the live Men's Shirt listing while browsing outside AI search)
+
+The user found real non-shirts (tank tops, a pocket square, activewear vests) sitting in the
+live Men's Shirt category by browsing the site directly, and asked for a systematic audit of
+every category rather than another one-off fix. Ran four parallel audits (Western Upperwear;
+Bottomwear/Footwear/Suits; Eastern; Accessories/Fragrance), each checking every leaf currently
+in use against every OTHER leaf family's own real regex, verifying every candidate directly
+against `classify()` before treating it as a bug. Confirmed: **"Shirt" has been acting as the
+Western branch's silent catch-all** — any garment type `classify()` has no keyword for lands
+there by default, and this was the root cause behind nearly everything found.
+
+67. **Pocket Square had no leaf or keyword at all** — 305 real products (Uniworth "100% Silk
+    Pocket Square", Cambridge/Equator formal accessories) were falling to Shirt. Added a
+    `Pocket Square` leaf (Accessories, all genders) and a keyword check.
+68. **Tank Top had no leaf or keyword at all** — 458 real products across Men/Women/Boys/Girls
+    (Furor's own product_type is literally "Men Tank Tops" and still resolved to Shirt) were
+    falling to Shirt/T-Shirt. Added a `Tank Top` leaf (Upperwear, all genders) and a keyword
+    check, broadened from "tank top(s)" to bare "tank(s)" after backfill verification found
+    real tank tops titled without the word "top" at all (Equator's "Color Block Tank",
+    Breakout's "CARDIO TANK", Monark's "Textured Tank-Shirt", Meme's "TANK T-SHIRT FOR
+    WOMEN") — every real "tank" hit checked catalog-wide is a genuine tank top, no collision
+    found. Deliberately excludes "sando" — this catalog's own real word for a men's
+    UNDERGARMENT tank, a different real garment, already handled by the existing
+    `VEST_UNDERWEAR_SIGNAL_RE` logic (bare "sando" with no "vest" word is a separate,
+    pre-existing gap — still falls to Shirt, out of scope for this pass, not newly broken).
+69. **Scarf/Muffler/Stole had no leaf or keyword at all** — 1,013 real products (mostly
+    Men/Women; Uniworth "Aqua Wool Scarf"/"Men Muffler") were falling to Shirt. Worse, a
+    standalone Dupatta/Duppatta was falling even further wrong, into **Shalwar Kameez** — the
+    Eastern branch's own silent final-else fallback — since "dupatta" is itself one of
+    `EASTERN_RE`'s trigger words (needed so a real "Shirt Trouser Dupatta" 3-piece unstitched
+    set still counts it as a named piece). Added a `Scarf` leaf (Accessories, all genders)
+    and a dedicated early check (`SCARF_RE`, gated on no OTHER real Eastern garment word being
+    present) checked ahead of the Eastern-branch entry.
+70. **Outerwear vests had nowhere to land once ruled out as underwear** — ~60 real products
+    (Engine Clothing's "Active Wear Vest", Cambridge's "Quilted Vest"/"Sherpa Vest") were
+    falling to Shirt. Folded bare "vest(s)" into the existing Jacket leaf, checked last among
+    the specific garment words so a real "Sweater Vest" still resolves Sweater first.
+71. **Diners' bare piece-count ("2PC"/"3PC") and "combo" naming for a coordinated Western
+    set, with no "suit"/"co-ord" word at all** — real body_html confirms these are genuine
+    "ready-to-wear 2-piece set"/"Top Bottom Set" listings, not Eastern ensembles (EASTERN_RE/
+    UNSTITCHED_RE have both already failed to match by this point in the function) — ~1,015
+    real products across Women/Girls/Boys/Teens/Infant sub-lines were falling to Shirt.
+    Broadened the existing Suits & Sets check to also match a bare `[1-4] pc`/`piece(s)`
+    marker and "combo", with two guards found necessary by checking every catalog-wide hit
+    before enabling this broadly: the piece-count marker requires the literal "pc"/"piece(s)"
+    suffix, NOT a bare trailing "p" — Edenrobe's "Varsity Jacket - EBTJP5-001-2P" is a SKU
+    suffix, not a piece count, and would otherwise have been wrongly pulled out of Jacket;
+    "combo" excludes an immediately-following Upperwear garment noun — Equator's "Green &
+    Black Combo Hoodie"/"Tri-Color Combo Tee" use "combo" to describe a COLOR combination,
+    not a multi-piece set, and must keep resolving to their own garment leaf. One narrow
+    residual left unfixed (1 real product, "Batman Graphic Boys Sweatshirt Trouser," product_
+    type "Boys Combo"): its title itself contains "Trouser," so the earlier, well-established
+    title-first bottomwear check wins before this combo check is ever reached — not worth
+    reordering that priority chain for a single product.
+72. **Edenrobe's stitched "Shirt Trouser" 2-piece sets had no Eastern word anywhere in the
+    title** — 399 real products (product_type "Woman Pret Embroidered"/"Girls Eastern") were
+    falling to plain Western Trouser. Real body_html confirms these are a stitched Kurti+
+    Trouser ensemble ("Girls' Pret Kurti & Trouser"). The UNSTITCHED version of the same title
+    pattern (670 real products) already resolved correctly, independently, via
+    `UNSTITCHED_RE` matching "Un Stitched" in that version's own product_type. Added
+    `SHIRT_TROUSER_SET_RE` as an Eastern-branch entry trigger (verified exclusive to
+    Edenrobe, 1,069 total real matches, before enabling) resolving to `Kurta Set`.
+73. **Zellbury's "Top" leaf existed in `CATEGORY_TREE` for Women/Girls but no rule had ever
+    emitted it — dead code.** 538 real Women's "Tunic" products (Zellbury's own naming) were
+    falling to Shirt instead. Added a gender-gated "tunic" -> "Top" check (only for
+    Women/Girls, the only genders this leaf is defined for).
+74. **Zellbury's "Chino" line had no keyword at all** — 84 real products ("Signature Chino")
+    were falling to Shirt. Added "chino(s)" to `TROUSER_RE` — every real hit checked
+    catalog-wide (1,200+ products across Edenrobe/Furor/Zellbury) unambiguously names a
+    trouser.
+75. **A mislabeled product_type outranked an unambiguous title, again** — Outfitters'
+    "Multi-Functional Backpack"/"Faux Leather Backpack" (product_type literally "WALLETS")
+    and Breakout's "CROCHET CLUTCH" (product_type "WALLET") had no keyword of their own, so
+    the title-first check found nothing and fell back to the mislabeled product_type's
+    "wallet(s)" match instead — same conflict class as String Sports Shoes (#59) and Basic
+    Denim Jacket (#65). Folded "backpack(s)"/"clutch(es)" into the existing Bag leaf trigger
+    (both the outer `ACCESSORY_RE` gate and the inner leaf-picker).
+
+277/277 tests pass (32 new). Backfill: 4,335 products recategorized across two runs (4,290
+initial + 45 from broadening the Tank Top regex after backfill verification surfaced the bare
+"tank" cases). New leaves added: Tank Top (458 products), Scarf (1,013), Pocket Square (305),
+and Top (541 — previously dead code, now finally reachable). Two items flagged during the
+audits but deliberately left as-is, not bugs: a "Waistcoat Suit" line (236 products, Boys/Men)
+that does contain a real waistcoat and has no cleaner leaf to move to; an orphaned "Kurta
+Shalwar" tree node (0 products — everything consistently consolidates into "Kurta Set"
+instead, the correct behavior, just leaving that one specific node unused).

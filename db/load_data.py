@@ -72,7 +72,14 @@ BRANDS = BRANDS_ALL
 CATEGORY_TREE = {
     "Men": {
         "Western": {
-            "Upperwear": [("T-Shirt","t-shirt"),("Polo","polo"),("Shirt","shirt"),("Jacket","jacket"),("Sweatshirt","sweatshirt"),("Hoodie","hoodie"),("Sweater","sweater")],
+            # "Tank Top" added 2026-08-29 — 140 real Men's tank tops
+            # (Furor's own product_type literally "Men Tank Tops", Cambridge/
+            # Engine's activewear tanks) had no leaf or keyword anywhere and
+            # were falling to the generic Shirt default — found by a
+            # dedicated category-by-category audit prompted after real
+            # tank-tops/pocket-squares/scarves turned up in the live Men's
+            # Shirt listing.
+            "Upperwear": [("T-Shirt","t-shirt"),("Polo","polo"),("Shirt","shirt"),("Jacket","jacket"),("Sweatshirt","sweatshirt"),("Hoodie","hoodie"),("Sweater","sweater"),("Tank Top","tank-top")],
             "Bottomwear": [("Trouser","trouser"),("Jeans","jeans"),("Shorts","shorts"),("Joggers","joggers"),("Tights","tights")],
             "Suits & Sets": [("Co-ord Set","co-ord-set")],
             "Footwear": [("Shoes","shoes")],
@@ -84,12 +91,19 @@ CATEGORY_TREE = {
         # "Keychain" added for 9 real Furor products (product_type
         # literally "Key Chains") that had nowhere to resolve — see
         # ACCESSORY_RE/_KEYWORD_LEAVES comments above.
-        "Accessories": [("Belt","belt"),("Tie","tie"),("Cap","cap"),("Wallet","wallet"),("Cufflink","cufflink"),("Watch","watch"),("Sunglasses","sunglasses"),("Jewelry","jewelry"),("Underwear","underwear"),("Socks","socks"),("Bag","bag"),("Shawl","shawl"),("Keychain","keychain")],
+        # "Scarf"/"Pocket Square" added 2026-08-29, same audit as Tank Top
+        # above — 522 real Men's scarves/mufflers (Uniworth "Aqua Wool
+        # Scarf", "Men Muffler") and 323 real pocket squares (Uniworth
+        # "100% Silk Pocket Square", Cambridge/Equator formal accessories)
+        # had no leaf/keyword and were falling to Shirt.
+        "Accessories": [("Belt","belt"),("Tie","tie"),("Cap","cap"),("Wallet","wallet"),("Cufflink","cufflink"),("Watch","watch"),("Sunglasses","sunglasses"),("Jewelry","jewelry"),("Underwear","underwear"),("Socks","socks"),("Bag","bag"),("Shawl","shawl"),("Keychain","keychain"),("Scarf","scarf"),("Pocket Square","pocket-square")],
         "Fragrance & Beauty": [("Perfume","perfume")],
     },
     "Women": {
         "Western": {
-            "Upperwear": [("T-Shirt","t-shirt"),("Polo","polo"),("Top","top"),("Shirt","shirt"),("Jacket","jacket"),("Sweatshirt","sweatshirt"),("Hoodie","hoodie"),("Sweater","sweater"),("Dress","dress")],
+            # "Tank Top" added 2026-08-29 — see Men's tree comment. 165 real
+            # Women's tank tops were falling to Shirt for the same reason.
+            "Upperwear": [("T-Shirt","t-shirt"),("Polo","polo"),("Top","top"),("Shirt","shirt"),("Jacket","jacket"),("Sweatshirt","sweatshirt"),("Hoodie","hoodie"),("Sweater","sweater"),("Dress","dress"),("Tank Top","tank-top")],
             "Bottomwear": [("Trouser","trouser"),("Jeans","jeans"),("Shorts","shorts"),("Joggers","joggers"),("Tights","tights")],
             "Suits & Sets": [("Co-ord Set","co-ord-set")],
             "Footwear": [("Shoes","shoes"),("Sandals","sandals")],
@@ -119,29 +133,33 @@ CATEGORY_TREE = {
         # Keychain", "Crochet Keychain", etc. — vendor "Women", product_type
         # "JEWELLERY") stranding on the bare Accessories branch node: the
         # Keychain leaf added earlier this pass only went to Men's tree.
-        "Accessories": [("Bag","bag"),("Jewelry","jewelry"),("Sunglasses","sunglasses"),("Shawl","shawl"),("Watch","watch"),("Underwear","underwear"),("Socks","socks"),("Belt","belt"),("Cap","cap"),("Wallet","wallet"),("Keychain","keychain")],
+        # "Scarf"/"Pocket Square" added 2026-08-29 — see Men's tree comment.
+        # 217 real Women's scarves/stoles were falling to Shirt for the same
+        # reason (a standalone Dupatta/Stole was landing even further wrong,
+        # in Shalwar Kameez — see the SCARF_RE check in classify()).
+        "Accessories": [("Bag","bag"),("Jewelry","jewelry"),("Sunglasses","sunglasses"),("Shawl","shawl"),("Watch","watch"),("Underwear","underwear"),("Socks","socks"),("Belt","belt"),("Cap","cap"),("Wallet","wallet"),("Keychain","keychain"),("Scarf","scarf"),("Pocket Square","pocket-square")],
         "Fragrance & Beauty": [("Perfume","perfume")],
     },
     "Boys": {
         "Western": {
-            "Upperwear": [("T-Shirt","t-shirt"),("Polo","polo"),("Shirt","shirt"),("Sweatshirt","sweatshirt"),("Hoodie","hoodie"),("Sweater","sweater"),("Jacket","jacket")],
+            "Upperwear": [("T-Shirt","t-shirt"),("Polo","polo"),("Shirt","shirt"),("Sweatshirt","sweatshirt"),("Hoodie","hoodie"),("Sweater","sweater"),("Jacket","jacket"),("Tank Top","tank-top")],
             "Bottomwear": [("Trouser","trouser"),("Shorts","shorts"),("Jeans","jeans"),("Joggers","joggers")],
             "Suits & Sets": [("Co-ord Set","co-ord-set")],
             "Footwear": [("Shoes","shoes")],
         },
         "Eastern": {"Stitched": [("Kurta","kurta"),("Kurta Set","kurta-set"),("Shalwar Kameez","shalwar-kameez"),("Waistcoat","waistcoat"),("Sherwani","sherwani")], "Unstitched": [("2-Piece","2-piece"),("Suit","suit")]},
-        "Accessories": [("Cap","cap"),("Bag","bag"),("Underwear","underwear"),("Sunglasses","sunglasses"),("Socks","socks"),("Belt","belt"),("Watch","watch"),("Wallet","wallet")],
+        "Accessories": [("Cap","cap"),("Bag","bag"),("Underwear","underwear"),("Sunglasses","sunglasses"),("Socks","socks"),("Belt","belt"),("Watch","watch"),("Wallet","wallet"),("Scarf","scarf"),("Pocket Square","pocket-square")],
         "Fragrance & Beauty": [("Perfume","perfume")],
     },
     "Girls": {
         "Western": {
-            "Upperwear": [("T-Shirt","t-shirt"),("Polo","polo"),("Top","top"),("Shirt","shirt"),("Sweatshirt","sweatshirt"),("Hoodie","hoodie"),("Sweater","sweater"),("Jacket","jacket"),("Dress","dress")],
+            "Upperwear": [("T-Shirt","t-shirt"),("Polo","polo"),("Top","top"),("Shirt","shirt"),("Sweatshirt","sweatshirt"),("Hoodie","hoodie"),("Sweater","sweater"),("Jacket","jacket"),("Dress","dress"),("Tank Top","tank-top")],
             "Bottomwear": [("Trouser","trouser"),("Shorts","shorts"),("Jeans","jeans"),("Joggers","joggers"),("Tights","tights")],
             "Suits & Sets": [("Co-ord Set","co-ord-set")],
             "Footwear": [("Shoes","shoes")],
         },
         "Eastern": {"Stitched": [("Kurti","kurti"),("Kurta","kurta"),("Kurta Set","kurta-set"),("Shalwar Kameez","shalwar-kameez"),("Waistcoat","waistcoat")], "Unstitched": [("2-Piece","2-piece"),("Suit","suit")]},
-        "Accessories": [("Jewelry","jewelry"),("Bag","bag"),("Underwear","underwear"),("Sunglasses","sunglasses"),("Socks","socks"),("Belt","belt"),("Watch","watch"),("Cap","cap"),("Wallet","wallet")],
+        "Accessories": [("Jewelry","jewelry"),("Bag","bag"),("Underwear","underwear"),("Sunglasses","sunglasses"),("Socks","socks"),("Belt","belt"),("Watch","watch"),("Cap","cap"),("Wallet","wallet"),("Scarf","scarf"),("Pocket Square","pocket-square")],
         "Fragrance & Beauty": [("Perfume","perfume")],
     },
     # This is a genuine catch-all for products with NO gender signal
@@ -162,7 +180,7 @@ CATEGORY_TREE = {
             # sale collection, nothing gendered) — was stranding on the
             # bare Western branch node with nowhere for a Unisex dress to
             # go, caught by the branch-level-orphan audit.
-            "Upperwear": [("T-Shirt","t-shirt"),("Polo","polo"),("Shirt","shirt"),("Sweatshirt","sweatshirt"),("Hoodie","hoodie"),("Sweater","sweater"),("Jacket","jacket"),("Dress","dress")],
+            "Upperwear": [("T-Shirt","t-shirt"),("Polo","polo"),("Shirt","shirt"),("Sweatshirt","sweatshirt"),("Hoodie","hoodie"),("Sweater","sweater"),("Jacket","jacket"),("Dress","dress"),("Tank Top","tank-top")],
             "Bottomwear": [("Trouser","trouser"),("Jeans","jeans"),("Shorts","shorts"),("Joggers","joggers")],
             # Added alongside the FOOTWEAR_RE broadening (CHANGELOG #56) —
             # 4 real Lama/Zellbury footwear products ("LEATHER COWBOY
@@ -177,7 +195,8 @@ CATEGORY_TREE = {
         },
         "Accessories": [("Socks","socks"),("Cap","cap"),("Bag","bag"),("Tie","tie"),("Cufflink","cufflink"),
                         ("Sunglasses","sunglasses"),("Belt","belt"),("Wallet","wallet"),("Watch","watch"),
-                        ("Jewelry","jewelry"),("Underwear","underwear"),("Shawl","shawl")],
+                        ("Jewelry","jewelry"),("Underwear","underwear"),("Shawl","shawl"),
+                        ("Scarf","scarf"),("Pocket Square","pocket-square")],
         "Fragrance & Beauty": [("Perfume","perfume")],
     },
 }
@@ -322,7 +341,7 @@ BRANCH_KEYWORDS = [
 ACCESSORY_RE = re.compile(
     r"\b(belts?|caps?|hats?|beanies?|wallets?|cufflinks?|sunglass(?:es)?|"
     r"jewel(?:l?ery|ry)?|bracelets?|necklaces?|earrings?|handbags?|"
-    r"clutch(?:es)?|sock(?:s)?|key\s*chains?)\b"
+    r"clutch(?:es)?|sock(?:s)?|key\s*chains?|backpacks?|pocket\s*squares?)\b"
     r"|(?<!paper[\s-])(?<!paper)\bbags?\b"
     r"|shawl(?!\s*collar)"
     r"|(?<!black)(?<!black\s)watch(?:es)?(?!\s*maker)"
@@ -373,6 +392,37 @@ def strip_garment_detail(text):
 # for "girl's dress," not an Eastern-specific garment — treated as a Dress
 # synonym in the Western fallback instead.
 EASTERN_RE = re.compile(r"\b(kurta|kurti|shalwar|kameez|saree|sari|dupatta|sherwani|waistcoat)\b", re.I)
+
+# A standalone scarf/muffler/stole/dupatta is an ACCESSORY sold on its own,
+# not part of an ensemble — but "dupatta" is also one of EASTERN_RE's own
+# trigger words (needed so a real "Shirt Trouser Dupatta" 3-piece unstitched
+# set still counts it as a named piece further down). Without this check,
+# a bare dupatta/stole product enters the Eastern branch purely because of
+# that shared word, finds no other Eastern signal, and falls through that
+# branch's OWN silent final-else fallback to Shalwar Kameez — worse than
+# the generic Shirt default this whole audit was chasing. Real examples:
+# Diners "Stoles/Dupatta" product_type, titles just "Printed Dupatta"/
+# "Laces Dupatta"/"Dyed Duppatta" (both spellings seen); Uniworth "Aqua Wool
+# Scarf"/"Men Muffler" (no Eastern word at all, was falling to Shirt
+# instead). Checked ahead of the Eastern-branch entry below, and only wins
+# when no OTHER real Eastern garment word is also present — a scarf
+# genuinely bundled into a kurta/shalwar-kameez ensemble should still route
+# there, not get peeled off into a standalone accessory.
+SCARF_RE = re.compile(r"\b(scarf|scarves|mufflers?|stoles?|dupattas?|duppattas?)\b", re.I)
+OTHER_EASTERN_GARMENT_RE = re.compile(r"\b(kurta|kurti|shalwar|kameez|sherwani|waistcoat)\b", re.I)
+
+# Edenrobe's own real naming convention for a stitched (ready-to-wear)
+# Kurti+Trouser 2-piece set — confirmed against real body_html ("Girls'
+# Pret Kurti & Trouser") for the STITCHED version specifically. The
+# UNSTITCHED version of the same "Shirt Trouser" title pattern (670 real
+# products) already resolves correctly, because its product_type contains
+# "Un Stitched" and UNSTITCHED_RE catches it independently — but the
+# stitched version (399 real products, product_type "Woman Pret
+# Embroidered"/"Girls Eastern") has no word EASTERN_RE recognizes anywhere
+# in its own title, and was falling through to plain Western Trouser.
+# Verified exclusive to Edenrobe (1,069 total real matches, no other brand)
+# before adding as a general Eastern-branch trigger.
+SHIRT_TROUSER_SET_RE = re.compile(r"\bshirt\s*trousers?\b", re.I)
 
 # "boxer"/etc are real garments but not outerwear — without this check
 # they fell through to the generic Western/Upperwear default and showed
@@ -443,7 +493,12 @@ KURTA_COMBO_RE = re.compile(
 # real-example-driven list of garment nouns within a couple of words —
 # not a lookbehind-only check, since "Shorts Body Blazer" has "Body"
 # between "Shorts" and the noun that actually disambiguates it.
-TROUSER_RE = re.compile(r"\b(trousers?|jeans?|pants?)\b", re.I)
+# "chino(s)" added 2026-08-29 — 84 real Zellbury products ("Signature
+# Chino - S003", product_type "Shirt") were falling to the generic Shirt
+# default; every real "chino"/"chinos" title checked catalog-wide (Edenrobe,
+# Furor, Zellbury — over 1,200 products) unambiguously names a trouser, no
+# collision shape found worth excluding.
+TROUSER_RE = re.compile(r"\b(trousers?|jeans?|pants?|chinos?)\b", re.I)
 # "heel" added the same way: a real Meme product, "SHORT BLOCK HEEL", is a
 # low-heeled shoe (a footwear-height descriptor), not the garment — landed
 # in Women's Shorts with 0 intervening words, same collision shape as
@@ -641,11 +696,24 @@ def classify(store, p, title, product_type, tags, vendor, description):
             # leaf — no separate leaf exists for any of them, and 86/40/
             # 230 real products respectively were landing in Shirt.
             ("Jewelry", re.compile(r"\bjewel(?:l?ery|ry)?\b|\bbracelets?\b|\bnecklaces?\b|\bearrings?\b")),
-            ("Bag", re.compile(r"(?<!paper[\s-])(?<!paper)\bbags?\b|\bhandbags?\b")),
+            # "backpack"/"clutch" folded into the same Bag leaf 2026-08-29 —
+            # a real example, Outfitters' "Multi-Functional Backpack"/"Faux
+            # Leather Backpack" (product_type literally "WALLETS", a store
+            # mislabel) and Breakout's "CROCHET CLUTCH" (product_type
+            # "WALLET"), had no keyword of their own so the title-first check
+            # below found nothing and fell back to the mislabeled
+            # product_type's "wallet(s)" match instead — same
+            # title-vs-product_type conflict class as the String Sports
+            # Shoes/Basic Denim Jacket fixes elsewhere in this file.
+            ("Bag", re.compile(r"(?<!paper[\s-])(?<!paper)\bbags?\b|\bhandbags?\b|\bbackpacks?\b|\bclutch(?:es)?\b")),
             ("Wallet", re.compile(r"\bwallets?\b")),
             ("Shawl", re.compile(r"\bshawl\b(?!\s*collar)")),
             ("Socks", re.compile(r"\bsocks?\b")),
             ("Keychain", re.compile(r"\bkey\s*chains?\b")),
+            # Added 2026-08-29 — 323 real Men's/7 Unisex pocket squares
+            # (Uniworth "100% Silk Pocket Square", Cambridge/Equator formal
+            # accessories) had no keyword at all and were falling to Shirt.
+            ("Pocket Square", re.compile(r"\bpocket\s*squares?\b")),
         ]
         title_only = strip_garment_detail((title or "").lower())
         leaf = next((n for n, rx in _KEYWORD_LEAVES if rx.search(title_only)), None)
@@ -653,7 +721,10 @@ def classify(store, p, title, product_type, tags, vendor, description):
             leaf = next((n for n, rx in _KEYWORD_LEAVES if rx.search(accessory_blob)), "Bag")
         return dict(gender=gender, branch="Accessories", sub=None, leaf=leaf,
                     style="western", construction="not_applicable")
-    if EASTERN_RE.search(blob) or UNSTITCHED_RE.search(blob):
+    if SCARF_RE.search(blob) and not OTHER_EASTERN_GARMENT_RE.search(blob) and not UNSTITCHED_RE.search(blob):
+        return dict(gender=gender, branch="Accessories", sub=None, leaf="Scarf",
+                    style="western", construction="not_applicable")
+    if EASTERN_RE.search(blob) or UNSTITCHED_RE.search(blob) or SHIRT_TROUSER_SET_RE.search(blob):
         construction = "unstitched_fabric" if UNSTITCHED_RE.search(blob) else "ready_to_wear"
         sub = "Unstitched" if construction == "unstitched_fabric" else "Stitched"
 
@@ -705,6 +776,12 @@ def classify(store, p, title, product_type, tags, vendor, description):
             leaf = "Kurti"
         elif "kurta" in blob:
             leaf = "Kurta"
+        elif SHIRT_TROUSER_SET_RE.search(blob):
+            # Edenrobe's own description confirms this is a stitched
+            # Kurti+Trouser 2-piece ensemble ("Girls' Pret Kurti &
+            # Trouser") even though the title itself never says
+            # "kurta"/"kurti" — see SHIRT_TROUSER_SET_RE's definition.
+            leaf = "Kurta Set"
         else:
             leaf = "Shalwar Kameez"
         if leaf == "Kurti" and gender in ("Men", "Boys"):
@@ -817,7 +894,27 @@ def classify(store, p, title, product_type, tags, vendor, description):
         footwear_leaf = "Sandals" if gender == "Women" and SANDAL_LEAF_RE.search(blob) else "Shoes"
         return dict(gender=gender, branch="Western", sub="Footwear", leaf=footwear_leaf,
                     style="western", construction="not_applicable")
-    if re.search(r"\bco-?ord|suit\b", blob):
+    # Broadened 2026-08-29 to also catch a bare piece-count ("2PC"/"3 PC"/
+    # "3-Piece") or "combo" naming a coordinated set with no "suit"/"co-ord"
+    # word at all — real example, Diners' entire Women's/Girls'/Boys' "N
+    # Piece Stitched"/"Boys Combo" lines (real body_html confirms these are
+    # genuine "ready-to-wear 2-piece set"/"Top Bottom Set" listings, not
+    # Eastern ensembles — EASTERN_RE/UNSTITCHED_RE have both already failed
+    # to match by this point in the function), ~970 real products across
+    # Women/Girls/Boys/Teens/Infant sub-lines, were falling to the generic
+    # Shirt default. Requires the literal "pc"/"piece(s)" suffix, NOT a bare
+    # trailing "p" — Edenrobe's "Varsity Jacket - EBTJP5-001-2P" is a SKU
+    # suffix, not a piece count, and would otherwise be wrongly pulled out
+    # of Jacket. "combo" excludes an immediately-following Upperwear garment
+    # noun — Equator's "Green & Black Combo Hoodie"/"Tri-Color Combo Tee" use
+    # "combo" to describe a COLOR combination, not a multi-piece set, and
+    # must keep resolving to their own garment leaf.
+    if re.search(
+        r"\bco-?ord|suit\b"
+        r"|\b[1-4]\s*-?\s*(?:pc|pieces?)\b"
+        r"|\bcombos?\b(?!\s+(?:hoodies?|tees?|t-shirts?|shirts?|polos?|sweatshirts?|sweaters?|jackets?)\b)",
+        blob,
+    ):
         return dict(gender=gender, branch="Western", sub="Suits & Sets", leaf="Co-ord Set",
                     style="western", construction="ready_to_wear")
     # "Hoodie" checked before the bare "sweat" fallback so a hooded
@@ -862,6 +959,24 @@ def classify(store, p, title, product_type, tags, vendor, description):
         # handling anywhere in this function.
         if "polo" in text:
             return "Polo"
+        # Checked ahead of "tee" — "tank top" doesn't collide with the tee
+        # pattern, but is a more specific signal whenever both happen to be
+        # present. Deliberately does NOT include "sando": that's this
+        # catalog's own real word for a men's UNDERGARMENT tank (see
+        # VEST_UNDERWEAR_SIGNAL_RE) — a different real garment from an
+        # outerwear/activewear tank top, and already correctly routed to
+        # Underwear earlier in this function. Real examples landing here:
+        # Furor's own product_type literally "Men Tank Tops", Edenrobe
+        # "Boys Tank Top" — 476 real products across Men/Women/Boys/Girls
+        # had no keyword at all and were falling to Shirt/T-Shirt.
+        # Broadened from "tank top(s)" to bare "tank(s)" after backfill
+        # verification found real tank tops titled without the word "top"
+        # at all — Equator's "Color Block Tank", Breakout's "CARDIO TANK",
+        # Monark's "Textured Tank-Shirt", Meme's "TANK T-SHIRT FOR WOMEN",
+        # Engine's "Girls Tank Knit Top" — every real "tank"/"tanks" hit
+        # checked catalog-wide is a genuine tank top, no collision found.
+        if re.search(r"\btanks?\b", text):
+            return "Tank Top"
         if re.search(r"\b(tees?|t-shirts?|tshirts?)\b", text):
             return "T-Shirt"
         if "hoodie" in text or "hooded" in text:
@@ -870,10 +985,32 @@ def classify(store, p, title, product_type, tags, vendor, description):
             return "Sweatshirt"
         if "sweater" in text:
             return "Sweater"
+        # "tunic" only maps to "Top" for Women/Girls — that's the only
+        # gender pair CATEGORY_TREE defines a "Top" leaf for at all (Men/
+        # Boys/Unisex Upperwear have no such leaf), and every real tunic
+        # checked (538 real Zellbury products, product_type e.g. "Tunic")
+        # is a Women's item — a bare gender check here is the correct,
+        # narrow guard rather than adding an orphan-prone leaf everywhere.
+        # "Top" itself was a real pre-existing bug: the leaf was already
+        # defined in CATEGORY_TREE for Women/Girls but no rule anywhere in
+        # this function had ever emitted it — dead code until now.
+        if "tunic" in text and gender in ("Women", "Girls"):
+            return "Top"
         if "jacket" in text or "blazer" in text or re.search(r"\bcoat\b", text):
             return "Jacket"
         if re.search(r"\bdress\b(?!\s+(?:\w+\s+)?shirts?\b)|\bfrock\b", text):
             return "Dress"
+        # A bare "vest" reaching this point is, by construction, NOT an
+        # underwear vest (that's already been ruled out earlier via
+        # is_underwear_vest) — real examples confirm it's genuine outerwear/
+        # activewear (Engine Clothing's "Active Wear Vest", Cambridge's
+        # "Quilted Vest"/"Sherpa Vest") that had no leaf of its own and fell
+        # to the generic Shirt default. Checked after "sweater" so a real
+        # "Sweater Vest" still resolves Sweater first (already handled by
+        # the ordering above), and last among the specific garment checks
+        # since a bare vest is the weakest signal of this group.
+        if re.search(r"\bvests?\b", text):
+            return "Jacket"
         return None
 
     # Title-first, full-blob fallback — same precedent as every other

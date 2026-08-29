@@ -849,6 +849,110 @@ check("real denim jacket (no product_type conflict) still resolves Jacket", "Den
 check("title's own 'Sweatshirt' wins over product_type 'TEES'", "Character Graphic Sweatshirt",
       vendor="Unisex", product_type="TEES", expect_branch="Western", expect_leaf="Sweatshirt")
 
+# 2026-08-29 — 14th pass, prompted by the user finding real tank tops/
+# pocket squares/vests in the live Men's Shirt listing while testing outside
+# the AI search. Four parallel category-by-category audits (every leaf
+# currently in use, checked against every OTHER leaf family's own regex)
+# confirmed several thousand more real products sharing the same root
+# cause: "Shirt" is the Western branch's silent catch-all, and any garment
+# type classify() has no keyword for lands there by default.
+
+# 67. Pocket Square had no leaf/keyword at all — 323 real Men's, 7 Unisex.
+check("'Pocket Square' is an accessory, not a Shirt", "100% Silk Pocket Square",
+      product_type="simple", vendor="Uniworth", expect_branch="Accessories", expect_leaf="Pocket Square")
+
+# 68. Tank Top had no leaf/keyword at all — 476 real products across
+# Men/Women/Boys/Girls. Furor's own product_type is literally "Men Tank
+# Tops" and still resolved to Shirt.
+check("Furor's own product_type 'Men Tank Tops' resolves Tank Top", "All-Over Print Tank Top - FMTT18-002",
+      product_type="Men Tank Tops", vendor="Furor", expect_branch="Western", expect_leaf="Tank Top")
+check("bare 'sando' (a real undergarment word, distinct from a Tank Top) is NOT pulled into Tank Top", "Navy Sando",
+      vendor="Men", expect_branch="Western", expect_leaf="Shirt")
+
+# 69. Scarf/Muffler/Stole had no leaf/keyword at all — ~731 real products,
+# mostly Men/Women. A standalone Dupatta/Duppatta was falling even further
+# wrong, into Shalwar Kameez (EASTERN_RE's own silent final-else fallback),
+# since "dupatta" is itself one of EASTERN_RE's trigger words.
+check("'Scarf' is an accessory, not a Shirt", "Aqua Wool Scarf",
+      product_type="SCARVES", vendor="Men", expect_branch="Accessories", expect_leaf="Scarf")
+check("'Muffler' folds into the same Scarf leaf", "Men Muffler",
+      product_type="Men Mufflers", vendor="Men", expect_branch="Accessories", expect_leaf="Scarf")
+check("standalone 'Dupatta' is a Scarf, not Shalwar Kameez", "Printed Dupatta",
+      product_type="Stoles/Dupatta", vendor="Diners", expect_branch="Accessories", expect_leaf="Scarf")
+check("'Duppatta' misspelling still resolves Scarf", "Dyed Duppatta",
+      product_type="Stoles/Dupatta", vendor="Diners", expect_branch="Accessories", expect_leaf="Scarf")
+check("a dupatta bundled into a real kurta ensemble still resolves Eastern", "Kurta With Dupatta",
+      vendor="Women", expect_branch="Eastern", expect_leaf="Kurta")
+
+# 70. Outerwear vests (quilted/padded/sherpa/activewear) had no leaf of
+# their own once ruled out as underwear — ~60 real products were falling
+# to Shirt instead of Jacket.
+check("outerwear 'Vest' folds into Jacket, not Shirt", "Active Wear Vest",
+      product_type="Men", vendor="Engine Clothing", expect_branch="Western", expect_leaf="Jacket")
+check("a real Sweater Vest still resolves Sweater ahead of the Vest->Jacket fallback", "Cougar Sweater Vest",
+      vendor="Cougar Women", expect_branch="Western", expect_leaf="Sweater")
+check("a real underwear vest (sando signal) still resolves Underwear, unaffected", "Sporty Vest",
+      product_type="Undergarment", vendor="Uniworth", description="our sporty undergarment will keep you cool",
+      expect_branch="Accessories", expect_leaf="Underwear")
+
+# 71. Diners' bare piece-count ("2PC"/"3PC") and "combo" naming for a
+# coordinated Western set, with no "suit"/"co-ord" word at all — real
+# body_html confirms these are genuine "ready-to-wear 2-piece set"/"Top
+# Bottom Set" listings, not Eastern ensembles. ~970 real products across
+# Women/Girls/Boys/Teens/Infant sub-lines were falling to Shirt.
+check("bare '2PC' resolves Co-ord Set", "Printed 2PC",
+      product_type="2 Piece Stitched", vendor="Diners", expect_branch="Western", expect_sub="Suits & Sets", expect_leaf="Co-ord Set")
+check("'Boys Combo' resolves Co-ord Set", "Graphic Printed Boys Combos",
+      product_type="Boys Combo", vendor="Diners", expect_branch="Western", expect_sub="Suits & Sets", expect_leaf="Co-ord Set")
+check("bare '3-Piece...Set' resolves Co-ord Set even with a T-Shirt-mislabeled product_type", "Boys 3-Piece Suiting Set in Fawn",
+      product_type="Boys T-Shirts", vendor="Diners", expect_branch="Western", expect_sub="Suits & Sets", expect_leaf="Co-ord Set")
+check("'Combo' immediately before a garment noun is a COLOR combo, not a set", "Green & Black Combo Hoodie",
+      vendor="Unisex", expect_branch="Western", expect_leaf="Hoodie")
+check("a real jacket SKU suffix ('-2P', no C) is NOT mistaken for a piece-count", "Varsity Jacket - EBTJP5-001-2P",
+      product_type="Boys Jackets", vendor="Edenrobe", expect_branch="Western", expect_leaf="Jacket")
+check("a real Trouser with '(2 PC)' in its own title still resolves Trouser, not Co-ord Set", "SHARP (2 PC) TROUSER - BLACK",
+      vendor="Cambridge", expect_branch="Western", expect_leaf="Trouser")
+
+# 72. Edenrobe's stitched "Shirt Trouser" 2-piece sets (399 real products)
+# had no Eastern word anywhere in the title — real body_html confirms
+# "Girls' Pret Kurti & Trouser". The UNSTITCHED version of the same title
+# pattern (670 real products) already resolved correctly via UNSTITCHED_RE
+# independently.
+check("stitched 'Shirt Trouser' resolves Kurta Set via product_type-confirmed Eastern naming", "Printed Cambric Shirt Trouser - EGTKP23-70343ST",
+      product_type="Girls Eastern", vendor="Edenrobe", expect_branch="Eastern", expect_leaf="Kurta Set")
+check("the unstitched version of the same title pattern is unaffected, still 2-Piece", "Printed Khaddar Shirt Trouser - EWU5A3-36000ST",
+      product_type="Woman Un Stitched Allure Khaddar", vendor="Edenrobe", expect_branch="Eastern", expect_sub="Unstitched", expect_leaf="2-Piece")
+
+# 73. Zellbury's "Top" leaf existed in CATEGORY_TREE for Women/Girls but no
+# rule ever emitted it — 538 real Women's "Tunic" products were falling to
+# Shirt instead.
+check("'Tunic' resolves the previously-dead 'Top' leaf for Women", "Tunics - 2820",
+      product_type="Essential Pret", vendor="ZELLBURY WOMEN", expect_branch="Western", expect_leaf="Top")
+
+# 74. Zellbury's "Chino" line had no keyword at all — 84 real products
+# (Zellbury's own "Signature Chino" naming) were falling to Shirt.
+check("'Chino' resolves Trouser", "Signature Chino - S003",
+      vendor="Zellbury", expect_branch="Western", expect_leaf="Trouser")
+
+# 75. Outfitters'/Breakout's own mislabeled product_type ("WALLETS"/
+# "WALLET") was outranking a title that unambiguously says backpack/clutch
+# — same title-vs-product_type conflict class as String Sports Shoes (#59)
+# and Basic Denim Jacket (#65).
+check("title 'Backpack' wins over mislabeled product_type 'WALLETS'", "Multi-Functional Backpack",
+      product_type="WALLETS", vendor="Men", expect_branch="Accessories", expect_leaf="Bag")
+check("title 'Clutch' wins over mislabeled product_type 'WALLET'", "CROCHET CLUTCH",
+      product_type="WALLET", vendor="Women", expect_branch="Accessories", expect_leaf="Bag")
+
+check_leaf_exists("Men", "Western", "Upperwear", "Tank Top")
+check_leaf_exists("Women", "Western", "Upperwear", "Tank Top")
+check_leaf_exists("Boys", "Western", "Upperwear", "Tank Top")
+check_leaf_exists("Girls", "Western", "Upperwear", "Tank Top")
+check_leaf_exists("Men", "Accessories", None, "Scarf")
+check_leaf_exists("Men", "Accessories", None, "Pocket Square")
+check_leaf_exists("Women", "Accessories", None, "Scarf")
+check_leaf_exists("Women", "Accessories", None, "Pocket Square")
+check_leaf_exists("Women", "Western", "Upperwear", "Top")
+
 
 print(f"{PASSED} passed, {len(FAILURES)} failed")
 if FAILURES:
