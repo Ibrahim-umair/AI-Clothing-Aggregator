@@ -1,26 +1,35 @@
 import { useState } from "react";
 import ProductCard from "../components/ProductCard.jsx";
 import ProductCardSkeleton from "../components/ProductCardSkeleton.jsx";
-import { SparklesIcon, SearchIcon } from "../components/icons.jsx";
+import {
+  SparklesIcon,
+  ArrowUpIcon,
+  ShirtIcon,
+  KurtaIcon,
+  ShoeIcon,
+  TShirtIcon,
+  TrouserIcon,
+  SunglassesIcon,
+} from "../components/icons.jsx";
 import { searchProducts } from "../lib/api.js";
 
-// A handful of real, varied example queries — not filler copy, each one
-// exercises a different part of the pipeline (a plain category+budget
-// query, a brand-specific one, a fuzzy/subjective one with no explicit
-// category at all) so a first-time visitor sees the range of what this
-// actually understands, not just one style of query.
+// Real, varied example queries — each pairs with a garment icon already
+// used elsewhere in the app (quick-category chips, mega-menu), so this
+// isn't new iconography invented for this page. Exercises different parts
+// of the pipeline: budget+category, occasion+category, brand+category,
+// fuzzy/subjective with no explicit category, plain category+budget.
 const EXAMPLE_QUERIES = [
-  "cozy warm sweaters for women under 5000",
-  "formal kurta for a wedding, men, under 8000",
-  "royal tag formal shirt",
-  "girls party dress under 3000",
+  { icon: ShirtIcon, text: "Smart casual shirts under PKR 3,000" },
+  { icon: KurtaIcon, text: "Formal kurta for a wedding" },
+  { icon: ShoeIcon, text: "Minimal white sneakers" },
+  { icon: TShirtIcon, text: "Cozy sweaters for women under 5,000" },
+  { icon: TrouserIcon, text: "Royal Tag formal trousers" },
+  { icon: SunglassesIcon, text: "Sunglasses under 2,000" },
 ];
 
-// The extracted filter chips shown under the answer line — same idea as
-// Shop.jsx's active-chips row, but read-only (this is "here's what it
-// understood", not an editable filter sidebar — see AiSearch.md-style
-// framing in the conversation this was built from: the point is
-// visibility into the pipeline, not replacing the structured Shop page).
+// The extracted filter chips shown under the answer line — read-only
+// visibility into what the pipeline understood (same idea as Shop.jsx's
+// active-chips row, not an editable filter sidebar).
 function filterChips(filters) {
   const chips = [];
   if (filters.gender) chips.push(filters.gender);
@@ -39,12 +48,17 @@ function filterChips(filters) {
 
 export default function AiSearch() {
   const [draft, setDraft] = useState("");
+  // null = no explicit preference, let the model infer gender from the
+  // text itself. Set, it overrides that inference server-side (see
+  // runSearch's genderOverride) — a person who taps "Men" and types "red
+  // kurta" means Men's kurtas regardless of whether the text says so.
+  const [genderFilter, setGenderFilter] = useState(null);
   const [query, setQuery] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
   const [result, setResult] = useState(null);
 
-  async function runSearch(q) {
+  async function runSearch(q, gender) {
     const trimmed = q.trim();
     if (!trimmed) return;
     setQuery(trimmed);
@@ -53,7 +67,7 @@ export default function AiSearch() {
     setError(false);
     setResult(null);
     try {
-      const data = await searchProducts(trimmed);
+      const data = await searchProducts(trimmed, gender);
       setResult(data);
     } catch (err) {
       setError(true);
@@ -64,41 +78,66 @@ export default function AiSearch() {
 
   function onSubmit(e) {
     e.preventDefault();
-    runSearch(draft);
+    runSearch(draft, genderFilter);
+  }
+
+  function toggleGender(g) {
+    setGenderFilter((cur) => (cur === g ? null : g));
   }
 
   return (
     <div className="ai-search">
       <div className="ai-search__hero">
-        <span className="ai-search__eyebrow">
-          <SparklesIcon size={14} />
-          AI-Powered Search
-        </span>
-        <h1>Describe what you're looking for</h1>
-        <p>
-          Not filters and dropdowns — just say it plainly. "Cozy sweaters under 5,000",
-          "formal kurta for a wedding" — the whole real catalog, searched in one line.
+        <h1 className="ai-search__headline">
+          Shop across Pakistan's best brands with one <em>intelligent search</em>.
+        </h1>
+        <p className="ai-search__subtext">
+          Describe what you're looking for in your own words. Libas searches the whole real
+          catalog — every store, one line — to find the right pieces for you.
         </p>
 
-        <form className="ai-search__bar" onSubmit={onSubmit}>
-          <SearchIcon size={17} />
+        <div className="ai-search__gender-toggle" role="group" aria-label="Shop for">
+          <button
+            type="button"
+            className={`ai-search__gender-btn${genderFilter === "Men" ? " ai-search__gender-btn--active" : ""}`}
+            onClick={() => toggleGender("Men")}
+          >
+            Men
+          </button>
+          <button
+            type="button"
+            className={`ai-search__gender-btn${genderFilter === "Women" ? " ai-search__gender-btn--active" : ""}`}
+            onClick={() => toggleGender("Women")}
+          >
+            Women
+          </button>
+        </div>
+
+        <form className="ai-search__composer" onSubmit={onSubmit}>
           <input
             autoFocus
-            placeholder="Search in plain English…"
+            className="ai-search__composer-input"
+            placeholder="Ask anything. Describe your style, occasion or need…"
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
           />
-          <button type="submit" className="btn btn--primary" disabled={loading || !draft.trim()}>
-            {loading ? "Searching…" : "Search"}
-          </button>
+          <div className="ai-search__composer-actions">
+            <span className="ai-search__composer-hint">
+              <SparklesIcon size={15} />
+              Powered by Libas AI
+            </span>
+            <button type="submit" className="ai-search__submit" disabled={loading || !draft.trim()} aria-label="Search">
+              <ArrowUpIcon size={17} />
+            </button>
+          </div>
         </form>
 
         {!query && (
           <div className="ai-search__examples">
-            <span>Try:</span>
-            {EXAMPLE_QUERIES.map((q) => (
-              <button type="button" key={q} className="ai-search__example-chip" onClick={() => runSearch(q)}>
-                {q}
+            {EXAMPLE_QUERIES.map(({ icon: Icon, text }) => (
+              <button type="button" key={text} className="ai-search__example-chip" onClick={() => runSearch(text, genderFilter)}>
+                <Icon size={15} />
+                {text}
               </button>
             ))}
           </div>
@@ -123,7 +162,7 @@ export default function AiSearch() {
             <div className="empty-state">
               <h3>Couldn't reach the search engine</h3>
               <p>Something went wrong talking to the server. Check your connection and try again.</p>
-              <button type="button" className="btn btn--primary" onClick={() => runSearch(query)}>
+              <button type="button" className="btn btn--primary" onClick={() => runSearch(query, genderFilter)}>
                 Try again
               </button>
             </div>

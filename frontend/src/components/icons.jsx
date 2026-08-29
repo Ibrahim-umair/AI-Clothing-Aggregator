@@ -98,6 +98,25 @@ export function ArrowUpRightIcon({ size = 16, ...props }) {
   );
 }
 
+export function ArrowUpIcon({ size = 16, ...props }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width={size}
+      height={size}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      {...props}
+    >
+      <path d="M12 19V5M6 11l6-6 6 6" />
+    </svg>
+  );
+}
+
 export function CheckIcon({ size = 13, ...props }) {
   return (
     <svg

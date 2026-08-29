@@ -120,7 +120,19 @@ const ROW_JOIN = `
  * by debug_search.js. The HTTP route only needs the final shape and
  * ignores `debug`.
  */
-export async function runSearch(query, { debug = false } = {}) {
+const VALID_GENDER_OVERRIDES = new Set(["Women", "Men", "Boys", "Girls", "Unisex"]);
+
+/**
+ * @param {{ debug?: boolean, genderOverride?: string|null }} [opts]
+ * genderOverride comes from an explicit UI control (the AI Search page's
+ * MEN/WOMEN toggle) — when set, it REPLACES whatever the LLM extracted
+ * from the text, rather than just being a hint the model can second-guess.
+ * A person who taps "Men" and types "red kurta" means Men's kurtas, full
+ * stop, even though nothing in that text says so — the toggle is a more
+ * reliable signal than inference from a query that was never asked to
+ * mention gender in the first place.
+ */
+export async function runSearch(query, { debug = false, genderOverride = null } = {}) {
   if (!openai) throw new Error("OPENAI_API_KEY not configured");
   query = (query || "").trim();
   if (!query) throw new Error("empty query");
@@ -129,6 +141,9 @@ export async function runSearch(query, { debug = false } = {}) {
     extractSearchFilters(query),
     embedText(query),
   ]);
+  if (genderOverride && VALID_GENDER_OVERRIDES.has(genderOverride)) {
+    filters.gender = genderOverride;
+  }
 
   const { ids: categoryIds, notFound: categoryNotFound } = await categoryIdsForSearch(filters.gender, filters.category);
   if (categoryNotFound) {

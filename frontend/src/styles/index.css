@@ -1860,104 +1860,174 @@ ul { margin: 0; padding: 0; list-style: none; }
    Same token set as the rest of the site (bg/surface/border/accent) —
    deliberately not a separate "AI" visual language with gradients/glow,
    just this theme's existing restrained identity applied to a search-
-   first layout instead of a browse-first one. */
+   first, editorial layout instead of a browse-first one. Redesigned
+   directly against a reference the project owner supplied — the
+   headline's mixed-weight/serif-italic emphasis, the MEN/WOMEN toggle
+   placed right above the search bar, the icon+text suggestion chips, and
+   the input's inline icon/circular-submit shape all come from that
+   reference. Deliberately NOT carried over: a small "AI SEARCH"
+   eyebrow/badge above the headline (explicitly asked to leave out) and a
+   second "attach a file" icon-button inside the search bar (this
+   pipeline has no image-search capability — a decorative button that
+   does nothing is a fake affordance, not a design choice). */
 .ai-search {
-  padding: clamp(28px, 5vw, 56px) 0 60px;
+  padding: clamp(32px, 6vw, 64px) 0 60px;
 }
 
 .ai-search__hero {
-  max-width: 720px;
+  max-width: 760px;
   margin: 0 auto;
   text-align: center;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 14px;
+  gap: 16px;
 }
 
-.ai-search__eyebrow {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 14px;
-  border-radius: 999px;
-  background: var(--accent-soft);
-  color: var(--accent-strong);
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.ai-search__hero h1 {
-  font-size: clamp(26px, 4vw, 38px);
+.ai-search__headline {
+  font-size: clamp(28px, 4.6vw, 44px);
+  line-height: 1.15;
   text-wrap: balance;
 }
+.ai-search__headline em {
+  font-family: "Fraunces", var(--font-display);
+  font-style: italic;
+  font-weight: 500;
+  color: var(--accent-strong);
+}
 
-.ai-search__hero > p {
+.ai-search__subtext {
   color: var(--text-soft);
   font-size: 14.5px;
-  max-width: 52ch;
+  max-width: 54ch;
   line-height: 1.6;
 }
 
-.ai-search__bar {
+/* Segmented toggle — an explicit gender filter that OVERRIDES whatever
+   the model would infer from the text (see runSearch's genderOverride).
+   Neither pressed is a real third state here (not just an unstyled
+   default), meaning "let the AI decide from what I typed" — a person who
+   doesn't care to specify shouldn't be forced into Men or Women. */
+.ai-search__gender-toggle {
+  display: inline-flex;
+  padding: 4px;
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  margin-top: 2px;
+}
+
+.ai-search__gender-btn {
+  padding: 9px 26px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-soft);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.ai-search__gender-btn--active {
+  background: var(--text);
+  color: var(--bg);
+}
+
+/* Composer-shaped rather than a single-line input bar — text sits on top
+   with the controls along the bottom edge, matching the reference. The
+   reference's second icon button (a paperclip / attach-an-image) is
+   deliberately NOT reproduced: this pipeline is text-only, and a button
+   that looks like image search but does nothing is a fake affordance.
+   That corner carries an honest "Powered by Libas AI" hint instead —
+   same visual weight, no promise the backend can't keep. */
+.ai-search__composer {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  flex-direction: column;
   width: 100%;
-  max-width: 560px;
-  height: 56px;
-  padding: 0 10px 0 20px;
-  margin-top: 6px;
+  max-width: 620px;
+  padding: 18px 14px 14px 22px;
+  margin-top: 8px;
   background: var(--surface);
   border: 1.5px solid var(--border);
   border-radius: var(--radius-lg);
-  color: var(--text-faint);
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
-.ai-search__bar:focus-within {
+.ai-search__composer:focus-within {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
-.ai-search__bar svg { flex-shrink: 0; }
-.ai-search__bar input {
-  flex: 1;
-  height: 100%;
+
+.ai-search__composer-input {
+  width: 100%;
   border: none;
   outline: none;
   background: none;
   font: inherit;
-  font-size: 14.5px;
+  font-size: 15px;
   color: var(--text);
+  padding: 0 8px 16px 0;
+  text-align: left;
 }
-.ai-search__bar input::placeholder { color: var(--text-faint); }
-.ai-search__bar .btn { min-height: 40px; flex-shrink: 0; }
+.ai-search__composer-input::placeholder { color: var(--text-faint); }
+
+.ai-search__composer-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ai-search__composer-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-faint);
+}
+.ai-search__composer-hint svg { color: var(--accent); flex-shrink: 0; }
+
+.ai-search__submit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: var(--text);
+  color: var(--bg);
+  transition: background 0.15s ease, opacity 0.15s ease;
+}
+.ai-search__submit:hover:not(:disabled) { background: var(--accent); }
+.ai-search__submit:disabled { opacity: 0.35; }
 
 .ai-search__examples {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  margin-top: 4px;
-  font-size: 12.5px;
-  color: var(--text-faint);
+  gap: 10px;
+  margin-top: 10px;
+  max-width: 640px;
 }
 
 .ai-search__example-chip {
-  padding: 7px 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
   border: 1px solid var(--border);
   border-radius: 999px;
   background: var(--surface);
   color: var(--text-soft);
-  font-size: 12.5px;
-  transition: border-color 0.15s ease, color 0.15s ease;
+  font-size: 13px;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
 }
+.ai-search__example-chip svg { flex-shrink: 0; color: var(--text-faint); transition: color 0.15s ease; }
 .ai-search__example-chip:hover {
   border-color: var(--accent);
   color: var(--accent-strong);
+  background: var(--accent-soft);
 }
+.ai-search__example-chip:hover svg { color: var(--accent-strong); }
 
 .ai-search__results {
   max-width: 1400px;

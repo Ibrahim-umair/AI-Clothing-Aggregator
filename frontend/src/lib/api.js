@@ -74,7 +74,9 @@ export function fetchBrands() {
 }
 
 // POST /api/search — natural-language search (server/search.js). See
-// server/SEARCH.md for the full pipeline design.
-export function searchProducts(query) {
-  return postJSON("/search", { query });
+// server/SEARCH.md for the full pipeline design. `gender`, if passed
+// (from an explicit UI toggle), overrides whatever the model would have
+// inferred from the query text — see runSearch()'s genderOverride.
+export function searchProducts(query, gender = null) {
+  return postJSON("/search", { query, gender });
 }

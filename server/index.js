@@ -148,7 +148,7 @@ app.get("/api/products", async (req, res) => {
 // without starting a server — see debug_search.js and SEARCH.md.
 app.post("/api/search", async (req, res) => {
   try {
-    const result = await runSearch(req.body?.query);
+    const result = await runSearch(req.body?.query, { genderOverride: req.body?.gender });
     res.json(result);
   } catch (err) {
     if (err.message === "OPENAI_API_KEY not configured") {
