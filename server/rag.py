@@ -18,7 +18,7 @@ from openai import AsyncOpenAI
 
 from db import get_pool
 from metrics import LLMCallRecord, Timer
-from query_helpers import category_ids_for_search, expand_size_aliases_for_query, resolve_brand_id
+from query_helpers import category_ids_for_search, expand_size_aliases_for_query, resolve_brand_id, to_money
 from search_tool import SEARCH_TOOL, SYSTEM_PROMPT
 
 _env_path = Path(__file__).parent / ".env"
@@ -262,8 +262,8 @@ async def run_search(query: str, debug: bool = False, gender_override: str | Non
             "store": r["store"],
             "store_display": r["store_display"],
             "image_url": r["image_url"],
-            "price": float(r["price"]) if r["price"] is not None else None,
-            "compare_at_price": float(r["compare_at_price"]) if r["compare_at_price"] is not None else None,
+            "price": to_money(r["price"]),
+            "compare_at_price": to_money(r["compare_at_price"]),
             "currency": "PKR",
             "available": bool(r["available"]),
             "variant_count": int(r["variant_count"] or 0),

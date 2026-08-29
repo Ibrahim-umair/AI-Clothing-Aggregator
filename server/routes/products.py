@@ -14,6 +14,7 @@ from query_helpers import (
     expand_size_aliases_for_query,
     parse_page,
     resolve_brand_id,
+    to_money,
 )
 from taxonomy_tree import get_tree
 
@@ -41,8 +42,8 @@ def _row_to_product(r) -> dict:
         "store": r["store"],
         "store_display": r["store_display"],
         "image_url": r["image_url"],
-        "price": float(r["price"]) if r["price"] is not None else None,
-        "compare_at_price": float(r["compare_at_price"]) if r["compare_at_price"] is not None else None,
+        "price": to_money(r["price"]),
+        "compare_at_price": to_money(r["compare_at_price"]),
         "currency": "PKR",
         "available": bool(r["available"]),
         "variant_count": int(r["variant_count"] or 0),
@@ -202,8 +203,8 @@ async def get_product(product_id: int):
         "vendor": product["store_display"],
         "images": images,
         "image_url": images[0] if images else None,
-        "price": price,
-        "compare_at_price": compare_at if compare_at is not None and price is not None and compare_at > price else None,
+        "price": to_money(price),
+        "compare_at_price": to_money(compare_at) if compare_at is not None and price is not None and compare_at > price else None,
         "currency": "PKR",
         "available": available,
         "colors": colors,

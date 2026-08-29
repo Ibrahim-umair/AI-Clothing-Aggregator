@@ -10,6 +10,12 @@ directly with debug=True so every stage is visible.
 import asyncio
 import sys
 
+# Windows' console defaults to cp1252, which can't render the em-dashes
+# used in the section headers below (silently prints "?" / mojibake) —
+# force UTF-8 the same way every other terminal already handles it.
+if sys.stdout.encoding.lower() != "utf-8":
+    sys.stdout.reconfigure(encoding="utf-8")
+
 from db import close_pool
 from rag import run_search
 

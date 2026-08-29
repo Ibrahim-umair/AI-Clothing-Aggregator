@@ -9,7 +9,7 @@ import asyncio
 from fastapi import APIRouter, Request
 
 from db import get_pool
-from query_helpers import canonical_size, category_ids_from_query, resolve_brand_id
+from query_helpers import canonical_size, category_ids_from_query, resolve_brand_id, to_money
 from taxonomy_tree import build_menus, find_descendant_by_name, get_tree, resolve_node_id
 
 router = APIRouter()
@@ -87,7 +87,7 @@ async def taxonomy(request: Request):
                 WHERE {refine_where_sql} AND v.current_available = true""",
             *refine_params,
         )
-        return dict(row) if row else {"min": None, "max": None}
+        return {"min": to_money(row["min"]), "max": to_money(row["max"])} if row else {"min": None, "max": None}
 
     async def color_facets():
         if cat_refine_not_found:

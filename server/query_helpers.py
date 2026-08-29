@@ -10,6 +10,20 @@ from taxonomy_tree import Tree, descendant_ids, find_descendant_by_name, get_tre
 PAGE_SIZE_DEFAULT = 24
 PAGE_SIZE_MAX = 96
 
+
+def to_money(value):
+    """NUMERIC(10,2) columns come back from asyncpg as Decimal; a bare
+    `float()` cast preserves the trailing `.0` on whole prices (`1590.0`),
+    which node-postgres's driver + a plain `Number()` cast never produced
+    (`1590`) — found by diffing real /api/products and /api/search
+    responses byte-for-byte against the pre-migration Node server. Cosmetic
+    only (JSON.parse collapses both to the same JS number), but matching
+    it exactly avoids a needless diff for anyone comparing raw responses."""
+    if value is None:
+        return None
+    f = float(value)
+    return int(f) if f.is_integer() else f
+
 # Different stores spell the same size differently ("M" vs "Medium", "XXL"
 # vs "2XL") — combined-range labels like "L-XL"/"S-M" are deliberately NOT
 # folded into their component sizes, they're a genuinely different, wider
