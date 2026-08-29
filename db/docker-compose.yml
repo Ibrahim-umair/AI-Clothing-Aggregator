@@ -18,5 +18,31 @@ services:
       timeout: 5s
       retries: 10
 
+  # Reuses the SAME Postgres instance/database as its datasource (the
+  # search_logs table search_py/db_conversations.py writes to) rather than
+  # standing up a second Postgres just for monitoring — one less container
+  # to run, and there's no volume of data here that would justify
+  # isolating it. Datasource + dashboard are provisioned declaratively
+  # (YAML volume mounts below), not via a startup script hitting
+  # Grafana's HTTP API — avoids a "wait for Grafana to be up" race.
+  grafana:
+    image: grafana/grafana:11.4.0
+    container_name: libas-grafana
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+    ports:
+      - "3001:3000"
+    volumes:
+      - libas_grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards
+
 volumes:
   libas_pg_data:
+  libas_grafana_data:

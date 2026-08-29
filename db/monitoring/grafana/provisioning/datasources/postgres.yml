@@ -1,0 +1,18 @@
+apiVersion: 1
+
+datasources:
+  - name: Libas Postgres
+    uid: libas-postgres
+    type: postgres
+    access: proxy
+    url: postgres:5432
+    database: libas
+    user: libas
+    isDefault: true
+    editable: true
+    jsonData:
+      sslmode: disable
+      postgresVersion: 1600
+      timescaledb: false
+    secureJsonData:
+      password: libas_dev_password

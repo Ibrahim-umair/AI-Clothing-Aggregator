@@ -1,0 +1,144 @@
+{
+  "id": null,
+  "uid": "libas-search-quality",
+  "title": "Libas Search Quality",
+  "tags": ["libas", "search"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-24h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Recent searches",
+      "type": "table",
+      "datasource": { "type": "postgres", "uid": "libas-postgres" },
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT created_at AS \"Time\", query AS \"Query\", resolved_gender AS \"Gender\", array_to_string(categories, ', ') AS \"Categories\", total_matches AS \"Matches\", results_returned AS \"Returned\", round(total_latency_ms::numeric, 0) AS \"Latency (ms)\" FROM search_logs ORDER BY created_at DESC LIMIT 50",
+          "editorMode": "code",
+          "rawQuery": true
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Zero-result rate (24h)",
+      "type": "gauge",
+      "datasource": { "type": "postgres", "uid": "libas-postgres" },
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 9 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 10 },
+              { "color": "red", "value": 25 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT COALESCE(100.0 * COUNT(*) FILTER (WHERE total_matches = 0) / NULLIF(COUNT(*), 0), 0) AS zero_result_pct FROM search_logs WHERE created_at > NOW() - INTERVAL '24 hours'",
+          "editorMode": "code",
+          "rawQuery": true
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Searches by gender",
+      "type": "barchart",
+      "datasource": { "type": "postgres", "uid": "libas-postgres" },
+      "gridPos": { "h": 8, "w": 9, "x": 6, "y": 9 },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT COALESCE(resolved_gender, 'unspecified') AS gender, COUNT(*) AS count FROM search_logs GROUP BY 1 ORDER BY 2 DESC",
+          "editorMode": "code",
+          "rawQuery": true
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Extraction model used",
+      "type": "barchart",
+      "datasource": { "type": "postgres", "uid": "libas-postgres" },
+      "gridPos": { "h": 8, "w": 9, "x": 15, "y": 9 },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT extract_model, COUNT(*) AS count FROM search_logs GROUP BY 1 ORDER BY 2 DESC",
+          "editorMode": "code",
+          "rawQuery": true
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Response time (avg, 15-min buckets)",
+      "type": "timeseries",
+      "datasource": { "type": "postgres", "uid": "libas-postgres" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 17 },
+      "fieldConfig": { "defaults": { "unit": "ms" }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "rawSql": "SELECT $__timeGroup(created_at, '15m') AS time, AVG(total_latency_ms) AS \"avg latency\" FROM search_logs WHERE $__timeFilter(created_at) GROUP BY 1 ORDER BY 1",
+          "editorMode": "code",
+          "rawQuery": true
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "OpenAI cost (hourly)",
+      "type": "timeseries",
+      "datasource": { "type": "postgres", "uid": "libas-postgres" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 17 },
+      "fieldConfig": { "defaults": { "unit": "currencyUSD" }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "rawSql": "SELECT $__timeGroup(created_at, '1h') AS time, SUM(cost_usd) AS \"cost\" FROM search_logs WHERE $__timeFilter(created_at) GROUP BY 1 ORDER BY 1",
+          "editorMode": "code",
+          "rawQuery": true
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Token usage (hourly)",
+      "type": "timeseries",
+      "datasource": { "type": "postgres", "uid": "libas-postgres" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 25 },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "rawSql": "SELECT $__timeGroup(created_at, '1h') AS time, SUM(extract_input_tokens + extract_output_tokens + embed_input_tokens) AS \"tokens\" FROM search_logs WHERE $__timeFilter(created_at) GROUP BY 1 ORDER BY 1",
+          "editorMode": "code",
+          "rawQuery": true
+        }
+      ]
+    }
+  ]
+}

@@ -16,12 +16,14 @@ if _env_path.exists():
     load_dotenv(_env_path)
 
 from db import close_pool, get_pool  # noqa: E402  (after dotenv load, same as Node's search.js)
+from db_conversations import init_db  # noqa: E402
 from routes import brands, health, products, search, taxonomy  # noqa: E402
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await get_pool()  # pre-warm the pool instead of paying for it on the first request
+    await init_db()  # idempotent CREATE TABLE IF NOT EXISTS — see db_conversations.py
     # Future OpenTelemetry hook point: FastAPI/asyncpg/OpenAI auto-
     # instrumentation would be wired up here (see MIGRATION_REPORT.md —
     # deliberately not built yet, Postgres+Grafana only for now).
