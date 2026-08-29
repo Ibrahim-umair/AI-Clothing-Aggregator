@@ -90,8 +90,15 @@ CREATE TABLE products (
     -- filter path's job, not semantic search's). NULL until
     -- db/embed_products.py has run for a given product.
     embedding           vector(1536),
+    -- Textual leg of hybrid search — RRF-fused with the vector leg in
+    -- server/index.js's /api/search. Generated + STORED so it's always in
+    -- sync with title/description automatically (no separate backfill
+    -- script, unlike embedding); indexed via a GIN index below.
+    search_vector       tsvector GENERATED ALWAYS AS
+                           (to_tsvector('english', coalesce(title,'') || ' ' || coalesce(description,''))) STORED,
     UNIQUE (brand_id, native_product_id)
 );
+CREATE INDEX idx_products_search_vector ON products USING gin(search_vector);
 
 CREATE TABLE product_pieces (
     id            BIGSERIAL PRIMARY KEY,

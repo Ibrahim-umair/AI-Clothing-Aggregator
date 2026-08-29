@@ -105,23 +105,54 @@ pool doesn't guarantee two `pool.query()` calls land on the same
 connection. See the code comment directly above where `client = await
 pool.connect()` is used.
 
+## Hybrid retrieval (vector + textual, fused with RRF)
+
+Added after the initial build: `/api/search` now runs the objective-filtered
+candidate set through TWO independent legs — vector similarity (as before)
+and Postgres full-text search (`search_vector`, a generated+`STORED`
+`tsvector` column with a GIN index — this stack's BM25-equivalent; pgvector
+has no native BM25, and `ts_rank` over a GIN index is the standard
+in-Postgres analog, no new infra) — then fuses them with Reciprocal Rank
+Fusion (`score = Σ weight/(60 + rank)` per leg an id appears in). Both legs
+run concurrently (`Promise.all`), each pulling 60 candidates; fused down to
+50 for the response.
+
+Weighted 0.7 vector / 0.3 textual rather than an even split — **found and
+verified a real ranking failure while testing this build**: searching
+"furor jeans" ranked "Furor Jeans Club Keychain" (a rubber keychain,
+`product_type: "Key Chains"`, whose title happens to literally contain the
+word "Jeans" as Furor's own product-line naming) above actual jeans.
+Weighting toward vector didn't fully fix this one — traced it further and
+found the vector leg *itself* ranks the keychain #1 for this query (cosine
+0.6255 vs. 0.6239 for the top real jeans match, measured directly), because
+general-purpose text embeddings are still meaningfully influenced by a
+literal shared word ("Jeans") between the query and the product's own
+embedded text, not purely conceptual similarity. **This is not an RRF bug —
+it's the direct, now-confirmed consequence of the `gender`-only filter
+limitation already flagged below**: there's no category/product-type hard
+filter to rule out "Keychain" when someone is clearly asking for the
+Bottomwear "Jeans" leaf. Left unfixed rather than patched further tonight —
+fixing it properly means deciding whether to extend extraction with a
+category signal, which is a real scope question, not a 3am judgment call to
+make alone. The 0.7/0.3 weighting is kept because it's still a reasonable
+general default (vector genuinely is more reliable on average, this
+specific case just also has a literal-word collision no weighting alone
+resolves) — see the code comment above the RRF fusion block.
+
 ## Known limitations (v1, not yet addressed)
 
 - **No conversational/session state.** Each request is stateless — no
   memory of a prior search's filters for follow-ups ("cheaper", "the second
   one"). That was explicitly designed as a *later* layer, not part of this
   build — see the conversation.
-- **No lexical/full-text fusion.** Ranking is vector-only within the
-  filtered set; a hybrid with Postgres `tsvector` for exact-term matches
-  (brand names, specific product words) was discussed as a refinement, not
-  built here.
 - **`gender` is the only taxonomy filter the extraction model can set** —
-  branch/sub/category (e.g. specifically "Upperwear > T-Shirt") are
-  deliberately left to semantic ranking rather than making the model
-  navigate the full category tree, which would need the whole tree fed into
-  every extraction call. A title/category-aware reranking pass was
-  discussed as a possible refinement if eval shows this isn't precise
-  enough.
+  branch/sub/category (e.g. specifically "Upperwear > T-Shirt", or ruling
+  out "Accessories" entirely for a bottomwear query) are deliberately left
+  to semantic ranking rather than making the model navigate the full
+  category tree, which would need the whole tree fed into every extraction
+  call. See the "Furor Jeans Club Keychain" case directly above — this is
+  now a confirmed real gap, not just a theoretical one, and the next
+  concrete thing worth deciding on.
 - **Not touched:** the existing `GET /api/products` endpoint. This is a
   fully separate route reusing its small helper functions
   (`categoryIdsFromQuery`, `resolveBrandId`, `expandSizeAliasesForQuery`) —

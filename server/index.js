@@ -367,11 +367,19 @@ app.post("/api/search", async (req, res) => {
     const countResult = await pool.query(countSql, params);
     const total = Number(countResult.rows[0].count);
 
-    const CANDIDATE_POOL = 50;
-    params.push(queryVector);
-    const vectorParamIdx = params.length;
-    params.push(CANDIDATE_POOL);
-    const listSql = `
+    // Hybrid retrieval: vector similarity and Postgres full-text search
+    // (this stack's BM25-equivalent — pgvector has no native BM25, and
+    // ts_rank over a GIN-indexed tsvector is the standard in-Postgres
+    // analog, no new infra needed) each rank the SAME objective-filtered
+    // candidate set independently, then get fused via Reciprocal Rank
+    // Fusion. This catches what pure vector search alone can dilute —
+    // exact terms (a specific product word, a brand name extraction
+    // missed) — while vector search catches what pure keyword matching
+    // misses (synonyms, "cozy" matching "warm knit sweater" with no
+    // shared words at all).
+    const LEG_POOL = 60; // per-leg candidates fed into fusion
+    const FINAL_POOL = 50; // final fused results returned to the client
+    const rowSelectSql = `
       SELECT
         p.id, p.title, p.handle,
         b.name AS store_display, b.slug AS store,
@@ -387,9 +395,18 @@ app.post("/api/search", async (req, res) => {
         ORDER BY vv.current_price ASC NULLS LAST LIMIT 1
       ) v ON true
       WHERE ${whereSql}
-      ORDER BY p.embedding <=> $${vectorParamIdx}::vector
-      LIMIT $${params.length}
     `;
+
+    const vectorParams = [...params, queryVector, LEG_POOL];
+    const vectorSql = `${rowSelectSql} ORDER BY p.embedding <=> $${params.length + 1}::vector LIMIT $${params.length + 2}`;
+
+    const textualParams = [...params, query, LEG_POOL];
+    const textualSql = `
+      ${rowSelectSql} AND p.search_vector @@ plainto_tsquery('english', $${params.length + 1})
+      ORDER BY ts_rank(p.search_vector, plainto_tsquery('english', $${params.length + 1})) DESC
+      LIMIT $${params.length + 2}
+    `;
+
     // pgvector's HNSW index under a selective WHERE filter can silently
     // return FEWER rows than LIMIT even when more exist — it stops
     // exploring the graph after `hnsw.ef_search` candidates (default 40)
@@ -400,15 +417,62 @@ app.post("/api/search", async (req, res) => {
     // the same pooled connection — so SET and the search must run on one
     // explicitly-checked-out client, not two separate pool.query() calls.
     // 400 was measured to reliably return the full candidate pool here at
-    // ~50ms — still negligible next to the OpenAI calls.
-    const client = await pool.connect();
-    let rows;
-    try {
-      await client.query("SET hnsw.ef_search = 400");
-      ({ rows } = await client.query(listSql, params));
-    } finally {
-      client.release();
+    // ~50ms — still negligible next to the OpenAI calls. The textual leg
+    // has no equivalent gotcha (GIN index scans don't have an analogous
+    // early-exit budget), so it just uses the plain pool.
+    const [vectorRows, textualRows] = await Promise.all([
+      (async () => {
+        const client = await pool.connect();
+        try {
+          await client.query("SET hnsw.ef_search = 400");
+          const { rows } = await client.query(vectorSql, vectorParams);
+          return rows;
+        } finally {
+          client.release();
+        }
+      })(),
+      pool.query(textualSql, textualParams).then((r) => r.rows),
+    ]);
+
+    // Reciprocal Rank Fusion: score(id) = sum over each leg where the id
+    // appears of weight * 1/(k + rank), rank 1-indexed within that leg.
+    // k=60 is the standard RRF constant (dampens the gap between rank 1
+    // and rank 2 so one leg's #1 doesn't automatically dominate). An id
+    // present in both legs — the strongest signal, matching both
+    // semantically and on exact terms — naturally outscores one present
+    // in only one leg.
+    //
+    // Weighted 0.7 vector / 0.3 textual rather than an even split — real
+    // example found while testing this exact build: "furor jeans"
+    // ranked "Furor Jeans Club Keychain" (Furor's own product-LINE name,
+    // not an actual jeans item) above real jeans, because the textual
+    // leg's plain substring match on "Jeans" scored it highly with no
+    // sense that a keychain isn't a garment at all. The vector leg
+    // correctly ranks it low (semantically, a keychain is nothing like
+    // jeans — this is exactly the kind of distinction embeddings are
+    // good at and literal text matching structurally can't make).
+    // Textual still gets real weight for what it's uniquely good at —
+    // exact brand/SKU/spelling matches vector search can dilute — just
+    // not enough to override a strong semantic mismatch on its own.
+    const RRF_K = 60;
+    const LEG_WEIGHTS = { vector: 0.7, textual: 0.3 };
+    const scored = new Map(); // id -> { row, score }
+    for (const [legName, legRows] of [["vector", vectorRows], ["textual", textualRows]]) {
+      legRows.forEach((row, i) => {
+        const rank = i + 1;
+        const contribution = LEG_WEIGHTS[legName] / (RRF_K + rank);
+        const existing = scored.get(row.id);
+        if (existing) {
+          existing.score += contribution;
+        } else {
+          scored.set(row.id, { row, score: contribution });
+        }
+      });
     }
+    const rows = [...scored.values()]
+      .sort((a, b) => b.score - a.score)
+      .slice(0, FINAL_POOL)
+      .map((e) => e.row);
 
     const products = rows.map((r) => ({
       id: r.id,
