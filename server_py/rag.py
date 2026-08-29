@@ -254,7 +254,10 @@ async def run_search(query: str, debug: bool = False, gender_override: str | Non
 
     products = [
         {
-            "id": r["id"],
+            # products.id is bigint — node-postgres serializes it as a
+            # string by default; asyncpg returns a native int. Cast to
+            # match, same reasoning as routes/products.py.
+            "id": str(r["id"]),
             "title": r["title"],
             "store": r["store"],
             "store_display": r["store_display"],
