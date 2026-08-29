@@ -8,12 +8,36 @@
 //
 //   node debug_search.js "furor jeans"
 //   node debug_search.js "cozy warm sweaters for women under 5000"
+//   node debug_search.js "kurta set under 3000" --gender=3   (skips the prompt)
+import readline from "node:readline/promises";
 import { runSearch } from "./search.js";
 
-const query = process.argv.slice(2).join(" ").trim();
+// Real usage always pins a gender (the UI defaults to Men and always sends
+// SOME override, see AiSearch.jsx) — this CLI used to never pass one at
+// all, silently testing a mode ("let the AI infer gender from the text
+// alone") that the real product never actually exercises. Asking here
+// keeps this tool honest about what it's verifying.
+const GENDER_OPTIONS = [null, "Men", "Women", "Boys", "Girls"]; // index 0 unused, 1-4 match the prompt
+
+const args = process.argv.slice(2);
+const flagGender = args.find((a) => a.startsWith("--gender="))?.split("=")[1];
+const query = args.filter((a) => !a.startsWith("--gender=")).join(" ").trim();
 if (!query) {
-  console.error('Usage: node debug_search.js "your search query"');
+  console.error('Usage: node debug_search.js "your search query" [--gender=1-4]');
   process.exit(1);
+}
+
+async function pickGender() {
+  if (flagGender) {
+    const n = parseInt(flagGender, 10);
+    if (n >= 1 && n <= 4) return GENDER_OPTIONS[n];
+    console.error(`--gender must be 1-4 (got ${flagGender}) — ignoring, will prompt instead.`);
+  }
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  const answer = await rl.question("Shop for — 1) Men  2) Women  3) Boys  4) Girls  (anything else = let AI infer): ");
+  rl.close();
+  const n = parseInt(answer.trim(), 10);
+  return n >= 1 && n <= 4 ? GENDER_OPTIONS[n] : null;
 }
 
 function section(title) {
@@ -40,11 +64,12 @@ function titleList(rows, { showRank = true, showLegs = false } = {}) {
 }
 
 (async () => {
-  console.log(`Query: "${query}"`);
+  const genderOverride = await pickGender();
+  console.log(`Query: "${query}"  (gender override: ${genderOverride || "none — AI infers"})`);
   const t0 = Date.now();
   let result;
   try {
-    result = await runSearch(query, { debug: true });
+    result = await runSearch(query, { debug: true, genderOverride });
   } catch (err) {
     console.error("ERROR:", err.message);
     process.exit(1);

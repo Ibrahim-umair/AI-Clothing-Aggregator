@@ -118,15 +118,42 @@ export async function categoryIdsForSearch(gender, categories) {
   // the Upperwear node itself and stopping there returns literally zero
   // rows. For an actual leaf, descendantIds is just [leafId], so the same
   // code path is correct for both.
+  //
+  // Real bug found via 100-query testing: the model's `categories` array
+  // sometimes names a specific leaf AND one of its own ancestor grouping
+  // nodes in the same request — e.g. `["3-Piece", "Unstitched"]` for
+  // "unstitched 3-piece suits", or `["Top", "Shirt", "Western"]` for
+  // "women's western tops and shirts". Since every name's descendant set
+  // was unioned in unconditionally, the ancestor's much larger descendant
+  // set (all of Unstitched's 1/2/3-Piece/Suit, or all of Western's
+  // Upperwear/Bottomwear/Footwear/Suits & Sets) swallowed the specific
+  // leaf's own precision entirely — "3-Piece" stopped meaning anything
+  // once "Unstitched" was unioned in alongside it. An ancestor named
+  // alongside its own descendant carries no additional information (the
+  // descendant is already a subset of it) and only dilutes — so within
+  // each gender root, prune any resolved node that is a strict ancestor
+  // of another resolved node before expanding to descendants.
   const ids = new Set();
   for (const rootId of genderRoots) {
-    for (const name of names) {
-      const nodeId = findDescendantByName(tree, rootId, name);
-      if (nodeId != null) descendantIds(tree, nodeId).forEach((id) => ids.add(id));
-    }
+    const resolved = names
+      .map((name) => findDescendantByName(tree, rootId, name))
+      .filter((id) => id != null);
+    const pruned = resolved.filter(
+      (id) => !resolved.some((other) => other !== id && isAncestor(tree, id, other))
+    );
+    for (const nodeId of pruned) descendantIds(tree, nodeId).forEach((id) => ids.add(id));
   }
   if (ids.size === 0) return { ids: [], notFound: true };
   return { ids: [...ids], notFound: false };
+}
+
+function isAncestor(tree, ancestorId, nodeId) {
+  let cur = tree.byId.get(nodeId)?.parentId;
+  while (cur != null) {
+    if (cur === ancestorId) return true;
+    cur = tree.byId.get(cur)?.parentId;
+  }
+  return false;
 }
 
 export async function resolveBrandId(brandParam) {
