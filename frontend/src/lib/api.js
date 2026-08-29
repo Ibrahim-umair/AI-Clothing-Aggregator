@@ -18,6 +18,20 @@ async function getJSON(path) {
   return res.json();
 }
 
+async function postJSON(path, body) {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = new Error(`API ${path} failed: ${res.status}`);
+    err.status = res.status;
+    throw err;
+  }
+  return res.json();
+}
+
 function selectionParams(selection = {}) {
   const params = new URLSearchParams();
   if (selection.gender) params.set("gender", selection.gender);
@@ -57,4 +71,10 @@ export function fetchTaxonomy(selection = {}) {
 
 export function fetchBrands() {
   return getJSON("/brands");
+}
+
+// POST /api/search — natural-language search (server/search.js). See
+// server/SEARCH.md for the full pipeline design.
+export function searchProducts(query) {
+  return postJSON("/search", { query });
 }

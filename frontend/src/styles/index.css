@@ -1839,3 +1839,165 @@ ul { margin: 0; padding: 0; list-style: none; }
 }
 
 .related-section { padding: clamp(30px, 4vw, 48px) clamp(16px, 3.5vw, 40px) 60px; border-top: 1px solid var(--border); margin-top: 24px; }
+
+/* ---------- AI Search nav links (top-nav + mobile) ----------
+   Accent-colored rather than the plain --text every other nav link uses —
+   this is the one nav item that isn't a taxonomy browse, worth reading as
+   distinct at a glance, not a louder/animated treatment (stays consistent
+   with the rest of this theme's restraint — no gradients/glows). */
+.top-nav__link--ai,
+.mobile-nav__flat-link--ai {
+  color: var(--accent-strong);
+}
+.top-nav__link--ai:hover { color: var(--accent); }
+.mobile-nav__flat-link--ai {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+/* ---------- AI Search page ----------
+   Same token set as the rest of the site (bg/surface/border/accent) —
+   deliberately not a separate "AI" visual language with gradients/glow,
+   just this theme's existing restrained identity applied to a search-
+   first layout instead of a browse-first one. */
+.ai-search {
+  padding: clamp(28px, 5vw, 56px) 0 60px;
+}
+
+.ai-search__hero {
+  max-width: 720px;
+  margin: 0 auto;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.ai-search__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.ai-search__hero h1 {
+  font-size: clamp(26px, 4vw, 38px);
+  text-wrap: balance;
+}
+
+.ai-search__hero > p {
+  color: var(--text-soft);
+  font-size: 14.5px;
+  max-width: 52ch;
+  line-height: 1.6;
+}
+
+.ai-search__bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  max-width: 560px;
+  height: 56px;
+  padding: 0 10px 0 20px;
+  margin-top: 6px;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-lg);
+  color: var(--text-faint);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.ai-search__bar:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.ai-search__bar svg { flex-shrink: 0; }
+.ai-search__bar input {
+  flex: 1;
+  height: 100%;
+  border: none;
+  outline: none;
+  background: none;
+  font: inherit;
+  font-size: 14.5px;
+  color: var(--text);
+}
+.ai-search__bar input::placeholder { color: var(--text-faint); }
+.ai-search__bar .btn { min-height: 40px; flex-shrink: 0; }
+
+.ai-search__examples {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 4px;
+  font-size: 12.5px;
+  color: var(--text-faint);
+}
+
+.ai-search__example-chip {
+  padding: 7px 14px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-soft);
+  font-size: 12.5px;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+.ai-search__example-chip:hover {
+  border-color: var(--accent);
+  color: var(--accent-strong);
+}
+
+.ai-search__results {
+  max-width: 1400px;
+  margin: 40px auto 0;
+  padding: 0 clamp(16px, 3.5vw, 40px);
+}
+
+.ai-search__answer {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 14px 18px;
+  margin-bottom: 14px;
+  background: var(--accent-soft);
+  border-radius: var(--radius-md);
+  color: var(--accent-strong);
+  font-size: 14px;
+  font-weight: 600;
+}
+.ai-search__answer svg { flex-shrink: 0; }
+.ai-search__answer--loading .skeleton-line { background: color-mix(in srgb, var(--accent-strong) 18%, transparent); }
+
+.ai-search__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.ai-search__chip {
+  padding: 6px 13px;
+  border-radius: 999px;
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  color: var(--text-soft);
+  font-size: 12px;
+  font-weight: 600;
+}
+.ai-search__chip--muted {
+  color: var(--text-faint);
+  font-weight: 500;
+  font-style: italic;
+}

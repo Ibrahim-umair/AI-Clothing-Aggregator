@@ -13,6 +13,7 @@ import {
   SearchIcon,
   MenuIcon,
   CloseIcon,
+  SparklesIcon,
 } from "./icons.jsx";
 
 const NAV_GENDERS = ["Women", "Men"];
@@ -142,6 +143,10 @@ export default function Header() {
           <button type="button" className="top-nav__link" onClick={() => go({ sort: "newest" })}>
             New In
           </button>
+          <Link to="/ai-search" className="top-nav__link top-nav__link--ai">
+            <SparklesIcon size={13} />
+            AI Search
+          </Link>
         </nav>
 
         <form className="header-search" onSubmit={submitSearch}>
@@ -376,6 +381,10 @@ function MobileNav({ open, onClose, menus, query, setQuery, onSubmitSearch, onNa
           <button type="button" className="mobile-nav__flat-link" onClick={() => onNavigate({ sort: "newest" })}>
             New In
           </button>
+          <Link to="/ai-search" className="mobile-nav__flat-link mobile-nav__flat-link--ai" onClick={onClose}>
+            <SparklesIcon size={14} />
+            AI Search
+          </Link>
           <Link to="/favourites" className="mobile-nav__flat-link" onClick={onClose}>
             Favourites
           </Link>

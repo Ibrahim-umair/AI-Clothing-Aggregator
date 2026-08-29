@@ -386,3 +386,23 @@ export function TagIcon({ size = 14, ...props }) {
     </svg>
   );
 }
+
+export function SparklesIcon({ size = 18, ...props }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width={size}
+      height={size}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      {...props}
+    >
+      <path d="M11 3.5c.5 2.6 1.1 4 2.2 5.3 1.3 1.1 2.7 1.7 5.3 2.2-2.6.5-4 1.1-5.3 2.2-1.1 1.3-1.7 2.7-2.2 5.3-.5-2.6-1.1-4-2.2-5.3-1.3-1.1-2.7-1.7-5.3-2.2 2.6-.5 4-1.1 5.3-2.2 1.1-1.3 1.7-2.7 2.2-5.3Z" />
+      <path d="M18.5 3v3M17 4.5h3" />
+    </svg>
+  );
+}
