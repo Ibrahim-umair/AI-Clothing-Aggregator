@@ -28,6 +28,13 @@ export const openai = process.env.OPENAI_API_KEY ? new OpenAI() : null;
 // well-defined, objective category, exactly like gender or price. This is
 // the real fix for that (RRF leg-weighting alone could not fix it — see
 // SEARCH.md); it's a hard SQL filter now, same as gender.
+// Includes the 10 non-leaf grouping nodes (Upperwear, Bottomwear, Western,
+// Accessories, ...) alongside the 43 leaves, so a broad query ("upperwear
+// under 2000") can be expressed at the level it was actually asked at
+// rather than being forced down to one arbitrary leaf. NOTE: this only
+// works because categoryIdsForSearch expands descendants — products sit on
+// LEAF ids only (0 sit on an Upperwear node, verified), so matching a
+// grouping node without expanding its children returns nothing at all.
 export const KNOWN_CATEGORIES = [
   "1-Piece", "2-Piece", "3-Piece", "Bag", "Belt", "Cap", "Co-ord Set", "Cufflink",
   "Dress", "Frock", "Hoodie", "Jacket", "Jeans", "Jewelry", "Joggers", "Keychain",
@@ -35,6 +42,8 @@ export const KNOWN_CATEGORIES = [
   "Saree", "Shalwar Kameez", "Shawl", "Sherwani", "Shirt", "Shoes", "Shorts",
   "Socks", "Suit", "Sunglasses", "Sweater", "Sweatshirt", "Tie", "Tights", "Top",
   "Trouser", "T-Shirt", "Underwear", "Waistcoat", "Wallet", "Watch",
+  "Upperwear", "Bottomwear", "Footwear", "Suits & Sets", "Stitched", "Unstitched",
+  "Western", "Eastern", "Accessories", "Fragrance & Beauty",
 ];
 
 const SEARCH_TOOL = {
@@ -47,11 +56,11 @@ const SEARCH_TOOL = {
       type: "object",
       properties: {
         gender: { type: ["string", "null"], enum: ["Women", "Men", "Boys", "Girls", "Unisex", null], description: "Who the product is for, if stated or clearly implied. null if not mentioned." },
-        category: {
-          type: ["string", "null"],
-          enum: [...KNOWN_CATEGORIES, null],
+        categories: {
+          type: "array",
+          items: { type: "string", enum: KNOWN_CATEGORIES },
           description:
-            "The specific product TYPE being searched for, ONLY if it clearly maps to exactly one of the known category names, and the query is genuinely about that type of product (not just mentioning the word in passing — e.g. a query for an accessory that happens to share a word with a garment name must NOT be confused with the garment itself). null if the query doesn't name a specific product type, or could plausibly mean more than one category.",
+            "Every product TYPE the query asks for. Include MULTIPLE when the query names more than one ('polos and tees' -> ['Polo','T-Shirt']). Use a broad grouping name ('Upperwear', 'Western', 'Accessories') when the query asks broadly rather than for one specific garment ('upperwear under 2000' -> ['Upperwear']). Only include a name if the query is genuinely about that type of product, not merely mentioning the word in passing — e.g. an accessory whose name happens to contain a garment word must NOT be treated as that garment. EMPTY ARRAY if the query names no product type at all ('grey clothes', 'something for a wedding') — that searches everything, which is correct.",
         },
         minPrice: { type: ["number", "null"], description: "Minimum price in PKR, if a lower bound is stated. null otherwise." },
         maxPrice: { type: ["number", "null"], description: "Maximum price in PKR, if an upper bound or budget is stated (e.g. 'under 5000', 'cheap' does NOT count as a number — leave null for vague budget words). null otherwise." },
@@ -59,10 +68,14 @@ const SEARCH_TOOL = {
         sizes: { type: "array", items: { type: "string" }, description: "Sizes explicitly requested (e.g. ['M'], ['L','XL']). Empty array if none." },
         colors: { type: "array", items: { type: "string" }, description: "Colors explicitly requested, lowercase canonical English names (e.g. ['blue']). Empty array if none." },
         onSale: { type: "boolean", description: "true only if the user explicitly asks for sale/discounted items." },
-        semantic_query: { type: "string", description: "The remaining descriptive intent NOT already captured above — style, occasion, material, mood (e.g. 'cozy warm', 'formal wedding'). Do not repeat the category/gender/price/brand already extracted above. This is what drives semantic ranking." },
+        semantic_query: {
+          type: "string",
+          description:
+            "ONLY the leftover descriptive words — fabric, style, occasion, mood, cut — after removing everything already captured in the fields above. This is matched against product text directly, so restating the category/price/gender/brand actively HURTS: those are already enforced as exact filters, and repeating them drowns out the words that actually distinguish one product from another. Write bare keywords, not a sentence, and never a preamble like 'Searching for...'. Examples: 'Polos / Tees under 3000 knitted wear' -> 'knitted'; 'cozy warm sweaters for women under 5000' -> 'cozy warm'; 'formal kurta for a wedding, men, under 8000' -> 'formal wedding'; 'furor jeans' -> '' (nothing left over). Empty string is correct and expected whenever the query is fully captured by the structured fields.",
+        },
         response_text: { type: "string", description: "A short, natural one-sentence confirmation of what's being searched for, written in present tense as if results are being shown now (e.g. 'Here are cozy sweaters for women under Rs. 5,000.'). Do NOT mention a specific count — that gets filled in separately." },
       },
-      required: ["gender", "category", "minPrice", "maxPrice", "brand", "sizes", "colors", "onSale", "semantic_query", "response_text"],
+      required: ["gender", "categories", "minPrice", "maxPrice", "brand", "sizes", "colors", "onSale", "semantic_query", "response_text"],
       additionalProperties: false,
     },
     strict: true,
@@ -70,9 +83,38 @@ const SEARCH_TOOL = {
 };
 
 export async function extractSearchFilters(query) {
+  // The semantic_query rule lives here, in a system message with worked
+  // examples, rather than only in the parameter's own description. That
+  // placement matters in practice: with the rule only in the description,
+  // gpt-4o-mini ignored it on consecutive real runs of the SAME query —
+  // once restating everything as a sentence ("Searching for knitted polos
+  // and tees under Rs. 3,000."), once echoing the raw query verbatim.
+  // Both defeat the point of the field, since the textual retrieval leg
+  // matches on it directly.
   const completion = await openai.chat.completions.create({
     model: "gpt-4o-mini",
-    messages: [{ role: "user", content: query }],
+    messages: [
+      {
+        role: "system",
+        content: [
+          "You extract search filters for a Pakistani apparel marketplace.",
+          "",
+          "Rules for `semantic_query`, which are strict:",
+          "- It holds ONLY the words left over after everything captured by the other fields is removed.",
+          "- It is matched directly against product text, so repeating a category, price, gender or brand that is already in another field actively degrades results.",
+          "- Write bare keywords. Never a sentence. Never a preamble such as 'Searching for'. Never the original query verbatim.",
+          "- An empty string is correct and expected whenever the structured fields already capture the whole query.",
+          "",
+          "Worked examples:",
+          'query "Polos / Tees under 3000 knitted wear" -> categories ["Polo","T-Shirt"], maxPrice 3000, semantic_query "knitted"',
+          'query "cozy warm sweaters for women under 5000" -> gender "Women", categories ["Sweater"], maxPrice 5000, semantic_query "cozy warm"',
+          'query "furor jeans" -> brand "Furor", categories ["Jeans"], semantic_query ""',
+          'query "formal kurta for a wedding, men, under 8000" -> gender "Men", categories ["Kurta"], maxPrice 8000, semantic_query "formal wedding"',
+          'query "grey clothes" -> categories [], colors ["grey"], semantic_query ""',
+        ].join("\n"),
+      },
+      { role: "user", content: query },
+    ],
     tools: [SEARCH_TOOL],
     tool_choice: { type: "function", function: { name: "search_filters" } },
   });
@@ -145,7 +187,7 @@ export async function runSearch(query, { debug = false, genderOverride = null } 
     filters.gender = genderOverride;
   }
 
-  const { ids: categoryIds, notFound: categoryNotFound } = await categoryIdsForSearch(filters.gender, filters.category);
+  const { ids: categoryIds, notFound: categoryNotFound } = await categoryIdsForSearch(filters.gender, filters.categories);
   if (categoryNotFound) {
     return {
       response_text: `${filters.response_text} No matches found.`,
@@ -225,7 +267,22 @@ export async function runSearch(query, { debug = false, genderOverride = null } 
   // so this is still a real relevance signal, not "match anything".
   // Verified directly: real Women/Sweater/<=5000 products containing both
   // "Women" and "Sweater" now rank above ones matching only one term.
-  const textualParams = [...params, query, LEG_POOL];
+  // Runs on the extracted semantic residual, NOT the raw query. Real
+  // failure this fixes: "Polos / Tees under 3000 knitted wear" ORed
+  // polo|tee|3000|knit|wear, so every polo matched on "polo" and the one
+  // genuinely distinctive term ("knitted") was diluted to a fifth of the
+  // signal — the leg ranked plain non-knitted polos top. semantic_query
+  // for that same search is just "knitted wear", which is exactly the
+  // part this leg should be matching on: the category/price/brand words
+  // are already enforced as hard SQL filters above, so re-matching them
+  // textually adds nothing and actively drowns out the rest.
+  // An empty residual means the query was FULLY captured by the structured
+  // filters ("furor jeans" -> brand + category, nothing left over). There
+  // is nothing distinctive left for this leg to match on, so it's skipped
+  // entirely rather than falling back to the raw query — falling back
+  // would just reintroduce the dilution described above.
+  const textualText = (filters.semantic_query || "").trim();
+  const textualParams = [...params, textualText, LEG_POOL];
   const textualQueryExpr = `to_tsquery('english', replace(plainto_tsquery('english', $${params.length + 1})::text, ' & ', ' | '))`;
   const textualSql = `
     ${rowSelectSql} AND p.search_vector @@ ${textualQueryExpr}
@@ -248,7 +305,7 @@ export async function runSearch(query, { debug = false, genderOverride = null } 
         client.release();
       }
     })(),
-    pool.query(textualSql, textualParams).then((r) => r.rows),
+    textualText ? pool.query(textualSql, textualParams).then((r) => r.rows) : Promise.resolve([]),
   ]);
 
   // Reciprocal Rank Fusion — weighted 0.7 vector / 0.3 textual. See the

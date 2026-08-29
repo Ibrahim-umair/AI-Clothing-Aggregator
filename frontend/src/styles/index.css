@@ -2071,3 +2071,20 @@ ul { margin: 0; padding: 0; list-style: none; }
   font-weight: 500;
   font-style: italic;
 }
+
+/* Result cards on this page are denser (5-up rather than 4-up, see the
+   product-grid--5 class in AiSearch.jsx) and carry a light outline.
+   Scoped to .ai-search__results rather than applied to .card globally on
+   purpose: Shop/Home use the borderless card treatment deliberately, and
+   silently restyling every card in the app is a bigger change than was
+   asked for. One-line promotion if it should be the site-wide look. */
+.ai-search__results .card {
+  padding: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  transition: border-color 0.15s ease;
+}
+.ai-search__results .card:hover { border-color: var(--text-faint); }
+.ai-search__results .card__media { border-radius: var(--radius-sm); }
+.ai-search__results .card__body { padding: 10px 4px 2px; }

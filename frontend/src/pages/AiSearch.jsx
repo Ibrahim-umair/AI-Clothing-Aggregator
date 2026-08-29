@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import ProductCard from "../components/ProductCard.jsx";
 import ProductCardSkeleton from "../components/ProductCardSkeleton.jsx";
 import {
@@ -15,25 +16,56 @@ import { searchProducts } from "../lib/api.js";
 
 // Real, varied example queries — each pairs with a garment icon already
 // used elsewhere in the app (quick-category chips, mega-menu), so this
-// isn't new iconography invented for this page. Exercises different parts
-// of the pipeline: budget+category, occasion+category, brand+category,
-// fuzzy/subjective with no explicit category, plain category+budget.
+// isn't new iconography invented for this page.
 const EXAMPLE_QUERIES = [
   { icon: ShirtIcon, text: "Smart casual shirts under PKR 3,000" },
   { icon: KurtaIcon, text: "Formal kurta for a wedding" },
   { icon: ShoeIcon, text: "Minimal white sneakers" },
-  { icon: TShirtIcon, text: "Cozy sweaters for women under 5,000" },
+  { icon: TShirtIcon, text: "Cozy sweaters under 5,000" },
   { icon: TrouserIcon, text: "Royal Tag formal trousers" },
   { icon: SunglassesIcon, text: "Sunglasses under 2,000" },
 ];
 
+const DEFAULT_GENDER = "Men";
+// Sentinel for "explicitly cleared" in the URL. Needed because an absent
+// ?gender= means "untouched, use the default", which is NOT the same as
+// the user having deliberately cleared the toggle to let the AI infer
+// gender from the text. Without this the cleared state would silently
+// snap back to Men on reload or back-navigation.
+const GENDER_ANY = "any";
+
+// Results are cached per (query, gender) so returning from a product page
+// restores the previous search instantly — no second LLM call, no repaid
+// latency or cost. sessionStorage (not localStorage) because a stale
+// price/stock snapshot shouldn't outlive the tab; every fresh visit
+// re-queries. Both reads and writes are guarded: storage throws outright
+// in some contexts (private windows, blocked site data, quota), and a
+// failed cache must degrade to "just fetch it again", never to a crash.
+function cacheKey(query, gender) {
+  return `libas-ai-search:${gender || GENDER_ANY}:${query}`;
+}
+function readCache(query, gender) {
+  try {
+    const raw = sessionStorage.getItem(cacheKey(query, gender));
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+function writeCache(query, gender, data) {
+  try {
+    sessionStorage.setItem(cacheKey(query, gender), JSON.stringify(data));
+  } catch {
+    /* quota or blocked storage — the search still works, it just won't restore for free */
+  }
+}
+
 // The extracted filter chips shown under the answer line — read-only
-// visibility into what the pipeline understood (same idea as Shop.jsx's
-// active-chips row, not an editable filter sidebar).
+// visibility into what the pipeline understood.
 function filterChips(filters) {
   const chips = [];
   if (filters.gender) chips.push(filters.gender);
-  if (filters.category) chips.push(filters.category);
+  (filters.categories || []).forEach((c) => chips.push(c));
   if (filters.brand) chips.push(filters.brand);
   if (filters.minPrice != null || filters.maxPrice != null) {
     const min = filters.minPrice != null ? `PKR ${filters.minPrice.toLocaleString()}` : "";
@@ -47,44 +79,95 @@ function filterChips(filters) {
 }
 
 export default function AiSearch() {
-  const [draft, setDraft] = useState("");
-  // Defaults to "Men" (matching the supplied reference). Whatever is
-  // selected overrides what the model would infer from the text itself
-  // (see runSearch's genderOverride) — a person who has "Men" selected
-  // and types "red kurta" means Men's kurtas regardless of whether the
-  // text says so. Clicking the active button clears it back to null,
-  // which is a real state meaning "let the AI decide from what I typed".
-  const [genderFilter, setGenderFilter] = useState("Men");
-  const [query, setQuery] = useState(null);
+  // The query and gender live in the URL, not component state, so browser
+  // back/forward and reload all restore the search exactly — this page is
+  // a real destination people navigate away from (into a product) and
+  // come back to.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const query = searchParams.get("q") || "";
+  const genderParam = searchParams.get("gender");
+  const genderFilter = genderParam === GENDER_ANY ? null : genderParam || DEFAULT_GENDER;
+
+  const [draft, setDraft] = useState(query);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
-  const [result, setResult] = useState(null);
+  const [result, setResult] = useState(() => (query ? readCache(query, genderFilter) : null));
 
-  async function runSearch(q, gender) {
-    const trimmed = q.trim();
-    if (!trimmed) return;
-    setQuery(trimmed);
-    setDraft(trimmed);
+  // Keep the input in sync when the URL changes underneath us (back /
+  // forward navigation), without clobbering what someone is mid-typing on
+  // this page — the URL only changes on submit or history navigation.
+  useEffect(() => {
+    setDraft(query);
+  }, [query]);
+
+  useEffect(() => {
+    if (!query) {
+      setResult(null);
+      setError(false);
+      return;
+    }
+    const cached = readCache(query, genderFilter);
+    if (cached) {
+      setResult(cached);
+      setError(false);
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
     setLoading(true);
     setError(false);
     setResult(null);
-    try {
-      const data = await searchProducts(trimmed, gender);
-      setResult(data);
-    } catch (err) {
-      setError(true);
-    } finally {
-      setLoading(false);
-    }
+    searchProducts(query, genderFilter)
+      .then((data) => {
+        if (cancelled) return;
+        setResult(data);
+        writeCache(query, genderFilter, data);
+      })
+      .catch(() => !cancelled && setError(true))
+      .finally(() => !cancelled && setLoading(false));
+    return () => {
+      cancelled = true;
+    };
+  }, [query, genderFilter]);
+
+  function submitQuery(q, gender) {
+    const trimmed = q.trim();
+    if (!trimmed) return;
+    const next = { q: trimmed };
+    if (gender !== DEFAULT_GENDER) next.gender = gender || GENDER_ANY;
+    setSearchParams(next);
   }
 
   function onSubmit(e) {
     e.preventDefault();
-    runSearch(draft, genderFilter);
+    submitQuery(draft, genderFilter);
   }
 
   function toggleGender(g) {
-    setGenderFilter((cur) => (cur === g ? null : g));
+    const next = genderFilter === g ? null : g;
+    const params = {};
+    if (query) params.q = query;
+    if (next !== DEFAULT_GENDER) params.gender = next || GENDER_ANY;
+    // replace, not push — flipping a filter shouldn't stack history
+    // entries the back button then has to walk through one at a time.
+    setSearchParams(params, { replace: true });
+  }
+
+  function retry() {
+    try {
+      sessionStorage.removeItem(cacheKey(query, genderFilter));
+    } catch {
+      /* nothing cached to clear */
+    }
+    setError(false);
+    setLoading(true);
+    searchProducts(query, genderFilter)
+      .then((data) => {
+        setResult(data);
+        writeCache(query, genderFilter, data);
+      })
+      .catch(() => setError(true))
+      .finally(() => setLoading(false));
   }
 
   return (
@@ -137,7 +220,7 @@ export default function AiSearch() {
         {!query && (
           <div className="ai-search__examples">
             {EXAMPLE_QUERIES.map(({ icon: Icon, text }) => (
-              <button type="button" key={text} className="ai-search__example-chip" onClick={() => runSearch(text, genderFilter)}>
+              <button type="button" key={text} className="ai-search__example-chip" onClick={() => submitQuery(text, genderFilter)}>
                 <Icon size={15} />
                 {text}
               </button>
@@ -154,8 +237,8 @@ export default function AiSearch() {
                 <SparklesIcon size={15} />
                 <span className="skeleton-line" style={{ width: "60%" }} />
               </div>
-              <div className="product-grid product-grid--4">
-                {Array.from({ length: 8 }, (_, i) => (
+              <div className="product-grid product-grid--5">
+                {Array.from({ length: 10 }, (_, i) => (
                   <ProductCardSkeleton key={i} />
                 ))}
               </div>
@@ -164,11 +247,11 @@ export default function AiSearch() {
             <div className="empty-state">
               <h3>Couldn't reach the search engine</h3>
               <p>Something went wrong talking to the server. Check your connection and try again.</p>
-              <button type="button" className="btn btn--primary" onClick={() => runSearch(query, genderFilter)}>
+              <button type="button" className="btn btn--primary" onClick={retry}>
                 Try again
               </button>
             </div>
-          ) : (
+          ) : result ? (
             <>
               <div className="ai-search__answer">
                 <SparklesIcon size={15} />
@@ -192,14 +275,14 @@ export default function AiSearch() {
                   <p>Try describing it a little differently, or broaden the budget/brand.</p>
                 </div>
               ) : (
-                <div className="product-grid product-grid--4">
+                <div className="product-grid product-grid--5">
                   {result.products.map((p) => (
                     <ProductCard key={p.id} product={p} />
                   ))}
                 </div>
               )}
             </>
-          )}
+          ) : null}
         </div>
       )}
     </div>

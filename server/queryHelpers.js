@@ -82,27 +82,51 @@ export async function categoryIdsFromQuery(q) {
 // extracted) with categoryIdsFromQuery({category: "Jeans"}) was silently
 // resolving to only ONE gender's Jeans leaf (whichever BFS visited first),
 // matching zero of Furor's real (Men's) jeans products.
-export async function categoryIdsForSearch(gender, category) {
-  if (!gender && !category) return { ids: null, notFound: false };
+// When no gender is specified at all, only adult roots are searched.
+// Someone typing "polos under 3000" with no gender is browsing as an
+// adult shopper — returning Boys'/Girls' items alongside is noise, and it
+// was really happening (a "Polo" search surfaced Boys Polo Tees near the
+// top of the textual leg). Kids' items are still fully reachable, just
+// only when actually asked for ("boys polo"), which sets gender
+// explicitly and skips this default entirely.
+const ADULT_GENDER_ROOTS = ["Men", "Women", "Unisex"];
+
+export async function categoryIdsForSearch(gender, categories) {
+  const names = (Array.isArray(categories) ? categories : categories ? [categories] : []).filter(Boolean);
+  if (!gender && names.length === 0) {
+    // No gender AND no category: still scope to adult roots rather than
+    // returning null (= "no category filter at all"), so the kids
+    // exclusion above holds for bare queries like "grey clothes" too.
+    const tree = await getTree();
+    const roots = (tree.childrenOf.get(null) || []).filter((id) => ADULT_GENDER_ROOTS.includes(tree.byId.get(id).name));
+    return { ids: roots.flatMap((id) => descendantIds(tree, id)), notFound: false };
+  }
   const tree = await getTree();
   const genderRoots = gender
     ? [(tree.childrenOf.get(null) || []).find((id) => tree.byId.get(id).name.toLowerCase() === gender.toLowerCase())].filter((x) => x != null)
-    : tree.childrenOf.get(null) || [];
+    : (tree.childrenOf.get(null) || []).filter((id) => ADULT_GENDER_ROOTS.includes(tree.byId.get(id).name));
   if (gender && genderRoots.length === 0) return { ids: [], notFound: true };
 
-  if (!category) {
-    // Gender only: every category under that one root (categoryIdsFromQuery
-    // already does exactly this correctly for a single known root).
-    return categoryIdsFromQuery({ gender });
+  if (names.length === 0) {
+    // Gender only: every category under that one root.
+    return { ids: genderRoots.flatMap((id) => descendantIds(tree, id)), notFound: false };
   }
 
-  const leafIds = genderRoots.flatMap((rootId) => {
-    const id = findDescendantByName(tree, rootId, category);
-    return id != null ? [id] : [];
-  });
-  if (leafIds.length === 0) return { ids: [], notFound: true };
-  // Leaves have no descendants of their own — this is already the final id set.
-  return { ids: leafIds, notFound: false };
+  // Every matching node under every in-scope gender root, EXPANDED to its
+  // descendants. The expansion is what makes a grouping node like
+  // "Upperwear" work at all: products sit on leaf ids only, so matching
+  // the Upperwear node itself and stopping there returns literally zero
+  // rows. For an actual leaf, descendantIds is just [leafId], so the same
+  // code path is correct for both.
+  const ids = new Set();
+  for (const rootId of genderRoots) {
+    for (const name of names) {
+      const nodeId = findDescendantByName(tree, rootId, name);
+      if (nodeId != null) descendantIds(tree, nodeId).forEach((id) => ids.add(id));
+    }
+  }
+  if (ids.size === 0) return { ids: [], notFound: true };
+  return { ids: [...ids], notFound: false };
 }
 
 export async function resolveBrandId(brandParam) {
