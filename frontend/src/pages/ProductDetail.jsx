@@ -12,6 +12,12 @@ export default function ProductDetail() {
   const [product, setProduct] = useState(null);
   const [status, setStatus] = useState("loading"); // "loading" | "ready" | "not_found" | "error"
   const [activeImage, setActiveImage] = useState(0);
+  // Overrides the gallery when a picked color's real photo isn't already
+  // one of the product's own gallery images (common — see
+  // backfill_variant_images.py; many stores only link ONE photo per color,
+  // separate from the general gallery) — null means "just use the active
+  // thumbnail", same as before this existed.
+  const [colorImageOverride, setColorImageOverride] = useState(null);
   const [pickedSize, setPickedSize] = useState(null);
   const [pickedColor, setPickedColor] = useState(null);
   const [related, setRelated] = useState([]);
@@ -22,13 +28,22 @@ export default function ProductDetail() {
     let cancelled = false;
     setStatus("loading");
     setActiveImage(0);
+    setColorImageOverride(null);
     setRelated([]);
     fetchProduct(id)
       .then((data) => {
         if (cancelled) return;
         setProduct(data);
-        setPickedSize(data.sizes?.find((s) => s.available)?.label ?? data.sizes?.[0]?.label ?? null);
-        setPickedColor(data.colors?.[0] ?? null);
+        const sizesForDefault = data.colors?.length > 0 ? data.sizes_by_color?.[data.colors[0].name] : data.sizes;
+        setPickedSize((sizesForDefault || data.sizes)?.find((s) => s.available)?.label ?? data.sizes?.[0]?.label ?? null);
+        // Prefer a color that's actually in stock as the default — showing
+        // an out-of-stock color's photo first is a worse first impression
+        // than one you can actually buy, when there's a choice.
+        const defaultColor = data.colors?.find((c) => c.available) ?? data.colors?.[0];
+        setPickedColor(defaultColor?.name ?? null);
+        if (defaultColor?.image_url && !(data.images || []).includes(defaultColor.image_url)) {
+          setColorImageOverride(defaultColor.image_url);
+        }
         setStatus("ready");
 
         const [gender, branch, sub, category] = data.category_path || [];
@@ -99,6 +114,35 @@ export default function ProductDetail() {
   const discount = discountPercent(product.price, product.compare_at_price);
   const images = product.images && product.images.length > 0 ? product.images : [product.image_url];
   const saved = has(product.id);
+  const mainImageSrc = colorImageOverride || images[activeImage];
+  // Sizes scoped to whichever color is picked — a size only reading as
+  // available because a DIFFERENT color still had stock was the reported
+  // "sizes lie" bug. Falls back to the union (product.sizes) when nothing's
+  // picked yet or that color has no size breakdown of its own.
+  const sizesForDisplay = (pickedColor && product.sizes_by_color?.[pickedColor]) || product.sizes;
+
+  function pickThumb(i) {
+    setActiveImage(i);
+    setColorImageOverride(null);
+  }
+
+  function pickColor(c) {
+    if (!c.available) return;
+    setPickedColor(c.name);
+    const sizesForColor = product.sizes_by_color?.[c.name] || product.sizes;
+    setPickedSize(sizesForColor?.find((s) => s.available)?.label ?? sizesForColor?.[0]?.label ?? null);
+    if (!c.image_url) {
+      setColorImageOverride(null);
+      return;
+    }
+    const idx = images.indexOf(c.image_url);
+    if (idx !== -1) {
+      setActiveImage(idx);
+      setColorImageOverride(null);
+    } else {
+      setColorImageOverride(c.image_url);
+    }
+  }
 
   return (
     <>
@@ -111,8 +155,8 @@ export default function ProductDetail() {
               <button
                 key={src + i}
                 className="gallery__thumb"
-                data-active={i === activeImage}
-                onClick={() => setActiveImage(i)}
+                data-active={!colorImageOverride && i === activeImage}
+                onClick={() => pickThumb(i)}
                 aria-label={`View image ${i + 1}`}
               >
                 <img src={src} alt="" loading="lazy" />
@@ -122,10 +166,10 @@ export default function ProductDetail() {
         )}
 
         <div className="gallery__main">
-          <img src={images[activeImage]} alt={product.title} />
+          <img src={mainImageSrc} alt={product.title} />
           <a
             className="gallery__expand"
-            href={images[activeImage]}
+            href={mainImageSrc}
             target="_blank"
             rel="noreferrer"
             aria-label="View full-size image"
@@ -155,13 +199,13 @@ export default function ProductDetail() {
             <p className="detail__description">{decodeHtmlEntities(product.description)}</p>
           )}
 
-          {product.sizes?.length > 0 && (
+          {sizesForDisplay?.length > 0 && (
             <div>
               <div className="option-head">
                 <b>Size</b>
               </div>
               <div className="size-row">
-                {product.sizes.map((s) => (
+                {sizesForDisplay.map((s) => (
                   <button
                     type="button"
                     key={s.label}
@@ -185,13 +229,13 @@ export default function ProductDetail() {
                 {product.colors.map((c) => (
                   <button
                     type="button"
-                    key={c}
-                    className="swatch"
-                    data-active={pickedColor === c}
-                    style={{ background: colorHex(c) }}
-                    title={c}
-                    aria-label={c}
-                    onClick={() => setPickedColor(c)}
+                    key={c.name}
+                    className={`swatch${!c.available ? " swatch--unavailable" : ""}`}
+                    data-active={pickedColor === c.name}
+                    style={{ background: colorHex(c.name) }}
+                    title={c.available ? c.name : `${c.name} — out of stock`}
+                    aria-label={c.name}
+                    onClick={() => pickColor(c)}
                   />
                 ))}
               </div>

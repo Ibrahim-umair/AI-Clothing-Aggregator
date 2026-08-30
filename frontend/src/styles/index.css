@@ -1776,6 +1776,26 @@ ul { margin: 0; padding: 0; list-style: none; }
 }
 .swatch[data-active="true"] { outline: 2px solid var(--text); outline-offset: 3px; }
 
+/* A color with zero stock across every size — same "muted, struck-through,
+   not clickable" intent as .size-pill--unavailable, adapted for a solid
+   circle: a diagonal line overlay stands in for line-through text, since
+   a swatch has no text of its own to strike. */
+.swatch--unavailable {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.swatch--unavailable::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: linear-gradient(
+    to top right,
+    transparent calc(50% - 1px), var(--text-faint) calc(50% - 1px),
+    var(--text-faint) calc(50% + 1px), transparent calc(50% + 1px)
+  );
+}
+
 .size-row { display: flex; gap: 8px; flex-wrap: wrap; }
 
 .size-pill {
