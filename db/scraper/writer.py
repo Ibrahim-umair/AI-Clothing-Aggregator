@@ -175,12 +175,24 @@ def upsert_product_full(conn, cur, bid, native_id, p, title, description, cat_id
                 (pid, url_, pos),
             )
 
+    # Shopify's more complete per-variant image link: an image in the
+    # product's OWN images[] array carries the variant ids it belongs to,
+    # populated in real data even when a variant's own "featured_image"
+    # (normalize_variant_fields' fallback) is null. REST only — Cougar
+    # (GraphQL) has no equivalent, see that function's comment.
+    image_by_variant_id = {}
+    if not is_graphql:
+        for img in (p.get("images") or []):
+            for vid in (img.get("variant_ids") or []):
+                image_by_variant_id[str(vid)] = img.get("src")
+
     variant_count = 0
     new_variant_count = 0
     snapshot_count = 0
     option_defs = p.get("options") or [] if not is_graphql else []
     for v in raw_variants:
         vf = normalize_variant_fields(v, option_defs, is_graphql)
+        image_url = image_by_variant_id.get(vf["native_vid"]) or vf.get("image_url")
 
         cur.execute(
             "SELECT current_price, current_compare_at, current_available FROM variants "
@@ -196,16 +208,16 @@ def upsert_product_full(conn, cur, bid, native_id, p, title, description, cat_id
 
         cur.execute(
             """INSERT INTO variants (product_id, native_variant_id, color_id, size_label,
-                size_system, sku, current_price, current_compare_at, current_available)
-               VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                size_system, sku, current_price, current_compare_at, current_available, image_url)
+               VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                ON CONFLICT (product_id, native_variant_id) DO UPDATE SET
                  color_id=EXCLUDED.color_id, size_label=EXCLUDED.size_label,
                  size_system=EXCLUDED.size_system, sku=EXCLUDED.sku,
                  current_price=EXCLUDED.current_price, current_compare_at=EXCLUDED.current_compare_at,
-                 current_available=EXCLUDED.current_available
+                 current_available=EXCLUDED.current_available, image_url=EXCLUDED.image_url
                RETURNING id""",
             (pid, vf["native_vid"], cid_color, vf["size_val"], size_system, vf["sku"],
-             new_price, new_compare, vf["available"]),
+             new_price, new_compare, vf["available"], image_url),
         )
         vid = cur.fetchone()[0]
         variant_count += 1

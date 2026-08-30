@@ -1064,6 +1064,18 @@ def _load_one_product(conn, cur, bid, native_id, p, title, description, cat_id, 
         )
         image_count += 1
 
+    # Shopify's more complete per-variant image link: an image in the
+    # product's OWN images[] array carries the variant ids it belongs to,
+    # and this is populated in real data even when a variant's own
+    # "featured_image" field (normalize_variant_fields' fallback) is null —
+    # verified directly against real multi-color products across brands.
+    # REST only; GraphQL (Cougar) has no equivalent.
+    image_by_variant_id = {}
+    if not is_graphql:
+        for img in (p.get("images") or []):
+            for vid in (img.get("variant_ids") or []):
+                image_by_variant_id[str(vid)] = img.get("src")
+
     variant_count = 0
     option_defs = p.get("options") or [] if not is_graphql else []
     for v in raw_variants:
@@ -1075,6 +1087,7 @@ def _load_one_product(conn, cur, bid, native_id, p, title, description, cat_id, 
         compare_at = vf["compare_at"]
         available = vf["available"]
         sku = vf["sku"]
+        image_url = image_by_variant_id.get(native_vid) or vf.get("image_url")
 
         cid_color = None
         if color_name:
@@ -1098,11 +1111,11 @@ def _load_one_product(conn, cur, bid, native_id, p, title, description, cat_id, 
 
         cur.execute(
             """INSERT INTO variants (product_id, native_variant_id, color_id, size_label,
-                size_system, sku, current_price, current_compare_at, current_available)
-               VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                size_system, sku, current_price, current_compare_at, current_available, image_url)
+               VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                ON CONFLICT (product_id, native_variant_id) DO NOTHING""",
             (pid, native_vid, cid_color, size_val, size_system, sku,
-             price, compare_at, available),
+             price, compare_at, available, image_url),
         )
         variant_count += 1
 

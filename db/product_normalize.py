@@ -62,6 +62,13 @@ def normalize_variant_fields(v, option_defs, is_graphql):
             "compare_at": None,
             "available": bool(v.get("availableForSale")),
             "sku": None,
+            # Cougar's Storefront GraphQL variant node carries no image
+            # reference at all (verified against real product data) — the
+            # reverse images[].variant_ids link this REST branch uses has no
+            # GraphQL equivalent here either. Callers fall back to the
+            # product's default image for this store; not a bug, just what
+            # Cougar's own feed provides.
+            "image_url": None,
         }
     color_name = size_val = None
     for i, opt in enumerate(option_defs):
@@ -75,6 +82,15 @@ def normalize_variant_fields(v, option_defs, is_graphql):
     compare_at = v.get("compare_at_price")
     if compare_at in ("0.00", 0, "0", None) or compare_at == price:
         compare_at = None
+    # The variant's OWN featured_image is real when present, but is null on
+    # many real variants even for stores that otherwise link color photos —
+    # the caller (load_data.py) additionally checks the product's images[]
+    # array's own variant_ids for the same link and prefers that, since real
+    # coverage testing found it's the more complete of the two sources.
+    # Coverage varies enormously by store (Outfitters ~95%, Zellbury ~84%,
+    # Cambridge/Furor ~15%, Edenrobe/Charcoal/Meme near 0%) — genuinely a
+    # per-store data gap, not something to paper over.
+    featured_image = v.get("featured_image") or {}
     return {
         "native_vid": str(v.get("id")),
         "color_name": color_name,
@@ -83,6 +99,7 @@ def normalize_variant_fields(v, option_defs, is_graphql):
         "compare_at": compare_at,
         "available": bool(v.get("available")),
         "sku": v.get("sku"),
+        "image_url": featured_image.get("src"),
     }
 
 

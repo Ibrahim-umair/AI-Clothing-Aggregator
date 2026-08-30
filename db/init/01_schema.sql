@@ -128,6 +128,13 @@ CREATE TABLE variants (
     current_price       NUMERIC(10,2),
     current_compare_at  NUMERIC(10,2),
     current_available   BOOLEAN NOT NULL DEFAULT FALSE,
+    -- The color-specific photo for this exact variant, when the store's own
+    -- feed links one (Shopify's images[].variant_ids reverse link, or a
+    -- variant's own featured_image — see product_normalize.py). NULL when
+    -- the store genuinely doesn't provide this (common — see backfill
+    -- script's real coverage numbers per brand); callers must fall back to
+    -- the product's default image, never leave a blank photo.
+    image_url           TEXT,
     UNIQUE (product_id, native_variant_id)
 );
 
