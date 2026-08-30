@@ -4,7 +4,7 @@ import Breadcrumb from "../components/Breadcrumb.jsx";
 import ProductCard from "../components/ProductCard.jsx";
 import ProductCardSkeleton from "../components/ProductCardSkeleton.jsx";
 import { fetchProducts, fetchTaxonomy } from "../lib/api.js";
-import { ChevronDownIcon, SearchIcon, SlidersIcon, CloseIcon } from "../components/icons.jsx";
+import { ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, SearchIcon, SlidersIcon, CloseIcon } from "../components/icons.jsx";
 import { colorHex } from "../lib/colors.js";
 
 const PAGE_SIZE = 24;
@@ -379,24 +379,28 @@ export default function Shop() {
         </form>
         <label className="select-control">
           <span className="select-control__label">Brand</span>
-          <select value={selection.store || ""} onChange={(e) => updateParams({ brand: e.target.value || undefined, page: undefined })}>
-            <option value="">All brands</option>
-            {brandFacets.map((b) => (
-              <option key={b.value} value={b.value}>
-                {b.value} ({b.count})
-              </option>
-            ))}
-          </select>
+          <span className="select-control__field">
+            <select value={selection.store || ""} onChange={(e) => updateParams({ brand: e.target.value || undefined, page: undefined })}>
+              <option value="">All brands</option>
+              {brandFacets.map((b) => (
+                <option key={b.value} value={b.value}>
+                  {b.value} ({b.count})
+                </option>
+              ))}
+            </select>
+          </span>
         </label>
         <label className="select-control">
           <span className="select-control__label">Sort by</span>
-          <select value={sort} onChange={(e) => setSort(e.target.value)}>
-            {SORT_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
+          <span className="select-control__field">
+            <select value={sort} onChange={(e) => setSort(e.target.value)}>
+              {SORT_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </span>
         </label>
         <span className="shop-toolbar__count">{result.total.toLocaleString()} Products</span>
       </div>
@@ -419,11 +423,14 @@ export default function Shop() {
 
       <div className="shop-layout">
         <aside className="filters">
+          {/* No Clear All here anymore — the active-filter chips row above
+              already has one, and both being visible at once (desktop,
+              900px+) was a real reported bug: two buttons doing the exact
+              same thing on screen simultaneously. That row is also the
+              more natural place for it — it's already showing what would
+              actually be cleared. */}
           <div className="filters__head">
             <b>Filters</b>
-            <button type="button" onClick={clearAll}>
-              Clear All
-            </button>
           </div>
           {filterBody}
         </aside>
@@ -466,14 +473,26 @@ export default function Shop() {
 
           {!loading && totalPages > 1 && (
             <div className="pagination">
-              <button type="button" className="btn btn--ghost" disabled={page <= 1} onClick={() => setPage(page - 1)}>
-                Previous
+              <button
+                type="button"
+                className="pagination__btn"
+                disabled={page <= 1}
+                onClick={() => setPage(page - 1)}
+                aria-label="Previous page"
+              >
+                <ChevronLeftIcon size={15} />
               </button>
               <span className="pagination__status">
                 Page {page} of {totalPages.toLocaleString()}
               </span>
-              <button type="button" className="btn btn--ghost" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>
-                Next
+              <button
+                type="button"
+                className="pagination__btn"
+                disabled={page >= totalPages}
+                onClick={() => setPage(page + 1)}
+                aria-label="Next page"
+              >
+                <ChevronRightIcon size={15} />
               </button>
             </div>
           )}

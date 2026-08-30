@@ -976,27 +976,31 @@ ul { margin: 0; padding: 0; list-style: none; }
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 8px;
-  padding: 18px clamp(16px, 3.5vw, 40px);
-  border-bottom: 1px solid var(--border);
+  gap: 6px;
+  padding: 16px clamp(16px, 3.5vw, 40px) 20px;
   margin-top: 14px;
 }
+/* Full pill, not the boxier radius-md rectangle — same shape language as
+   the AI Search gender toggle's segmented pills, so refine-by-category
+   here reads as the same kind of control rather than a different,
+   plainer one. */
 .subcat-chip {
   display: inline-flex;
   align-items: center;
   gap: 7px;
   font-family: inherit;
-  font-size: 12px;
+  font-size: 12.5px;
   font-weight: 600;
-  padding: 8px 14px;
-  border-radius: var(--radius-md);
+  padding: 9px 16px;
+  border-radius: 999px;
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text-soft);
   cursor: pointer;
-  transition: border-color 0.12s ease, color 0.12s ease, background 0.12s ease;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease, transform 0.1s ease;
 }
-.subcat-chip:hover { border-color: var(--accent); color: var(--text); background: var(--accent-soft); }
+.subcat-chip:hover { border-color: var(--accent); color: var(--accent-strong); background: var(--accent-soft); }
+.subcat-chip:active { transform: scale(0.97); }
 .subcat-chip--active {
   background: var(--text);
   border-color: var(--text);
@@ -1228,6 +1232,17 @@ ul { margin: 0; padding: 0; list-style: none; }
 
 .btn--full { width: 100%; }
 
+/* Was missing entirely — a disabled .btn (e.g. pagination's Next on the
+   last page) rendered with full opacity and its normal border/hover
+   colors, completely indistinguishable from an active button apart from
+   not responding to clicks. pointer-events:none also blocks :hover from
+   visually firing on a disabled button. */
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
 .oos-note {
   display: inline-flex;
   align-self: flex-start;
@@ -1261,7 +1276,7 @@ ul { margin: 0; padding: 0; list-style: none; }
 .select-control {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   font-size: 12.5px;
   color: var(--text-faint);
 }
@@ -1271,13 +1286,46 @@ ul { margin: 0; padding: 0; list-style: none; }
   white-space: nowrap;
 }
 
+/* Wraps the <select> so a hand-drawn chevron (::after below) can sit on
+   top of it — real motivation: the plain browser-native dropdown arrow
+   read as "too basic" next to the rest of the app's custom iconography,
+   and this keeps the exact same chevron shape used elsewhere (the mega
+   menu, filter groups) rather than each browser/OS's own default glyph. */
+.select-control__field {
+  position: relative;
+  display: inline-flex;
+}
+.select-control__field::after {
+  content: "";
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  width: 7px;
+  height: 7px;
+  border-right: 1.5px solid var(--text-faint);
+  border-bottom: 1.5px solid var(--text-faint);
+  transform: translateY(-70%) rotate(45deg);
+  pointer-events: none;
+}
+
 .select-control select {
+  appearance: none;
+  -webkit-appearance: none;
   font: inherit;
+  font-weight: 600;
   color: var(--text);
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  padding: 9px 34px 9px 14px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.select-control select:hover { border-color: var(--accent); }
+.select-control select:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 .shop-toolbar {
@@ -1325,35 +1373,55 @@ ul { margin: 0; padding: 0; list-style: none; }
   flex-wrap: wrap;
   gap: 8px;
   align-items: center;
-  padding: 16px clamp(16px, 3.5vw, 40px) 0;
+  padding: 16px clamp(16px, 3.5vw, 40px) 14px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 4px;
 }
+/* Full pill + a real accent tint, not a flat grey box — same "this is an
+   active choice, not a passive label" treatment as the AI Search next-
+   query chips and the subcat tabs, so a filter someone actually applied
+   (Furor, Shirt) reads as more than a barely-there rectangle. */
 .active-chip {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  background: var(--surface-muted);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 7px 10px;
-  font-size: 11.5px;
-  color: var(--text);
+  gap: 6px;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  padding: 6px 6px 6px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent-strong);
 }
 .active-chip button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
   border: none;
   background: none;
-  color: var(--text-faint);
-  display: flex;
-  padding: 0;
+  color: inherit;
+  opacity: 0.75;
+  font-size: 14px;
+  line-height: 1;
+  transition: background 0.15s ease, opacity 0.15s ease;
 }
-.active-chip button:hover { color: var(--sale); }
+.active-chip button:hover {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  opacity: 1;
+}
 .active-chips__clear {
   border: none;
   background: none;
-  color: var(--accent);
-  font-size: 11.5px;
+  color: var(--text-soft);
+  font-size: 12px;
   font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
-.active-chips__clear:hover { text-decoration: underline; }
+.active-chips__clear:hover { color: var(--text); }
 
 .shop-layout {
   display: grid;
@@ -1378,9 +1446,6 @@ ul { margin: 0; padding: 0; list-style: none; }
 }
 
 .filters__head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
   margin-bottom: 6px;
 }
 .filters__head b {
@@ -1389,14 +1454,6 @@ ul { margin: 0; padding: 0; list-style: none; }
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
-.filters__head button {
-  border: none;
-  background: none;
-  color: var(--accent);
-  font-size: 11px;
-  font-weight: 700;
-}
-.filters__head button:hover { text-decoration: underline; }
 
 .filter-group {
   border-bottom: 1px dashed var(--border);
@@ -1644,13 +1701,46 @@ ul { margin: 0; padding: 0; list-style: none; }
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 18px;
+  gap: 14px;
   padding: 34px 0 10px;
 }
 
+/* Circular icon buttons instead of text "Previous"/"Next" pills — reads
+   as a real pagination control rather than two generic ghost buttons
+   that happened to sit next to each other. */
+.pagination__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+.pagination__btn:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent-strong);
+  background: var(--accent-soft);
+}
+/* .btn:disabled's opacity/pointer-events already apply globally — this
+   is its own class, not .btn, so repeated here for the same fix. */
+.pagination__btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
 .pagination__status {
-  font-size: 13px;
-  color: var(--text-faint);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-soft);
+  padding: 8px 16px;
+  background: var(--surface-muted);
+  border-radius: 999px;
   white-space: nowrap;
 }
 

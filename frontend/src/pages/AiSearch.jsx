@@ -408,13 +408,15 @@ export default function AiSearch() {
                 {result.products.length > 1 && (
                   <label className="select-control">
                     <span className="select-control__label">Sort by</span>
-                    <select value={sort} onChange={(e) => setSort(e.target.value)}>
-                      {SORT_OPTIONS.map((o) => (
-                        <option key={o.value} value={o.value}>
-                          {o.label}
-                        </option>
-                      ))}
-                    </select>
+                    <span className="select-control__field">
+                      <select value={sort} onChange={(e) => setSort(e.target.value)}>
+                        {SORT_OPTIONS.map((o) => (
+                          <option key={o.value} value={o.value}>
+                            {o.label}
+                          </option>
+                        ))}
+                      </select>
+                    </span>
                   </label>
                 )}
               </div>
