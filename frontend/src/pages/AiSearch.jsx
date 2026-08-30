@@ -53,6 +53,25 @@ const EXAMPLES_BY_GENDER = {
   ],
 };
 
+// Sorts within the AI's own already-selected result set, not a fresh
+// server query — this page returns a bounded, relevance-ranked pool (see
+// rag.py's FINAL_POOL), not a full paginated browse of every match, so
+// "sort by price" means "reorder what the AI already picked as relevant,"
+// same as sorting the shortlist a person handed you rather than
+// re-searching from scratch. Done client-side for exactly that reason: no
+// second request, no risk of returning a DIFFERENT (less relevant) set.
+const SORT_OPTIONS = [
+  { value: "relevance", label: "Relevance" },
+  { value: "price_asc", label: "Price: Low to High" },
+  { value: "price_desc", label: "Price: High to Low" },
+];
+
+function sortProducts(products, sort) {
+  if (sort === "price_asc") return [...products].sort((a, b) => (a.price ?? Infinity) - (b.price ?? Infinity));
+  if (sort === "price_desc") return [...products].sort((a, b) => (b.price ?? -Infinity) - (a.price ?? -Infinity));
+  return products;
+}
+
 const DEFAULT_GENDER = "Men";
 // Sentinel for "explicitly cleared" in the URL. Needed because an absent
 // ?gender= means "untouched, use the default", which is NOT the same as
@@ -97,6 +116,7 @@ export default function AiSearch() {
   const query = searchParams.get("q") || "";
   const genderParam = searchParams.get("gender");
   const genderFilter = genderParam === GENDER_ANY ? null : genderParam || DEFAULT_GENDER;
+  const sort = searchParams.get("sort") || "relevance";
   // Boys/Girls are real, separately-selectable genders (never merged into a
   // combined "Kids" value — the search backend has no such concept, and
   // introducing one client-side would just reintroduce that ambiguity).
@@ -194,8 +214,16 @@ export default function AiSearch() {
     const params = {};
     if (query) params.q = query;
     if (g !== DEFAULT_GENDER) params.gender = g || GENDER_ANY;
+    if (sort !== "relevance") params.sort = sort;
     // replace, not push — flipping a filter shouldn't stack history
     // entries the back button then has to walk through one at a time.
+    setSearchParams(params, { replace: true });
+  }
+
+  function setSort(nextSort) {
+    const params = { q: query };
+    if (genderFilter !== DEFAULT_GENDER) params.gender = genderFilter || GENDER_ANY;
+    if (nextSort !== "relevance") params.sort = nextSort;
     setSearchParams(params, { replace: true });
   }
 
@@ -372,9 +400,23 @@ export default function AiSearch() {
             </div>
           ) : result ? (
             <>
-              <div className="ai-search__answer">
-                <SparklesIcon size={15} />
-                <span>{result.response_text}</span>
+              <div className="ai-search__results-header">
+                <div className="ai-search__answer">
+                  <SparklesIcon size={15} />
+                  <span>{result.response_text}</span>
+                </div>
+                {result.products.length > 1 && (
+                  <label className="select-control">
+                    <span className="select-control__label">Sort by</span>
+                    <select value={sort} onChange={(e) => setSort(e.target.value)}>
+                      {SORT_OPTIONS.map((o) => (
+                        <option key={o.value} value={o.value}>
+                          {o.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
               </div>
 
               {/* Next-query suggestions, not a readout of the filters just
@@ -408,7 +450,7 @@ export default function AiSearch() {
                 </div>
               ) : (
                 <div className="product-grid product-grid--5">
-                  {result.products.map((p) => (
+                  {sortProducts(result.products, sort).map((p) => (
                     <ProductCard key={p.id} product={p} />
                   ))}
                 </div>

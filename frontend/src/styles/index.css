@@ -2175,13 +2175,21 @@ ul { margin: 0; padding: 0; list-style: none; }
 /* Deliberately grey/neutral, not the app's olive --accent — that read
    fine in light mode but turned muddy in dark mode, and this banner is a
    system message (what the AI understood), not a themed brand moment. */
+.ai-search__results-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
 .ai-search__answer {
   display: inline-flex;
   align-items: center;
   gap: 9px;
   max-width: 100%;
   padding: 12px 18px;
-  margin-bottom: 14px;
   background: var(--surface-muted);
   border-radius: 999px;
   color: var(--text-soft);
