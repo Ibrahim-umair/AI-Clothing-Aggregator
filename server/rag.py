@@ -38,10 +38,24 @@ FINAL_POOL = 50  # final fused results returned
 RRF_K = 60
 LEG_WEIGHTS = {"vector": 0.7, "textual": 0.3}
 
-ROW_COLUMNS = """
+def row_columns_sql(color_image_param_idx: int) -> str:
+    """`$N` is the (possibly empty) lowercased color list the query actually
+    filtered on — picks the image of whichever variant matched that color
+    instead of always the product's default (first) image, the reported
+    "blue t-shirt shows a yellow photo" bug. Falls back to the default when
+    the matched color has no variant image of its own (common — real
+    per-store coverage varies a lot, see backfill_variant_images.py) or when
+    no color filter is active at all (empty array — the subquery then finds
+    nothing and COALESCE falls through, same as before this fix)."""
+    return f"""
   p.id, p.title, p.handle,
   b.name AS store_display, b.slug AS store,
-  (SELECT pi.url FROM product_images pi WHERE pi.product_id = p.id ORDER BY pi.position LIMIT 1) AS image_url,
+  COALESCE(
+    (SELECT vi.image_url FROM variants vi JOIN colors ci ON ci.id = vi.color_id
+     WHERE vi.product_id = p.id AND lower(ci.canonical_name) = ANY(${color_image_param_idx}::text[])
+       AND vi.image_url IS NOT NULL LIMIT 1),
+    (SELECT pi.url FROM product_images pi WHERE pi.product_id = p.id ORDER BY pi.position LIMIT 1)
+  ) AS image_url,
   v.price, v.compare_at_price, v.available, v.variant_count
 """
 ROW_JOIN = """
@@ -187,7 +201,10 @@ async def run_search(query: str, debug: bool = False, gender_override: str | Non
     count_sql = f"SELECT COUNT(*) FROM products p WHERE {where_sql}"
     total = await pool.fetchval(count_sql, *params)
 
-    row_select_sql = f"SELECT {ROW_COLUMNS} {ROW_JOIN} WHERE {where_sql}"
+    # Appended AFTER count_sql runs (that query doesn't reference it) so its
+    # index is fixed for every use of row_select_sql below.
+    params.append([str(c).lower() for c in colors])
+    row_select_sql = f"SELECT {row_columns_sql(len(params))} {ROW_JOIN} WHERE {where_sql}"
 
     vector_params = [*params, query_vector, LEG_POOL]
     vector_sql = f"{row_select_sql} ORDER BY p.embedding <=> ${len(params) + 1}::vector LIMIT ${len(params) + 2}"

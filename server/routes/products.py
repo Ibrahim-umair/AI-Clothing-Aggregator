@@ -114,13 +114,24 @@ async def list_products(request: Request):
     pool = await get_pool()
     total = await pool.fetchval(f"SELECT COUNT(*) FROM products p WHERE {where_sql}", *params)
 
+    # Same "show the matched color's actual photo" fix as rag.py's search
+    # results — picks the image of whichever variant matched the `color`
+    # filter above (empty list when no color filter is active, in which
+    # case the subquery finds nothing and COALESCE falls through unchanged).
+    params.append([c.lower() for c in colors])
+    color_image_idx = len(params)
     limit_idx = len(params) + 1
     offset_idx = len(params) + 2
     list_sql = f"""
       SELECT
         p.id, p.title, p.handle,
         b.name AS store_display, b.slug AS store,
-        (SELECT pi.url FROM product_images pi WHERE pi.product_id = p.id ORDER BY pi.position LIMIT 1) AS image_url,
+        COALESCE(
+          (SELECT vi.image_url FROM variants vi JOIN colors ci ON ci.id = vi.color_id
+           WHERE vi.product_id = p.id AND lower(ci.canonical_name) = ANY(${color_image_idx}::text[])
+             AND vi.image_url IS NOT NULL LIMIT 1),
+          (SELECT pi.url FROM product_images pi WHERE pi.product_id = p.id ORDER BY pi.position LIMIT 1)
+        ) AS image_url,
         v.price, v.compare_at_price, v.available, v.variant_count
       FROM products p
       JOIN brands b ON b.id = p.brand_id
@@ -156,7 +167,8 @@ async def get_product(product_id: int):
     images_rows, variants_rows = await asyncio.gather(
         pool.fetch("SELECT url FROM product_images WHERE product_id = $1 ORDER BY position", product_id),
         pool.fetch(
-            """SELECT v.size_label, v.current_price, v.current_compare_at, v.current_available, c.canonical_name AS color
+            """SELECT v.size_label, v.current_price, v.current_compare_at, v.current_available,
+                      v.image_url, c.canonical_name AS color
                FROM variants v LEFT JOIN colors c ON c.id = v.color_id
                WHERE v.product_id = $1 ORDER BY v.id""",
             product_id,
@@ -165,17 +177,48 @@ async def get_product(product_id: int):
 
     images = [r["url"] for r in images_rows]
     variants = variants_rows
-    colors = list({v["color"] for v in variants if v["color"]})
 
-    # One size label can appear across several color variants — a size
-    # only reads as available if AT LEAST ONE color still has stock in it.
+    # Real fix for two related bugs: (1) a color swatch used to be a bare
+    # name with no photo of its own — the frontend now gets each color's
+    # ACTUAL variant image (falls back to null when the store's own feed
+    # doesn't link one, e.g. Cambridge/Edenrobe/Cougar — see
+    # backfill_variant_images.py for real per-store coverage) so it can
+    # swap the gallery to a real photo instead of just labeling a color;
+    # (2) a color used to always render as in-stock even when every size
+    # in it was sold out — `available` here is real, per color.
+    color_info: dict[str, dict] = {}
+    for v in variants:
+        c = v["color"]
+        if not c:
+            continue
+        entry = color_info.setdefault(c, {"name": c, "available": False, "image_url": None})
+        if v["current_available"]:
+            entry["available"] = True
+        if v["image_url"] and not entry["image_url"]:
+            entry["image_url"] = v["image_url"]
+    colors = list(color_info.values())
+
+    # Sizes computed PER COLOR now, not unioned across every color — a size
+    # only being in stock in a DIFFERENT color than the one picked was
+    # exactly the "sizes lie" bug reported. `sizes` (the union, unchanged
+    # from before) stays as the sensible default before any color is
+    # picked; `sizes_by_color` is what the frontend switches to once one is.
     size_availability: dict[str, bool] = {}
+    sizes_by_color_acc: dict[str, dict[str, bool]] = {}
     for v in variants:
         if not v["size_label"]:
             continue
         canon = canonical_size(v["size_label"])
-        size_availability[canon] = size_availability.get(canon, False) or bool(v["current_available"])
+        avail = bool(v["current_available"])
+        size_availability[canon] = size_availability.get(canon, False) or avail
+        if v["color"]:
+            bucket = sizes_by_color_acc.setdefault(v["color"], {})
+            bucket[canon] = bucket.get(canon, False) or avail
     sizes = [{"label": label, "available": avail} for label, avail in size_availability.items()]
+    sizes_by_color = {
+        color: [{"label": label, "available": avail} for label, avail in bucket.items()]
+        for color, bucket in sizes_by_color_acc.items()
+    }
 
     prices = [float(v["current_price"]) for v in variants if v["current_price"] is not None]
     price = min(prices) if prices else None
@@ -209,6 +252,7 @@ async def get_product(product_id: int):
         "available": available,
         "colors": colors,
         "sizes": sizes,
+        "sizes_by_color": sizes_by_color,
         "variant_count": len(variants),
         "category_path": category_path,
         "product_url": f"{product['base_url']}/products/{product['handle']}" if product["handle"] else product["base_url"],
