@@ -50,6 +50,7 @@ def row_columns_sql(color_image_param_idx: int) -> str:
     return f"""
   p.id, p.title, p.handle,
   b.name AS store_display, b.slug AS store,
+  cat.name AS category_name,
   COALESCE(
     (SELECT vi.image_url FROM variants vi JOIN colors ci ON ci.id = vi.color_id
      WHERE vi.product_id = p.id AND lower(ci.canonical_name) = ANY(${color_image_param_idx}::text[])
@@ -61,6 +62,7 @@ def row_columns_sql(color_image_param_idx: int) -> str:
 ROW_JOIN = """
   FROM products p
   JOIN brands b ON b.id = p.brand_id
+  JOIN categories cat ON cat.id = p.category_id
   JOIN LATERAL (
     SELECT vv.current_price AS price, vv.current_compare_at AS compare_at_price,
            (SELECT BOOL_OR(v2.current_available) FROM variants v2 WHERE v2.product_id = p.id) AS available,
@@ -120,6 +122,67 @@ async def embed_text(text: str) -> tuple[str, LLMCallRecord]:
 
 def _is_number(v) -> bool:
     return isinstance(v, (int, float)) and not isinstance(v, bool)
+
+
+def diversify(entries: list[dict]) -> list[dict]:
+    """Re-orders an already-scored, already-sorted list into a round-robin
+    mix by (category, then brand) — fixes a real reported bug: "all polos
+    then all tees", "all Zellbury shirts together".
+
+    Root cause: whenever `semantic_query` is empty — the common case for a
+    well-specified query like "blue tees and polos under 2500", where every
+    word is already captured by the structured filters — the textual leg is
+    skipped entirely (on purpose, see run_search: falling back to the raw
+    query there would reintroduce the dilution bug fixed earlier). With
+    only one leg contributing, RRF's score is a pure monotonic function of
+    vector rank, so the final order IS the raw embedding-similarity order,
+    with nothing to break it up. Two things then compound: (1) many stores
+    reuse near-identical templated description text across their own
+    catalog, so a whole brand's products embed almost identically and sort
+    into an unbroken run; (2) with two categories requested but one query
+    embedding, results skew toward whichever category's words the model
+    weighted more, sorting as one block then the other rather than
+    interleaved. Both are real, verified against actual query output
+    (`python cli.py "blue tees and polos under 2500" --gender=1` showed 5
+    identical consecutive "Basic T-Shirt - Regular" titles from one brand,
+    and Polo dominating ranks 1-35 before Tee took over).
+
+    This never discards or reorders relevance WITHIN a (category, brand)
+    bucket — the best-ranked item of each bucket still gets that bucket's
+    turn first. It only interleaves ACROSS buckets, so a already-correct,
+    already-filtered result set just reads as a mix instead of a sequence.
+    Runs unconditionally (cheap on ~100 items) — with only one category and
+    one brand present it's a no-op, so there's no query shape where this
+    silently needs to be toggled on.
+    """
+    from collections import OrderedDict, deque
+
+    by_category: "OrderedDict[str, OrderedDict[str, deque]]" = OrderedDict()
+    for e in entries:
+        cat = e["row"]["category_name"] or ""
+        brand = e["row"]["store"] or ""
+        by_category.setdefault(cat, OrderedDict()).setdefault(brand, deque()).append(e)
+
+    category_queue = deque(by_category.keys())
+    brand_pointer = {cat: 0 for cat in category_queue}
+
+    result = []
+    while category_queue:
+        cat = category_queue.popleft()
+        brands = list(by_category[cat].keys())
+        picked = None
+        for _ in range(len(brands)):
+            b = brands[brand_pointer[cat] % len(brands)]
+            brand_pointer[cat] += 1
+            bucket = by_category[cat][b]
+            if bucket:
+                picked = bucket.popleft()
+                break
+        if picked is not None:
+            result.append(picked)
+            category_queue.append(cat)  # more left in this category — back of the queue
+        # else: this category's buckets are all empty now, don't re-add it
+    return result
 
 
 async def run_search(query: str, debug: bool = False, gender_override: str | None = None) -> dict:
@@ -207,7 +270,31 @@ async def run_search(query: str, debug: bool = False, gender_override: str | Non
     row_select_sql = f"SELECT {row_columns_sql(len(params))} {ROW_JOIN} WHERE {where_sql}"
 
     vector_params = [*params, query_vector, LEG_POOL]
-    vector_sql = f"{row_select_sql} ORDER BY p.embedding <=> ${len(params) + 1}::vector LIMIT ${len(params) + 2}"
+    _vec_dist_idx = len(params) + 1
+    # Caps how many of the LEG_POOL candidates one brand can occupy. Without
+    # this, a store whose catalog reuses near-identical templated
+    # title/description text across many real, distinct products embeds
+    # those products almost identically — one real example found via
+    # testing: 110 actual Meme products all literally titled "PRINTED
+    # T-SHIRT FOR MEN" filled 26 of the top 30 vector-leg slots for
+    # "t-shirts under 2000", leaving diversify() (below) nothing from any
+    # other brand to interleave with even though plenty of equally-valid
+    # T-shirts from other brands exist. Capping at the RETRIEVAL stage,
+    # not just re-sorting after, is what actually leaves room for them.
+    MAX_PER_BRAND_IN_LEG = 8
+    vector_sql = f"""
+      WITH candidates AS (
+        SELECT {row_columns_sql(len(params))}, p.brand_id AS _brand_id,
+               (p.embedding <=> ${_vec_dist_idx}::vector) AS _dist
+        {ROW_JOIN}
+        WHERE {where_sql}
+      ), ranked AS (
+        SELECT *, ROW_NUMBER() OVER (PARTITION BY _brand_id ORDER BY _dist) AS _brand_rank
+        FROM candidates
+      )
+      SELECT * FROM ranked WHERE _brand_rank <= {MAX_PER_BRAND_IN_LEG}
+      ORDER BY _dist LIMIT ${_vec_dist_idx + 1}
+    """
 
     # plainto_tsquery ANDs every lexeme by default — for a real multi-word
     # query that requires every lexeme present in one product's title +
@@ -266,7 +353,8 @@ async def run_search(query: str, debug: bool = False, gender_override: str | Non
                 legs[leg_name] = rank
                 scored[row["id"]] = {"row": row, "score": contribution, "legs": legs}
 
-    fused = sorted(scored.values(), key=lambda e: e["score"], reverse=True)[:FINAL_POOL]
+    ranked = sorted(scored.values(), key=lambda e: e["score"], reverse=True)
+    fused = diversify(ranked)[:FINAL_POOL]
     rows = [e["row"] for e in fused]
 
     products = [
