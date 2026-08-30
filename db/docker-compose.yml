@@ -1,6 +1,18 @@
 services:
+  # pgvector/pgvector:pg16, NOT plain postgres:16 — this database has run
+  # `CREATE EXTENSION vector` and depends on it for embeddings/HNSW search
+  # (products.embedding, the whole /api/search pipeline). Plain postgres:16
+  # has no vector.so at all: the extension shows as "created" in the
+  # catalog (it's recorded in the data volume, not the image) but every
+  # query touching a table with a vector column fails with
+  # `UndefinedFileError: could not access file "$libdir/vector"` the
+  # moment the container is recreated from that image. This had been
+  # masked for a long time by the container just never being recreated
+  # since pgvector was added by hand — recreating it (a plain
+  # `docker compose up`) is exactly what surfaces it. Same postgres:16
+  # underneath, just with the extension actually built in.
   postgres:
-    image: postgres:16
+    image: pgvector/pgvector:pg16
     container_name: libas-postgres
     restart: unless-stopped
     environment:
@@ -42,6 +54,40 @@ services:
       - libas_grafana_data:/var/lib/grafana
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
       - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards
+
+  # The FastAPI backend itself — was run via a bare `uvicorn` command
+  # during the migration (matching how the old Node server was never
+  # dockerized either); moved in properly so `docker compose up` is the
+  # one thing that starts everything, not a separate manual step.
+  api:
+    build:
+      context: ../server
+    container_name: libas-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Same Postgres, reached by service name on the compose network
+      # instead of the host-mapped localhost:5433 that local (non-Docker)
+      # uvicorn runs use — db.py already reads these, no code change
+      # needed, just different values.
+      PGHOST: postgres
+      PGPORT: "5432"
+      PGDATABASE: libas
+      PGUSER: libas
+      PGPASSWORD: libas_dev_password
+    env_file:
+      # Reuses the one real .env instead of duplicating OPENAI_API_KEY
+      # into a second gitignored file — same secret, one place.
+      - ../server/.env
+    ports:
+      - "4000:4000"
+    volumes:
+      # Bind-mounted so `--reload` (in the Dockerfile's CMD) picks up
+      # local edits immediately, same dev experience as running uvicorn
+      # directly — rebuild the image only when requirements.txt changes.
+      - ../server:/app
 
 volumes:
   libas_pg_data:
