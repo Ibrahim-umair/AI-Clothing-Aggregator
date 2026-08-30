@@ -28,7 +28,7 @@ from decimal import Decimal, InvalidOperation
 import psycopg2
 
 from load_data import DSN, RECONNECT_SECONDS, connect
-from product_normalize import normalize_variant_fields, classify_size_system
+from product_normalize import normalize_variant_fields, classify_size_system, tags_force_unavailable
 
 
 def _to_decimal(v):
@@ -192,6 +192,12 @@ def upsert_product_full(conn, cur, bid, native_id, p, title, description, cat_id
     option_defs = p.get("options") or [] if not is_graphql else []
     for v in raw_variants:
         vf = normalize_variant_fields(v, option_defs, is_graphql)
+        # Store-side override: some products (Cambridge, confirmed) carry a
+        # theme tag disabling the buy button independent of raw inventory —
+        # see tags_force_unavailable's docstring. The product stays
+        # browsable; only the purchasability flag changes.
+        if tags_force_unavailable(tags):
+            vf["available"] = False
         image_url = image_by_variant_id.get(vf["native_vid"]) or vf.get("image_url")
 
         cur.execute(
@@ -268,10 +274,12 @@ def upsert_product_full(conn, cur, bid, native_id, p, title, description, cat_id
             "snapshot_count": snapshot_count, "piece_count": piece_count}
 
 
-def upsert_variant_availability_only(conn, cur, bid, native_id, is_graphql, raw_variants):
+def upsert_variant_availability_only(conn, cur, bid, native_id, is_graphql, raw_variants, tags=None):
     """Hourly-mode write. Returns a dict: found (bool), updated count,
     snapshot_count. Does not touch products, product_images, or
-    classification at all."""
+    classification at all. `tags` is only used for the Cambridge
+    buy-button-disabled override (see tags_force_unavailable) — optional
+    since older/other call shapes have no tags to give it."""
     cur.execute("SELECT id FROM products WHERE brand_id=%s AND native_product_id=%s", (bid, native_id))
     row = cur.fetchone()
     if row is None:
@@ -281,8 +289,11 @@ def upsert_variant_availability_only(conn, cur, bid, native_id, is_graphql, raw_
     updated = 0
     snapshot_count = 0
     option_defs = []  # availability-only pass doesn't need color/size, only price/available
+    force_unavailable = tags_force_unavailable(tags)
     for v in raw_variants:
         vf = normalize_variant_fields(v, option_defs, is_graphql)
+        if force_unavailable:
+            vf["available"] = False
         cur.execute(
             "SELECT current_price, current_compare_at, current_available FROM variants "
             "WHERE product_id=%s AND native_variant_id=%s",

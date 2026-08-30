@@ -12,7 +12,7 @@ import time
 import psycopg2
 from psycopg2.extras import execute_values
 
-from product_normalize import normalize_product_fields, normalize_variant_fields, classify_size_system
+from product_normalize import normalize_product_fields, normalize_variant_fields, classify_size_system, tags_force_unavailable
 
 # This sandbox's docker network appears to kill any single long-lived
 # Postgres connection after a few minutes ("terminating connection due to
@@ -1103,7 +1103,11 @@ def _load_one_product(conn, cur, bid, native_id, p, title, description, cat_id, 
         size_val = vf["size_val"]
         price = vf["price"]
         compare_at = vf["compare_at"]
-        available = vf["available"]
+        # Store-side override: some products (Cambridge, confirmed) carry a
+        # theme tag disabling the buy button independent of raw inventory —
+        # see tags_force_unavailable's docstring. The product stays
+        # browsable; only the purchasability flag changes.
+        available = False if tags_force_unavailable(tags) else vf["available"]
         sku = vf["sku"]
         image_url = image_by_variant_id.get(native_vid) or vf.get("image_url")
 

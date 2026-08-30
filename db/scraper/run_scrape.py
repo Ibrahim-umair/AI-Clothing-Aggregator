@@ -192,7 +192,7 @@ def run_store_hourly(slug, name, base_url, platform, bid, dry_run):
             result = with_reconnect_retry(
                 holder,
                 lambda conn, cur: upsert_variant_availability_only(
-                    conn, cur, bid, nf["native_id"], is_graphql, nf["raw_variants"]
+                    conn, cur, bid, nf["native_id"], is_graphql, nf["raw_variants"], nf["tags"]
                 ),
                 slug,
                 MAX_RETRIES,

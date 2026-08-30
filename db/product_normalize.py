@@ -46,6 +46,39 @@ def normalize_product_fields(p, is_graphql):
     }
 
 
+# Real Shopify theme tags stores use to disable the buy button independent
+# of raw per-variant inventory. Confirmed on two, both by checking the
+# actual live site, not just guessing from the tag name:
+#   - cart-hide / hide-atc (Cambridge, 68 products): "NOTE: This product is
+#     not available for purchase." shown live even though several variants
+#     had available=true in our data (e.g. product 176531, "Basic
+#     Waistcoat").
+#   - hide-variant-fragrance (Outfitters, 97 products, all tagged
+#     "fragrancecomingsoon" too — a scent teased ahead of its real launch):
+#     live site shows "Variant sold out or unavailable" on every size/color
+#     despite all 97 of our variants reading available=true.
+# Two other Equator tags were checked and explicitly ruled OUT: "b_n_hide"
+# (705 variants, only 19 read available=true — mostly already correctly
+# unavailable via normal inventory, no live mismatch found) and
+# "Summer 20 Hide" (1083 variants, 0 read available=true — old/discontinued
+# stock, already correctly unavailable). Both look like plain seasonal/
+# collection tags, not a purchase-blocking mechanism — not added.
+# Lowercased comparison since real tag casing in the wild is inconsistent
+# elsewhere in this catalog even though these are always seen capitalized
+# exactly this way so far.
+FORCE_UNAVAILABLE_TAGS = {"cart-hide", "hide-atc", "hide-variant-fragrance"}
+
+
+def tags_force_unavailable(tags):
+    """True when the store's own tags say a product isn't really
+    purchasable regardless of what any variant's raw `available` field
+    claims — see FORCE_UNAVAILABLE_TAGS. The product itself should stay
+    browsable (the real site still shows the product page, just with the
+    buy button disabled) — this only overrides the per-variant `available`
+    boolean, never visibility."""
+    return any((t or "").strip().lower() in FORCE_UNAVAILABLE_TAGS for t in (tags or []))
+
+
 def normalize_variant_fields(v, option_defs, is_graphql):
     """Extracts native_vid, color_name, size_val, price, compare_at,
     available, sku from one raw variant record, regardless of source shape.
