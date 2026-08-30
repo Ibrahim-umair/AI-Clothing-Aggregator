@@ -641,3 +641,27 @@ audits but deliberately left as-is, not bugs: a "Waistcoat Suit" line (236 produ
 that does contain a real waistcoat and has no cleaner leaf to move to; an orphaned "Kurta
 Shalwar" tree node (0 products — everything consistently consolidates into "Kurta Set"
 instead, the correct behavior, just leaving that one specific node unused).
+
+## 2026-08-30 (fifteenth pass — user reported AI search mixing genuine cargo trousers with
+## plain trousers, traced to "cargo" being ranking-only signal rather than a real category)
+
+76. **"Cargo" had no leaf of its own** — it was splitting across Trouser/Jeans/Shirt depending
+    on incidental wording, and since none of that was a hard filter, real trousers with a
+    totally different silhouette ranked alongside genuine cargo pants in AI search. Root cause
+    of the split: "Denim Cargo Trouser" (product_type "Boys Trousers", title explicitly says
+    "Trouser") was landing in **Jeans** because bare "denim" outranked the title's own more
+    specific word; bare "cargo" alone with no other bottomwear word ("TWILL CARGO", "Men Cargo
+    Touser" — a real title typo) had nothing to catch it at all and fell to the generic Shirt
+    default. Added a new `Cargo Trouser` leaf (Bottomwear, all 5 genders) and `CARGO_RE`,
+    checked ahead of the Jeans/Trouser split but after Shorts/Joggers — "Cargo Shorts"/"Cargo
+    Joggers" are real, already-correctly-named garments and were deliberately left alone; only
+    the Trouser/Jeans ambiguity needed resolving. 443 real products consolidated across
+    Men/Women/Boys/Girls/Unisex; 449 total category_id changes after backfill (a few extra
+    Shirt-default catches like the two examples above). Also added `Cargo Trouser` to the AI
+    search's `KNOWN_CATEGORIES` (server/search_tool.py) so it's now a real hard SQL filter
+    there too, not just a `semantic_query` ranking hint — verified: "cargo trousers under 3000"
+    went from mixing in Chinos/training trousers past rank 8 to 32 hard-filtered results, every
+    one genuinely a cargo trouser.
+
+289/289 tests pass (13 new). Full 101-query AI-search parity suite still 97.1%, 0 errors, same
+two known kids-gender-gap failures — no regression from either change.

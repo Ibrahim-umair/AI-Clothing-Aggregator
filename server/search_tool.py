@@ -13,8 +13,8 @@ testing tuned to fix specific extraction bugs.
 # excluded the Accessories/Keychain leaf before ranking ever ran. This is
 # now a hard SQL filter, same as gender — see rag.py.
 KNOWN_CATEGORIES = [
-    "1-Piece", "2-Piece", "3-Piece", "Bag", "Belt", "Cap", "Co-ord Set", "Cufflink",
-    "Dress", "Frock", "Hoodie", "Jacket", "Jeans", "Jewelry", "Joggers", "Keychain",
+    "1-Piece", "2-Piece", "3-Piece", "Bag", "Belt", "Cap", "Cargo Trouser", "Co-ord Set",
+    "Cufflink", "Dress", "Frock", "Hoodie", "Jacket", "Jeans", "Jewelry", "Joggers", "Keychain",
     "Kurta", "Kurta Set", "Kurta Shalwar", "Kurti", "Perfume", "Pocket Square", "Polo",
     "Sandals", "Saree", "Scarf", "Shalwar Kameez", "Shawl", "Sherwani", "Shirt", "Shoes",
     "Shorts", "Socks", "Suit", "Sunglasses", "Sweater", "Sweatshirt", "Tank Top", "Tie",
@@ -147,4 +147,5 @@ SYSTEM_PROMPT = "\n".join([
     'query "unstitched 3 piece suits" -> categories ["3-Piece"], semantic_query "" (NOT ["3-Piece","Unstitched"] — Unstitched is 3-Piece\'s own parent and adds nothing)',
     'query "yellow lawn suits unstitched" -> categories ["Suit"], colors ["yellow"], semantic_query "lawn" (the Eastern Unstitched "Suit" leaf, NOT "Suits & Sets" — that\'s the Western, always-stitched grouping)',
     'query "off white tunics for women" -> gender "Women", categories ["Top"], colors ["off white"], semantic_query "" ("tunic" is this catalog\'s own "Top" leaf, not "T-Shirt")',
+    'query "cargo trousers under 3000" -> categories ["Cargo Trouser"], maxPrice 3000, semantic_query "" ("Cargo Trouser" is its own real leaf now, NOT ["Trouser"] + semantic_query "cargo" — that used to let plain trousers rank alongside genuine cargo pants)',
 ])

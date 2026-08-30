@@ -80,7 +80,7 @@ CATEGORY_TREE = {
             # tank-tops/pocket-squares/scarves turned up in the live Men's
             # Shirt listing.
             "Upperwear": [("T-Shirt","t-shirt"),("Polo","polo"),("Shirt","shirt"),("Jacket","jacket"),("Sweatshirt","sweatshirt"),("Hoodie","hoodie"),("Sweater","sweater"),("Tank Top","tank-top")],
-            "Bottomwear": [("Trouser","trouser"),("Jeans","jeans"),("Shorts","shorts"),("Joggers","joggers"),("Tights","tights")],
+            "Bottomwear": [("Trouser","trouser"),("Cargo Trouser","cargo-trouser"),("Jeans","jeans"),("Shorts","shorts"),("Joggers","joggers"),("Tights","tights")],
             "Suits & Sets": [("Co-ord Set","co-ord-set")],
             "Footwear": [("Shoes","shoes")],
         },
@@ -104,7 +104,7 @@ CATEGORY_TREE = {
             # "Tank Top" added 2026-08-29 — see Men's tree comment. 165 real
             # Women's tank tops were falling to Shirt for the same reason.
             "Upperwear": [("T-Shirt","t-shirt"),("Polo","polo"),("Top","top"),("Shirt","shirt"),("Jacket","jacket"),("Sweatshirt","sweatshirt"),("Hoodie","hoodie"),("Sweater","sweater"),("Dress","dress"),("Tank Top","tank-top")],
-            "Bottomwear": [("Trouser","trouser"),("Jeans","jeans"),("Shorts","shorts"),("Joggers","joggers"),("Tights","tights")],
+            "Bottomwear": [("Trouser","trouser"),("Cargo Trouser","cargo-trouser"),("Jeans","jeans"),("Shorts","shorts"),("Joggers","joggers"),("Tights","tights")],
             "Suits & Sets": [("Co-ord Set","co-ord-set")],
             "Footwear": [("Shoes","shoes"),("Sandals","sandals")],
         },
@@ -143,7 +143,7 @@ CATEGORY_TREE = {
     "Boys": {
         "Western": {
             "Upperwear": [("T-Shirt","t-shirt"),("Polo","polo"),("Shirt","shirt"),("Sweatshirt","sweatshirt"),("Hoodie","hoodie"),("Sweater","sweater"),("Jacket","jacket"),("Tank Top","tank-top")],
-            "Bottomwear": [("Trouser","trouser"),("Shorts","shorts"),("Jeans","jeans"),("Joggers","joggers")],
+            "Bottomwear": [("Trouser","trouser"),("Cargo Trouser","cargo-trouser"),("Shorts","shorts"),("Jeans","jeans"),("Joggers","joggers")],
             "Suits & Sets": [("Co-ord Set","co-ord-set")],
             "Footwear": [("Shoes","shoes")],
         },
@@ -154,7 +154,7 @@ CATEGORY_TREE = {
     "Girls": {
         "Western": {
             "Upperwear": [("T-Shirt","t-shirt"),("Polo","polo"),("Top","top"),("Shirt","shirt"),("Sweatshirt","sweatshirt"),("Hoodie","hoodie"),("Sweater","sweater"),("Jacket","jacket"),("Dress","dress"),("Tank Top","tank-top")],
-            "Bottomwear": [("Trouser","trouser"),("Shorts","shorts"),("Jeans","jeans"),("Joggers","joggers"),("Tights","tights")],
+            "Bottomwear": [("Trouser","trouser"),("Cargo Trouser","cargo-trouser"),("Shorts","shorts"),("Jeans","jeans"),("Joggers","joggers"),("Tights","tights")],
             "Suits & Sets": [("Co-ord Set","co-ord-set")],
             "Footwear": [("Shoes","shoes")],
         },
@@ -181,7 +181,7 @@ CATEGORY_TREE = {
             # bare Western branch node with nowhere for a Unisex dress to
             # go, caught by the branch-level-orphan audit.
             "Upperwear": [("T-Shirt","t-shirt"),("Polo","polo"),("Shirt","shirt"),("Sweatshirt","sweatshirt"),("Hoodie","hoodie"),("Sweater","sweater"),("Jacket","jacket"),("Dress","dress"),("Tank Top","tank-top")],
-            "Bottomwear": [("Trouser","trouser"),("Jeans","jeans"),("Shorts","shorts"),("Joggers","joggers")],
+            "Bottomwear": [("Trouser","trouser"),("Cargo Trouser","cargo-trouser"),("Jeans","jeans"),("Shorts","shorts"),("Joggers","joggers")],
             # Added alongside the FOOTWEAR_RE broadening (CHANGELOG #56) —
             # 4 real Lama/Zellbury footwear products ("LEATHER COWBOY
             # BOOTS", "MADDIE MAMA LOAFERS", "Slides - 5001", vendor is
@@ -498,7 +498,25 @@ KURTA_COMBO_RE = re.compile(
 # default; every real "chino"/"chinos" title checked catalog-wide (Edenrobe,
 # Furor, Zellbury — over 1,200 products) unambiguously names a trouser, no
 # collision shape found worth excluding.
-TROUSER_RE = re.compile(r"\b(trousers?|jeans?|pants?|chinos?)\b", re.I)
+TROUSER_RE = re.compile(r"\b(trousers?|jeans?|pants?|chinos?|cargos?)\b", re.I)
+# Bare "cargo" alone is a strong enough bottomwear signal on its own — real
+# examples with NO other bottomwear word at all: "TWILL CARGO" (product_type
+# "Relaxed Fit"), "Men Cargo Touser" (a real title typo for "Trouser") —
+# both were falling to the generic Shirt default. Added to TROUSER_RE above
+# so these actually enter the Bottomwear branch, and used here to give
+# cargo-styled full-length pants their OWN leaf: "cargo" was previously
+# splitting across Trouser/Jeans/Shirt depending on incidental wording
+# ("Denim Cargo Trouser" landed in Jeans purely because of bare "denim"
+# outranking the title's own "Trouser"), which is exactly the kind of
+# subjective-style pollution a shopper searching "cargo trousers" was
+# reporting — real Jeans/Trousers with a totally different silhouette
+# ranking alongside genuine cargo pants. Checked ahead of the Jeans/Trouser
+# split, but NOT ahead of Shorts/Joggers (checked earlier/separately) —
+# "Cargo Shorts"/"Cargo Joggers" are real, already-distinctly-named
+# garments and were deliberately left alone; only the Trouser/Jeans
+# ambiguity needed resolving. 443 real products across Men/Women/Boys/
+# Girls/Unisex.
+CARGO_RE = re.compile(r"\bcargo\b", re.I)
 # "heel" added the same way: a real Meme product, "SHORT BLOCK HEEL", is a
 # low-heeled shoe (a footwear-height descriptor), not the garment — landed
 # in Women's Shorts with 0 intervening words, same collision shape as
@@ -857,7 +875,7 @@ def classify(store, p, title, product_type, tags, vendor, description):
     )
     if TROUSER_RE.search(title_blob) or SHORTS_RE.search(title_blob) or bare_denim_title:
         src = title_blob
-        leaf = "Shorts" if SHORTS_RE.search(src) else "Jeans" if re.search(r"\bjeans?\b", src) or bare_denim_title else "Trouser"
+        leaf = "Shorts" if SHORTS_RE.search(src) else "Cargo Trouser" if CARGO_RE.search(src) else "Jeans" if re.search(r"\bjeans?\b", src) or bare_denim_title else "Trouser"
         return dict(gender=gender, branch="Western", sub="Bottomwear", leaf=leaf,
                     style="western", construction="ready_to_wear")
     # Same "title beats a conflicting product_type" reasoning as the
@@ -887,7 +905,7 @@ def classify(store, p, title, product_type, tags, vendor, description):
         # shorts garment made of denim fabric, not a pair of jeans (which
         # implies full length) — denim alone shouldn't outrank an explicit
         # "shorts" in the same title.
-        leaf = "Shorts" if SHORTS_RE.search(blob) else "Jeans" if re.search(r"\bjeans?\b", blob) or bare_denim else "Trouser"
+        leaf = "Shorts" if SHORTS_RE.search(blob) else "Cargo Trouser" if CARGO_RE.search(blob) else "Jeans" if re.search(r"\bjeans?\b", blob) or bare_denim else "Trouser"
         return dict(gender=gender, branch="Western", sub="Bottomwear", leaf=leaf,
                     style="western", construction="ready_to_wear")
     if FOOTWEAR_RE.search(blob):

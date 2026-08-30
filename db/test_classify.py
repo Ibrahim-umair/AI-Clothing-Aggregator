@@ -953,6 +953,30 @@ check_leaf_exists("Women", "Accessories", None, "Scarf")
 check_leaf_exists("Women", "Accessories", None, "Pocket Square")
 check_leaf_exists("Women", "Western", "Upperwear", "Top")
 
+# 76. "Cargo" was splitting across Trouser/Jeans/Shirt depending on
+# incidental wording — real Jeans/Trousers with a totally different
+# silhouette ranking alongside genuine cargo pants in AI search. 443 real
+# products across Men/Women/Boys/Girls/Unisex consolidated into one leaf.
+check("bare 'Cargo' with no other bottomwear word still resolves Cargo Trouser", "TWILL CARGO",
+      product_type="Relaxed Fit", vendor="Men", expect_branch="Western", expect_leaf="Cargo Trouser")
+check("a real title typo ('Touser') still resolves via bare 'cargo'", "Men Cargo Touser",
+      vendor="Men", expect_branch="Western", expect_leaf="Cargo Trouser")
+check("'Denim Cargo Trouser' resolves Cargo Trouser, not Jeans (bare-denim no longer wins)", "Denim Cargo Trouser - EBBT22-010",
+      product_type="Boys Trousers", vendor="Boys", expect_branch="Western", expect_leaf="Cargo Trouser")
+check("'Cargo Fit Jeans' resolves Cargo Trouser too — same real silhouette regardless of fabric name", "Cargo Fit Jeans",
+      product_type="JEANS", vendor="Men", expect_branch="Western", expect_leaf="Cargo Trouser")
+check("'Cargo Shorts' is untouched — stays Shorts, not pulled into Cargo Trouser", "Boys Cargo Shorts",
+      vendor="Boys", expect_branch="Western", expect_leaf="Shorts")
+check("'Cargo Joggers' is untouched — stays Joggers, not pulled into Cargo Trouser", "Cargo Joggers",
+      vendor="Men", expect_branch="Western", expect_leaf="Joggers")
+check("a plain 'Trouser' with no cargo word is unaffected", "Men Formal Trouser",
+      vendor="Men", expect_branch="Western", expect_leaf="Trouser")
+check_leaf_exists("Men", "Western", "Bottomwear", "Cargo Trouser")
+check_leaf_exists("Women", "Western", "Bottomwear", "Cargo Trouser")
+check_leaf_exists("Boys", "Western", "Bottomwear", "Cargo Trouser")
+check_leaf_exists("Girls", "Western", "Bottomwear", "Cargo Trouser")
+check_leaf_exists("Unisex", "Western", "Bottomwear", "Cargo Trouser")
+
 
 print(f"{PASSED} passed, {len(FAILURES)} failed")
 if FAILURES:
