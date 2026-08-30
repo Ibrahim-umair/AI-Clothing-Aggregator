@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "dev:api": "python -m uvicorn main:app --app-dir ../server --port 4000",
+    "dev:api": "python -m uvicorn main:app --app-dir ../server --port 4000 --reload",
     "dev:all": "concurrently -n web,api -c blue,magenta \"npm run dev\" \"npm run dev:api\"",
     "build": "vite build",
     "preview": "vite preview"
