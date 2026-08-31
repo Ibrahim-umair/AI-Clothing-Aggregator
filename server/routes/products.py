@@ -10,6 +10,7 @@ from fastapi import APIRouter, HTTPException, Request
 from db import get_pool
 from query_helpers import (
     canonical_size,
+    category_ids_for_featured,
     category_ids_from_query,
     expand_size_aliases_for_query,
     parse_page,
@@ -44,6 +45,18 @@ SORTS = {
 # size — a brand with 3 recent products and a brand with 3,000 both
 # contribute at most FEATURED_PER_BRAND_CAP.
 FEATURED_PER_BRAND_CAP = 10
+
+# Real curation feedback once the brand-dominance bug above was fixed: a
+# Girls' trouser and a Diners printed shawl both read as out of place next
+# to the section's actual "aspirational menswear staple" hits (a casual
+# shirt, pleated pants, a polo) — see category_ids_for_featured's own
+# comment in query_helpers.py for why that's a category-level exclusion
+# (Kids' genders, Accessories/Footwear/Fragrance branches), not a one-off.
+# One further product — Bandana's "Women's Independence Tee" — was flagged
+# by title alone and has no generalizable category pattern behind it (it's
+# a plain Women's/Western/T-Shirt, a category full of otherwise-fine
+# picks), so it's excluded by id rather than invented a category for.
+FEATURED_EXCLUDED_PRODUCT_IDS = [710272]
 
 
 def _diversify_by_brand(rows: list) -> list:
@@ -143,8 +156,20 @@ async def list_products(request: Request):
         where.append(
             f"EXISTS (SELECT 1 FROM variants vs WHERE vs.product_id = p.id AND lower(vs.size_label) = ANY(${len(params)}::text[]) AND vs.current_available = true)"
         )
-    where_sql = " AND ".join(where)
     featured = q.get("sort") == "featured"
+    if featured:
+        # Featured gets its own category/product exclusions layered on top
+        # of whatever the request already filtered by — see
+        # FEATURED_EXCLUDED_PRODUCT_IDS's comment above for why. Combined
+        # with a category filter via AND: an explicit ?category= on this
+        # endpoint isn't actually used for "featured" (Home never sends
+        # one), but staying correct if that ever changes is free here.
+        featured_category_ids = await category_ids_for_featured()
+        params.append(featured_category_ids)
+        where.append(f"p.category_id = ANY(${len(params)}::int[])")
+        params.append(FEATURED_EXCLUDED_PRODUCT_IDS)
+        where.append(f"p.id != ALL(${len(params)}::bigint[])")
+    where_sql = " AND ".join(where)
     order_by_sql = SORTS["newest"] if featured else SORTS.get(q.get("sort"), SORTS["default"])
 
     pool = await get_pool()

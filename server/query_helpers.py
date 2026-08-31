@@ -101,6 +101,33 @@ def _is_ancestor(tree: Tree, ancestor_id: int, node_id: int) -> bool:
     return False
 
 
+# Real curation feedback on Home's "Featured For You" (post-diversify-by-
+# brand fix, which solved the "one brand's bulk-load day" problem but not
+# this one): a Girls' trouser and a Diners printed shawl both got flagged
+# for feeling out of place next to the section's real "aspirational
+# menswear staple" hits (a casual shirt, pleated pants, a polo). Both are
+# real, generalizable patterns, not one-off taste — Kids' items read as
+# mismatched in what's otherwise an adult lifestyle showcase, and
+# Accessories/Fragrance are a different shopping mode than the actual
+# garment pieces the positive examples were all drawn from. Reuses the
+# same ADULT_GENDER_ROOTS precedent as category_ids_for_search above
+# (already excludes Boys/Girls) plus a further restriction to the
+# Western/Eastern branches only.
+FEATURED_BRANCHES = ["Western", "Eastern"]
+
+
+async def category_ids_for_featured() -> list[int]:
+    tree = await get_tree()
+    ids: list[int] = []
+    for gender_id in tree.children_of.get(None, []):
+        if tree.by_id[gender_id].name not in ADULT_GENDER_ROOTS:
+            continue
+        for branch_id in tree.children_of.get(gender_id, []):
+            if tree.by_id[branch_id].name in FEATURED_BRANCHES:
+                ids.extend(descendant_ids(tree, branch_id) or [])
+    return ids
+
+
 async def category_ids_for_search(gender: str | None, categories: list[str] | None) -> tuple[list[int], bool]:
     """Purpose-built for /api/search, deliberately separate from
     category_ids_from_query above: a gender-less NL search needs every
