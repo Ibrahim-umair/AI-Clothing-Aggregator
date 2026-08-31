@@ -179,6 +179,22 @@ ul { margin: 0; padding: 0; list-style: none; }
   padding: 15px clamp(16px, 3.5vw, 40px);
 }
 
+/* A real, measured overflow at narrow phone widths (320px, iPhone SE):
+   the hamburger button + brand wordmark + 28px gap + the 3-icon
+   .header-actions cluster added up to ~32px more than the viewport had
+   room for — nothing in the header shrank or reduced its gaps to
+   compensate, so the whole page gained a genuine horizontal scrollbar
+   (not the intentional kind, like the brand-strip/quickcat rows, which
+   are supposed to scroll — this was the fixed chrome itself pushing
+   past the edge). Tightened just the header's own spacing at this
+   breakpoint rather than shrinking anything the user actually reads. */
+@media (max-width: 420px) {
+  .site-header__inner { gap: 12px; }
+  .header-actions { gap: 5px; }
+  .icon-btn, .theme-toggle { width: 36px; height: 36px; }
+  .mobile-menu-btn { width: 34px; height: 34px; }
+}
+
 .brand {
   display: flex;
   align-items: center;
@@ -2310,6 +2326,14 @@ ul { margin: 0; padding: 0; list-style: none; }
   font-weight: 600;
 }
 .ai-search__answer svg { flex-shrink: 0; }
+/* The loading state renders this standalone (JSX doesn't wrap it in
+   .ai-search__results-header the way the loaded state does), so it never
+   inherited that container's margin-bottom — the skeleton "answer" pill
+   sat flush against the skeleton product grid right below it with zero
+   gap, reading as one collided block instead of two stacked sections. */
+.ai-search__answer--loading {
+  margin-bottom: 14px;
+}
 /* Sized to a plausible sentence and given the real line-height of the
    text it stands in for, so the placeholder occupies the same space the
    answer will — rather than a hairline rule across the whole viewport. */

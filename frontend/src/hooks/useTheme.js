@@ -3,9 +3,12 @@ import { useCallback, useEffect, useState } from "react";
 const STORAGE_KEY = "libas-theme"; // "light" | "dark"
 
 function getInitialTheme() {
+  // Light is the default regardless of the OS's own prefers-color-scheme
+  // — a real user request, not a system-preference fallback. Once someone
+  // explicitly toggles, that choice is what's remembered from then on.
   const stored = window.localStorage.getItem(STORAGE_KEY);
   if (stored === "light" || stored === "dark") return stored;
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  return "light";
 }
 
 export function useTheme() {

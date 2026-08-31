@@ -136,7 +136,7 @@ export default function Home() {
             <span>
               <ShoppingBagIcon size={12} /> Live catalog
             </span>
-            <strong>95,000+ pieces</strong>
+            <strong>100,000+ pieces</strong>
             <Link to="/shop">
               Explore now <ArrowUpRightIcon size={13} />
             </Link>
