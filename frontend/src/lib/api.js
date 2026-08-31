@@ -1,7 +1,13 @@
-// Thin fetch client for the local Libas API (server/index.js), which
-// queries Postgres directly — see vite.config.js for the /api dev proxy to
-// http://localhost:4000.
-const API_BASE = "/api";
+// Thin fetch client for the Libas API (server/, FastAPI). Locally this
+// stays a relative "/api" and rides vite.config.js's dev proxy to
+// localhost:4000 — same-origin, no CORS involved. In production the
+// frontend (Cloudflare Pages) and backend (a separate EC2 host) are on
+// different origins, so a relative path would resolve against the
+// frontend's own domain instead. VITE_API_BASE, set in Cloudflare Pages'
+// build environment variables, points it at the real backend instead;
+// unset (local dev, `npm run build` with no env override) it falls back
+// to the old relative "/api" behavior unchanged.
+const API_BASE = import.meta.env.VITE_API_BASE || "/api";
 
 async function getJSON(path) {
   const res = await fetch(`${API_BASE}${path}`);
