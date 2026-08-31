@@ -1,0 +1,16 @@
+{
+  // Static-assets-only deploy (no Worker script) — Cloudflare merged Pages
+  // into the unified Workers platform, and the dashboard's "Create
+  // application -> Connect to Git" flow now deploys static sites through
+  // `wrangler deploy` reading this file, rather than a separate Pages
+  // product. "directory" is the Vite build output; not_found_handling
+  // routes any unmatched path (e.g. a hard refresh on /shop or
+  // /product/123) back to index.html so react-router's client-side
+  // routing can take over, instead of a raw 404.
+  "name": "ai-clothing-aggregator",
+  "compatibility_date": "2026-08-31",
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "single-page-application"
+  }
+}
