@@ -27,6 +27,41 @@ SORTS = {
     "default": "p.id",
 }
 
+# Home's own "Featured For You" — real bug, not hypothetical: sorting by
+# plain "newest" means a single brand's bulk-load day can dominate every
+# "newest" slot outright, on a homepage whose own copy says "15 real
+# brands...not a marketplace listing". A first attempt just diversified a
+# flat top-300-newest pool by brand (same shape as rag.py's diversify()
+# for AI search) — verified WRONG against real data before shipping: two
+# brands got bulk-reloaded the same day this was built (Lama's domain
+# fix, Bandana's onboarding), 2,706 + 937 = 3,643 products newer than
+# almost everything else in the whole catalog, so the top-300 pool was
+# *itself* 100% those two brands with nothing else to round-robin against
+# — diversifying a homogeneous pool just returns the homogeneous pool.
+# Real fix: cap how many of any ONE brand's newest products are even
+# eligible (via ROW_NUMBER() PARTITION BY brand, in the SQL below) BEFORE
+# diversifying, so no bulk-load day can flood the set regardless of its
+# size — a brand with 3 recent products and a brand with 3,000 both
+# contribute at most FEATURED_PER_BRAND_CAP.
+FEATURED_PER_BRAND_CAP = 10
+
+
+def _diversify_by_brand(rows: list) -> list:
+    from collections import OrderedDict, deque
+
+    by_brand: "OrderedDict[str, deque]" = OrderedDict()
+    for r in rows:
+        by_brand.setdefault(r["store"], deque()).append(r)
+    brand_queue = deque(by_brand.keys())
+    out = []
+    while brand_queue:
+        brand = brand_queue.popleft()
+        bucket = by_brand[brand]
+        out.append(bucket.popleft())
+        if bucket:
+            brand_queue.append(brand)
+    return out
+
 
 def _row_to_product(r) -> dict:
     return {
@@ -109,7 +144,8 @@ async def list_products(request: Request):
             f"EXISTS (SELECT 1 FROM variants vs WHERE vs.product_id = p.id AND lower(vs.size_label) = ANY(${len(params)}::text[]) AND vs.current_available = true)"
         )
     where_sql = " AND ".join(where)
-    order_by_sql = SORTS.get(q.get("sort"), SORTS["default"])
+    featured = q.get("sort") == "featured"
+    order_by_sql = SORTS["newest"] if featured else SORTS.get(q.get("sort"), SORTS["default"])
 
     pool = await get_pool()
     total = await pool.fetchval(f"SELECT COUNT(*) FROM products p WHERE {where_sql}", *params)
@@ -124,7 +160,7 @@ async def list_products(request: Request):
     offset_idx = len(params) + 2
     list_sql = f"""
       SELECT
-        p.id, p.title, p.handle,
+        p.id, p.title, p.handle, p.first_seen_at,
         b.name AS store_display, b.slug AS store,
         COALESCE(
           (SELECT vi.image_url FROM variants vi JOIN colors ci ON ci.id = vi.color_id
@@ -146,8 +182,32 @@ async def list_products(request: Request):
       ORDER BY {order_by_sql}
       LIMIT ${limit_idx} OFFSET ${offset_idx}
     """
-    rows = await pool.fetch(list_sql, *params, page_size, offset)
-    products = [_row_to_product(r) for r in rows]
+    if featured:
+        # Wraps the same base query, capping each brand to its
+        # FEATURED_PER_BRAND_CAP newest products via ROW_NUMBER() BEFORE
+        # anything gets diversified — see FEATURED_PER_BRAND_CAP's own
+        # comment for why a flat pool alone doesn't fix this. The capped
+        # set (at most 15 brands x 10 = 150 rows, cheap) is then
+        # diversified by brand in Python and the requested page sliced
+        # out of that order. Deterministic given stable underlying data,
+        # so independent page requests (Home paginates via separate
+        # fetches, no shared session state) still line up into one
+        # continuous, non-repeating sequence.
+        capped_sql = f"""
+          SELECT * FROM (
+            SELECT c.*, ROW_NUMBER() OVER (PARTITION BY c.store ORDER BY c.first_seen_at DESC, c.id DESC) AS rn
+            FROM ({list_sql.replace(f"LIMIT ${limit_idx} OFFSET ${offset_idx}", "")}) c
+          ) ranked
+          WHERE rn <= ${limit_idx}
+          ORDER BY first_seen_at DESC, id DESC
+        """
+        pool_rows = await pool.fetch(capped_sql, *params, FEATURED_PER_BRAND_CAP)
+        diversified = _diversify_by_brand(list(pool_rows))
+        page_rows = diversified[offset : offset + page_size]
+        products = [_row_to_product(r) for r in page_rows]
+    else:
+        rows = await pool.fetch(list_sql, *params, page_size, offset)
+        products = [_row_to_product(r) for r in rows]
     return {"total": total, "page": page, "pageSize": page_size, "products": products}
 
 

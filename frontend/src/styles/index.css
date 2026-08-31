@@ -980,7 +980,11 @@ ul { margin: 0; padding: 0; list-style: none; }
 .section-heading__arrow:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
 .section-heading__arrow:disabled { opacity: 0.35; cursor: default; }
 
-.featured-section { padding: clamp(30px, 4vw, 48px) clamp(16px, 3.5vw, 40px) 0; }
+/* Real bug: this is Home's LAST section — explicit 0 bottom padding here
+   meant the page just stopped right after the product grid/pagination
+   dots (which only add 4px of their own), no closing breathing room at
+   all. Bottom now matches the top for a symmetric close. */
+.featured-section { padding: clamp(30px, 4vw, 48px) clamp(16px, 3.5vw, 40px) clamp(40px, 6vw, 64px); }
 
 .dot-pagination {
   display: flex;

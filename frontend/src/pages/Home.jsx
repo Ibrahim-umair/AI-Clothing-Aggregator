@@ -70,7 +70,12 @@ export default function Home() {
     let cancelled = false;
     setFeaturedLoading(true);
     setFeaturedError(false);
-    fetchProducts({}, { page: featuredPage, pageSize: FEATURED_PAGE_SIZE, sort: "newest" })
+    // "featured" (not "newest") — a real bug found right after onboarding
+    // Bandana.pk: plain newest-first let one brand's same-day bulk load
+    // dominate every slot outright (12/12 "newest" products were Bandana).
+    // The backend round-robins by brand over a recency pool instead, so
+    // this section actually reads as "15 real brands," not one.
+    fetchProducts({}, { page: featuredPage, pageSize: FEATURED_PAGE_SIZE, sort: "featured" })
       .then((data) => !cancelled && setFeatured(data))
       .catch(() => {
         if (cancelled) return;
