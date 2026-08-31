@@ -39,9 +39,15 @@ async def taxonomy(request: Request):
         brand = q.get("brand")
         join = "JOIN brands b ON b.id = p.brand_id" if brand else ""
         brand_filter = "AND (lower(b.slug) = lower($1) OR lower(b.name) = lower($1))" if brand else ""
+        # Matches products.py's default (includeOutOfStock unset) grid
+        # filter — without this, a category showing "342" in the mega-nav
+        # could include products where every variant is sold out, while the
+        # Shop grid (which excludes those by default) shows fewer, making
+        # the nav count look inflated/wrong relative to what's ever shown.
         sql = f"""SELECT p.category_id, COUNT(*)::int AS count
                   FROM products p {join}
                   WHERE p.is_active = true AND p.is_browsable = true {brand_filter}
+                  AND EXISTS (SELECT 1 FROM variants va WHERE va.product_id = p.id AND va.current_available = true)
                   GROUP BY p.category_id"""
         return await pool.fetch(sql, *([brand] if brand else []))
 
@@ -51,7 +57,11 @@ async def taxonomy(request: Request):
         )
         if not_found:
             return []
-        where = ["p.is_active = true AND p.is_browsable = true"]
+        # Same default-stock-exclusion as gender_counts() above.
+        where = [
+            "p.is_active = true AND p.is_browsable = true",
+            "EXISTS (SELECT 1 FROM variants va WHERE va.product_id = p.id AND va.current_available = true)",
+        ]
         params: list = []
         if cat_ids:
             params.append(cat_ids)
@@ -65,7 +75,11 @@ async def taxonomy(request: Request):
         )
 
     async def brand_total():
-        return await pool.fetchval("SELECT COUNT(*)::int FROM products WHERE is_active = true AND is_browsable = true")
+        return await pool.fetchval(
+            """SELECT COUNT(*)::int FROM products p
+               WHERE p.is_active = true AND p.is_browsable = true
+               AND EXISTS (SELECT 1 FROM variants va WHERE va.product_id = p.id AND va.current_available = true)"""
+        )
 
     async def size_facets():
         if cat_refine_not_found:
@@ -155,8 +169,10 @@ async def categories_featured(request: Request):
                       (SELECT pi.url FROM products p2
                          JOIN product_images pi ON pi.product_id = p2.id
                         WHERE p2.category_id = $1 AND p2.is_active = true AND p2.is_browsable = true
+                        AND EXISTS (SELECT 1 FROM variants va WHERE va.product_id = p2.id AND va.current_available = true)
                         ORDER BY p2.id, pi.position LIMIT 1) AS image_url
-               FROM products p2 WHERE p2.category_id = $1 AND p2.is_active = true AND p2.is_browsable = true""",
+               FROM products p2 WHERE p2.category_id = $1 AND p2.is_active = true AND p2.is_browsable = true
+               AND EXISTS (SELECT 1 FROM variants va WHERE va.product_id = p2.id AND va.current_available = true)""",
             leaf_id,
         )
         if not row or row["count"] == 0:

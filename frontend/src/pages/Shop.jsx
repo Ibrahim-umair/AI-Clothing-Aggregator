@@ -191,6 +191,7 @@ export default function Shop() {
       colors,
       q,
       onSale,
+      includeOutOfStock: showOOS,
     })
       .then((data) => !cancelled && setResult(data))
       .catch(() => {
@@ -206,7 +207,7 @@ export default function Shop() {
     return () => {
       cancelled = true;
     };
-  }, [selection.gender, selection.branch, selection.sub, selection.category, selection.store, page, sort, minPrice, maxPrice, effectiveSizes, colors, q, onSale, retryToken]);
+  }, [selection.gender, selection.branch, selection.sub, selection.category, selection.store, page, sort, minPrice, maxPrice, effectiveSizes, colors, q, onSale, showOOS, retryToken]);
 
   const totalPages = Math.max(1, Math.ceil(result.total / PAGE_SIZE));
   const heading = selection.category || selection.sub || selection.branch || selection.gender || "All Products";
@@ -247,6 +248,19 @@ export default function Shop() {
   // same controls, same state, just a different container.
   const filterBody = (
     <>
+      {hasActiveFilters && (
+        <div className="active-chips">
+          {activeChips.map((c) => (
+            <span className="active-chip" key={c.key}>
+              {c.label}
+              <button type="button" onClick={c.clear} aria-label={`Remove ${c.label}`}>
+                ×
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+
       {sizeFacets.length > 0 && (
         <FilterGroup label="Size">
           <div className="size-grid">
@@ -405,32 +419,15 @@ export default function Shop() {
         <span className="shop-toolbar__count">{result.total.toLocaleString()} Products</span>
       </div>
 
-      {hasActiveFilters && (
-        <div className="active-chips">
-          {activeChips.map((c) => (
-            <span className="active-chip" key={c.key}>
-              {c.label}
-              <button type="button" onClick={c.clear} aria-label={`Remove ${c.label}`}>
-                ×
-              </button>
-            </span>
-          ))}
-          <button type="button" className="active-chips__clear" onClick={clearAll}>
-            Clear All
-          </button>
-        </div>
-      )}
-
       <div className="shop-layout">
         <aside className="filters">
-          {/* No Clear All here anymore — the active-filter chips row above
-              already has one, and both being visible at once (desktop,
-              900px+) was a real reported bug: two buttons doing the exact
-              same thing on screen simultaneously. That row is also the
-              more natural place for it — it's already showing what would
-              actually be cleared. */}
           <div className="filters__head">
             <b>Filters</b>
+            {hasActiveFilters && (
+              <button type="button" className="filters__head-clear" onClick={clearAll}>
+                Clear All
+              </button>
+            )}
           </div>
           {filterBody}
         </aside>
