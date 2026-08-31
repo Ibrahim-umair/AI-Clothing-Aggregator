@@ -5,8 +5,8 @@ exact wording (worked examples especially) is what earlier real-query
 testing tuned to fix specific extraction bugs.
 """
 
-# Every real leaf category name in the live taxonomy (43, as of this
-# writing) plus the 10 non-leaf grouping nodes (Upperwear, Bottomwear,
+# Every real leaf category name in the live taxonomy (47, as of this
+# writing) plus the 11 non-leaf grouping nodes (Upperwear, Bottomwear,
 # Western, Accessories, ...) — refresh this list if CATEGORY_TREE changes
 # (db/load_data.py). Added after a real, verified failure: without this,
 # "furor jeans" ranked a keychain above real jeans, because NOTHING
@@ -14,12 +14,13 @@ testing tuned to fix specific extraction bugs.
 # now a hard SQL filter, same as gender — see rag.py.
 KNOWN_CATEGORIES = [
     "1-Piece", "2-Piece", "3-Piece", "Bag", "Belt", "Cap", "Cargo Trouser", "Co-ord Set",
-    "Cufflink", "Dress", "Frock", "Hoodie", "Jacket", "Jeans", "Jewelry", "Joggers", "Keychain",
-    "Kurta", "Kurta Set", "Kurta Shalwar", "Kurti", "Perfume", "Pocket Square", "Polo",
-    "Sandals", "Saree", "Scarf", "Shalwar Kameez", "Shawl", "Sherwani", "Shirt", "Shoes",
-    "Shorts", "Socks", "Suit", "Sunglasses", "Sweater", "Sweatshirt", "Tank Top", "Tie",
-    "Tights", "Top", "Trouser", "T-Shirt", "Underwear", "Waistcoat", "Wallet", "Watch",
-    "Upperwear", "Bottomwear", "Footwear", "Suits & Sets", "Stitched", "Unstitched",
+    "Cufflink", "Dress", "Formal Suit", "Frock", "Hoodie", "Jacket", "Jeans", "Jewelry",
+    "Joggers", "Jumpsuit", "Keychain", "Kurta", "Kurta Set", "Kurta Shalwar", "Kurti",
+    "Perfume", "Pocket Square", "Polo", "Sandals", "Saree", "Scarf", "Shalwar Kameez", "Shawl",
+    "Sherwani", "Shirt", "Shoes", "Shorts", "Skirt", "Socks", "Suit", "Sunglasses", "Sweater",
+    "Sweatshirt", "Tank Top", "Tie", "Tights", "Top", "Tracksuit", "Trouser", "T-Shirt",
+    "Underwear", "Waistcoat", "Wallet", "Watch",
+    "Upperwear", "Bottomwear", "Footwear", "Suits & Sets", "Formalwear", "Stitched", "Unstitched",
     "Western", "Eastern", "Accessories", "Fragrance & Beauty",
 ]
 
@@ -135,6 +136,7 @@ SYSTEM_PROMPT = "\n".join([
     "- Use the MOST SPECIFIC matching leaf(s) only. Never also include a broader grouping name (e.g. 'Upperwear', 'Western', 'Unstitched') alongside a specific leaf that already sits under it — the grouping adds nothing and only widens the result set.",
     "- Only fall back to a grouping name (e.g. 'Upperwear', 'Footwear') when the query genuinely has no more specific leaf in mind (e.g. 'any upperwear under 2000').",
     "- 'Unstitched'/'Stitched' describe Eastern fabric/garments only. An 'unstitched suit' or 'unstitched 3-piece' means the Eastern leaves ('1-Piece'/'2-Piece'/'3-Piece'/'Suit'), never 'Co-ord Set' or 'Suits & Sets' — those are Western, always ready-to-wear/stitched by definition, and must not be combined with 'unstitched' intent.",
+    "- A tailored Western business/formal suit (blazer, lapels, waistcoat) is its own leaf, 'Formal Suit' — never 'Co-ord Set' (that's specifically a casual matching separates set — loungewear, resort wear, athleisure) and never 'Suit' (that's the unrelated Eastern Unstitched leaf). An athletic tracksuit is likewise its own leaf, 'Tracksuit', not 'Co-ord Set'.",
     "",
     "Rules for `suggested_refinements`: real, concrete SUBTYPES/FITS/STYLES of the category just matched (think of how a shopper would narrow down within these exact results), never a restatement of gender/price/brand/color. Bad: ['Men','Under 3000'] (already applied). Good, for 'jeans': ['Slim fit','Straight fit','Ripped'].",
     "",
@@ -148,4 +150,6 @@ SYSTEM_PROMPT = "\n".join([
     'query "yellow lawn suits unstitched" -> categories ["Suit"], colors ["yellow"], semantic_query "lawn" (the Eastern Unstitched "Suit" leaf, NOT "Suits & Sets" — that\'s the Western, always-stitched grouping)',
     'query "off white tunics for women" -> gender "Women", categories ["Top"], colors ["off white"], semantic_query "" ("tunic" is this catalog\'s own "Top" leaf, not "T-Shirt")',
     'query "cargo trousers under 3000" -> categories ["Cargo Trouser"], maxPrice 3000, semantic_query "" ("Cargo Trouser" is its own real leaf now, NOT ["Trouser"] + semantic_query "cargo" — that used to let plain trousers rank alongside genuine cargo pants)',
+    'query "formal 3 piece suit for men" -> gender "Men", categories ["Formal Suit"], semantic_query "" (a tailored Western business suit, NOT "Co-ord Set" — that\'s casual separates — and NOT "Suit", the unrelated Eastern Unstitched leaf)',
+    'query "matching co-ord set for lounging" -> categories ["Co-ord Set"], semantic_query "lounging" (casual separates, distinct from "Formal Suit"/"Tracksuit")',
 ])

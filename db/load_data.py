@@ -59,7 +59,31 @@ BRANDS_ALL = [
     # /products.json included, while that's on, so it's not addable until
     # the store owner makes it public.
     ("zellbury", "Zellbury", "https://zellbury.com", "liquid_rest"),
-    ("lama", "Lama", "https://lamaretail.com", "liquid_rest"),
+    # Fixed 2026-08-30 — the bare "lamaretail.com" root domain is a DEMO/
+    # PLACEHOLDER Shopify instance, not Lama's real storefront: every one of
+    # its 250 sampled products carries the literal tag "Demo Collections",
+    # its product IDs/timestamps don't match the real store (US-timezone
+    # offsets, e.g. "-05:00", vs. the real store's Pakistan "+05:00"), and
+    # every variant is unavailable — which is exactly why 100% of Lama's
+    # 1,616 products in this catalog were showing 0 in-stock variants (user
+    # report: "I have been able to add products to cart myself" on
+    # pk.lamaretail.com). Verified directly against the real domain before
+    # switching: pk.lamaretail.com's own /products.json (same endpoint
+    # shape fetch_rest_store already uses) returns real product data,
+    # vendor "LAMA RETAIL", 2,000+ products across 8+ pages, and the exact
+    # product from the user's own URL
+    # (signature-cotton-shirt-mas26tp080-grey) shows every size
+    # available:true there — matching what the user actually experienced
+    # adding to cart. The old domain was never a real substitute; it just
+    # happened to return valid-looking (but fake) Shopify JSON.
+    ("lama", "Lama", "https://pk.lamaretail.com", "liquid_rest"),
+    # Added 2026-08-31 — same live-scrape-only path as zellbury/lama above
+    # (no historical scraped_data/{slug}.jsonl). Real Shopify store, 201
+    # collections, activewear/basics/loungewear only (no Eastern wear at
+    # all, confirmed by a full pre-load audit reading real product
+    # descriptions across every women's/men's/kids' collection before
+    # writing any classify() rule for it — see CHANGELOG.md).
+    ("bandana", "Bandana", "https://bandana.pk", "liquid_rest"),
 ]
 # NOTE: an earlier run duplicated the category tree (see get_or_make_category
 # below) and split ~43k already-loaded products across the two copies, so
@@ -81,7 +105,27 @@ CATEGORY_TREE = {
             # Shirt listing.
             "Upperwear": [("T-Shirt","t-shirt"),("Polo","polo"),("Shirt","shirt"),("Jacket","jacket"),("Sweatshirt","sweatshirt"),("Hoodie","hoodie"),("Sweater","sweater"),("Tank Top","tank-top")],
             "Bottomwear": [("Trouser","trouser"),("Cargo Trouser","cargo-trouser"),("Jeans","jeans"),("Shorts","shorts"),("Joggers","joggers"),("Tights","tights")],
-            "Suits & Sets": [("Co-ord Set","co-ord-set")],
+            # "Formal Suit"/"Tracksuit" added 2026-08-30 — a tailored Western
+            # 2/3-piece business suit (blazer/lapel/breasted/waistcoat/tuxedo
+            # language) and an athletic tracksuit are both a different
+            # product from a casual matching "Co-ord Set" (loungewear/resort/
+            # office-casual separates), the same distinction the user drew
+            # after the Co-ord Set audit above. 247 real Men's/Boys' formal
+            # suits (Equator 64, Monark 51, Edenrobe 55, Cambridge 35,
+            # Charcoal 26, Diners 9, Uniworth 4, Royal Tag 3) and 34 real
+            # tracksuits (Furor 23, Equator 5, Meme 5, Edenrobe 1) were
+            # sitting in Co-ord Set. Deliberately did NOT move a handful of
+            # Women's "Suit"/"Blazer Co-ord Set" titles that use the same
+            # words — verified via real description ("...perfect for casual
+            # outings, travel, everyday wear") that those genuinely are
+            # casual separates, not tailored formalwear.
+            "Suits & Sets": [("Co-ord Set","co-ord-set"),("Tracksuit","tracksuit")],
+            # Split into its own sub-branch 2026-08-30, at the user's request
+            # — a tailored Western business suit isn't a "set" in the same
+            # sense as a Co-ord Set/Tracksuit and shouldn't be nested under
+            # that same nav group. See classify()'s own comment for why
+            # "Formal Suit" is Men/Boys-only.
+            "Formalwear": [("Formal Suit","formal-suit")],
             "Footwear": [("Shoes","shoes")],
         },
         "Eastern": {
@@ -103,9 +147,14 @@ CATEGORY_TREE = {
         "Western": {
             # "Tank Top" added 2026-08-29 — see Men's tree comment. 165 real
             # Women's tank tops were falling to Shirt for the same reason.
-            "Upperwear": [("T-Shirt","t-shirt"),("Polo","polo"),("Top","top"),("Shirt","shirt"),("Jacket","jacket"),("Sweatshirt","sweatshirt"),("Hoodie","hoodie"),("Sweater","sweater"),("Dress","dress"),("Tank Top","tank-top")],
-            "Bottomwear": [("Trouser","trouser"),("Cargo Trouser","cargo-trouser"),("Jeans","jeans"),("Shorts","shorts"),("Joggers","joggers"),("Tights","tights")],
-            "Suits & Sets": [("Co-ord Set","co-ord-set")],
+            "Upperwear": [("T-Shirt","t-shirt"),("Polo","polo"),("Top","top"),("Shirt","shirt"),("Jacket","jacket"),("Sweatshirt","sweatshirt"),("Hoodie","hoodie"),("Sweater","sweater"),("Dress","dress"),("Tank Top","tank-top"),("Jumpsuit","jumpsuit")],
+            # "Skirt" added 2026-08-31 — see SKIRT_RE's own comment. 95 real
+            # products across the existing catalog had nowhere correct to
+            # land.
+            "Bottomwear": [("Trouser","trouser"),("Cargo Trouser","cargo-trouser"),("Jeans","jeans"),("Shorts","shorts"),("Joggers","joggers"),("Tights","tights"),("Skirt","skirt")],
+            # "Tracksuit" added 2026-08-30 — see Men's tree comment. 9 real
+            # Women's tracksuits (Furor, Meme) were sitting in Co-ord Set.
+            "Suits & Sets": [("Co-ord Set","co-ord-set"),("Tracksuit","tracksuit")],
             "Footwear": [("Shoes","shoes"),("Sandals","sandals")],
         },
         "Eastern": {
@@ -142,9 +191,14 @@ CATEGORY_TREE = {
     },
     "Boys": {
         "Western": {
-            "Upperwear": [("T-Shirt","t-shirt"),("Polo","polo"),("Shirt","shirt"),("Sweatshirt","sweatshirt"),("Hoodie","hoodie"),("Sweater","sweater"),("Jacket","jacket"),("Tank Top","tank-top")],
+            "Upperwear": [("T-Shirt","t-shirt"),("Polo","polo"),("Shirt","shirt"),("Sweatshirt","sweatshirt"),("Hoodie","hoodie"),("Sweater","sweater"),("Jacket","jacket"),("Tank Top","tank-top"),("Jumpsuit","jumpsuit")],
             "Bottomwear": [("Trouser","trouser"),("Cargo Trouser","cargo-trouser"),("Shorts","shorts"),("Jeans","jeans"),("Joggers","joggers")],
+            # "Formal Suit" added 2026-08-30 — see Men's tree comment. 17
+            # real Boys' tuxedo/double-breasted formal suits (Edenrobe,
+            # Diners) were sitting in Co-ord Set. Split into its own
+            # "Formalwear" sub-branch, same as Men's tree.
             "Suits & Sets": [("Co-ord Set","co-ord-set")],
+            "Formalwear": [("Formal Suit","formal-suit")],
             "Footwear": [("Shoes","shoes")],
         },
         "Eastern": {"Stitched": [("Kurta","kurta"),("Kurta Set","kurta-set"),("Shalwar Kameez","shalwar-kameez"),("Waistcoat","waistcoat"),("Sherwani","sherwani")], "Unstitched": [("2-Piece","2-piece"),("Suit","suit")]},
@@ -153,9 +207,11 @@ CATEGORY_TREE = {
     },
     "Girls": {
         "Western": {
-            "Upperwear": [("T-Shirt","t-shirt"),("Polo","polo"),("Top","top"),("Shirt","shirt"),("Sweatshirt","sweatshirt"),("Hoodie","hoodie"),("Sweater","sweater"),("Jacket","jacket"),("Dress","dress"),("Tank Top","tank-top")],
-            "Bottomwear": [("Trouser","trouser"),("Cargo Trouser","cargo-trouser"),("Shorts","shorts"),("Jeans","jeans"),("Joggers","joggers"),("Tights","tights")],
-            "Suits & Sets": [("Co-ord Set","co-ord-set")],
+            "Upperwear": [("T-Shirt","t-shirt"),("Polo","polo"),("Top","top"),("Shirt","shirt"),("Sweatshirt","sweatshirt"),("Hoodie","hoodie"),("Sweater","sweater"),("Jacket","jacket"),("Dress","dress"),("Tank Top","tank-top"),("Jumpsuit","jumpsuit")],
+            "Bottomwear": [("Trouser","trouser"),("Cargo Trouser","cargo-trouser"),("Shorts","shorts"),("Jeans","jeans"),("Joggers","joggers"),("Tights","tights"),("Skirt","skirt")],
+            # "Tracksuit" added 2026-08-30 — see Men's tree comment. 1 real
+            # Girls' tracksuit (Edenrobe) was sitting in Co-ord Set.
+            "Suits & Sets": [("Co-ord Set","co-ord-set"),("Tracksuit","tracksuit")],
             "Footwear": [("Shoes","shoes")],
         },
         "Eastern": {"Stitched": [("Kurti","kurti"),("Kurta","kurta"),("Kurta Set","kurta-set"),("Shalwar Kameez","shalwar-kameez"),("Waistcoat","waistcoat")], "Unstitched": [("2-Piece","2-piece"),("Suit","suit")]},
@@ -391,7 +447,63 @@ def strip_garment_detail(text):
 # Smocked Dress...) with zero Eastern styling. It's generic Pakistani-English
 # for "girl's dress," not an Eastern-specific garment — treated as a Dress
 # synonym in the Western fallback instead.
-EASTERN_RE = re.compile(r"\b(kurta|kurti|shalwar|kameez|saree|sari|dupatta|sherwani|waistcoat)\b", re.I)
+# sharara/gharara/lehenga/kalidar/pishwas added 2026-08-30 (Co-ord Set
+# audit) — verified catalog-wide safe (81 real matches: Co-ord Set 77,
+# Shirt 3, Kurta 1, zero anywhere else) before adding; real examples
+# ("Jamawar Sharara Set", "Embroidered Gharara Suit", "Girls Gharara Set")
+# were falling to Western Co-ord Set or the generic Shirt default.
+EASTERN_RE = re.compile(r"\b(kurta|kurti|shalwar|kameez|saree|sari|dupatta|sherwani|waistcoat|sharara|gharara|lehenga|kalidar|pishwas)\b", re.I)
+
+# Same vocabulary as EASTERN_RE, MINUS "waistcoat" — used only when
+# scanning free-text TAGS/DESCRIPTION (never title/product_type) to
+# decide whether a title that looks like a Western "Suit"/"Co-ord Set" is
+# actually a mislabeled Eastern ensemble (see its call site in the Suits &
+# Sets check). "waistcoat" is excluded here specifically because a
+# genuine WESTERN 3-piece suit's own description routinely uses that exact
+# word too — a real false positive caught during verification, Equator's
+# "Light Grey Three Piece Suit" ("...single-breasted jacket, notch
+# lapels...finished with a shawl lapel waistcoat...", unambiguously
+# Western tailoring). "waistcoat" stays a fully-trusted Eastern signal
+# everywhere else in this file (title/product_type only).
+EASTERN_TAGS_DESC_RE = re.compile(r"\b(kurta|kurti|shalwar|kameez|saree|sari|dupatta|sherwani|sharara|gharara|lehenga|kalidar|pishwas)\b", re.I)
+
+# A "Prince Coat"/"Prince Suit" is a short embroidered Eastern formal coat
+# (wedding/festive menswear), not a Western jacket — but this is only
+# consulted from inside the Co-ord Set override below, scoped to items
+# that already look like a coordinated multi-piece SET. A standalone
+# "Prince Coat" with no set signal (52 real products, currently Jacket)
+# is a separate, out-of-scope question this audit didn't cover and is
+# deliberately left untouched.
+PRINCE_SET_RE = re.compile(r"\bprince\s+(coat|suit)\b", re.I)
+
+# Edenrobe's/Cambridge's own real structural convention for a stitched
+# shirt/frock + trouser/shalwar 2-piece ensemble, used when no OTHER
+# Eastern word appears anywhere (title, tags, or description) to trigger
+# EASTERN_RE directly — real descriptions label each piece with its own
+# "Fit Type:"/"Fabric:"/"Style:" fields, e.g. "Shirt Fit Type: Straight
+# Fit Fabric: Organza Style:...Trouser Fit Type: Straight Fit Fabric:
+# Organza Style:...". Requires the labeled "Fit Type:" convention
+# specifically (not just any 2 mentions of "fabric") — a looser
+# "fabric mentioned twice" version was verified UNSAFE: it false-matched
+# Furor's Western "Resort Co-Ord Set Shirt" line, whose flowing prose
+# ("Crafted from Soft, Breathable Crochet Fabric...Best Worn with Its
+# Matching Trousers...") mentions "fabric" and "trousers" without using
+# this labeled-piece convention at all. With "Fit Type:" required,
+# verified exclusive to genuine Eastern ensembles (Edenrobe 991,
+# Cambridge 17, Diners 3 — the Furor/Monark/Engine/Royal Tag/Charcoal
+# false positives all disappeared).
+FIT_TYPE_LABEL_RE = re.compile(r"fit type\s*:", re.I)
+
+
+def _has_structured_shirt_trouser_desc(description):
+    if not description:
+        return False
+    d = description.lower()
+    return (
+        ("shirt" in d or "frock" in d)
+        and ("trouser" in d or "shalwar" in d)
+        and len(FIT_TYPE_LABEL_RE.findall(d)) >= 2
+    )
 
 # A standalone scarf/muffler/stole/dupatta is an ACCESSORY sold on its own,
 # not part of an ensemble — but "dupatta" is also one of EASTERN_RE's own
@@ -410,6 +522,11 @@ EASTERN_RE = re.compile(r"\b(kurta|kurti|shalwar|kameez|saree|sari|dupatta|sherw
 # there, not get peeled off into a standalone accessory.
 SCARF_RE = re.compile(r"\b(scarf|scarves|mufflers?|stoles?|dupattas?|duppattas?)\b", re.I)
 OTHER_EASTERN_GARMENT_RE = re.compile(r"\b(kurta|kurti|shalwar|kameez|sherwani|waistcoat)\b", re.I)
+
+# See the "waistcoat" guard's own comment at its call site for the full
+# reasoning — checked against product_type+title+tags+description.
+WESTERN_WAISTCOAT_RE = re.compile(r"\b(western|outerwear|faux\s*leather|pinstripe|denim|leather|blazers?)\b", re.I)
+EASTERN_WAISTCOAT_COMPANION_RE = re.compile(r"\b(kurta|kurti|shalwar|kameez|koti|mashriq)\b", re.I)
 
 # Edenrobe's own real naming convention for a stitched (ready-to-wear)
 # Kurti+Trouser 2-piece set — confirmed against real body_html ("Girls'
@@ -440,7 +557,15 @@ SHIRT_TROUSER_SET_RE = re.compile(r"\bshirt\s*trousers?\b", re.I)
 # Sweater Vests, Cambridge's own Suiting Vests) were real outerwear/
 # activewear, not underwear at all. Handled below via a narrower,
 # signal-gated check instead of this unconditional word match.
-UNDERWEAR_RE = re.compile(r"\b(boxers?|briefs?|underwear|innerwear|panties|panty|undergarment)\b", re.I)
+# "bra"/"camisole" added 2026-08-31 during the Bandana.pk onboarding audit
+# — neither had a keyword anywhere in this file. 40 real EXISTING products
+# across other brands too ("White Glide-Fit Sports Bra", "BRA TANK TOP",
+# "T-SHIRT BRA", "Jogger Bra") were scattered across Shirt/Tank Top/
+# T-Shirt/Co-ord Set/Joggers instead of Underwear. Word-boundary anchored
+# so it doesn't match inside "bralette"/"Cobra"/"Zebra" (no boundary
+# between "bra" and what follows/precedes in those words) — verified
+# catalog-wide before shipping, zero false positives found.
+UNDERWEAR_RE = re.compile(r"\b(boxers?|briefs?|underwear|innerwear|panties|panty|undergarment|bras?|camisoles?)\b", re.I)
 VEST_RE = re.compile(r"\bvests?\b", re.I)
 # A bare "vest" only counts as underwear when something explicitly says
 # so — "sando" (the real Pakistani-market word for a men's undergarment
@@ -469,6 +594,100 @@ KURTA_COMBO_RE = re.compile(
     r"\bkurt[ai]\b[\s\w]{0,25}\b(pajama|payjama|shalwar)\b|\b(pajama|payjama|shalwar)\b[\s\w]{0,25}\bkurt[ai]\b",
     re.I,
 )
+
+# Word for the "sharara/gharara/lehenga/kalidar/pishwas" style group —
+# these are distinctly different from a plain Shalwar Kameez, so they get
+# their own leaf resolution ("Kurta Set", the closest existing multi-piece
+# Eastern leaf) rather than falling into the generic Shalwar Kameez default.
+LEHENGA_STYLE_RE = re.compile(r"\b(sharara|gharara|lehenga|kalidar|pishwas)\b", re.I)
+
+# Shared leaf-naming logic for a confirmed Eastern/Stitched item, used both
+# by the main Eastern-branch entry point below and by the Co-ord Set
+# override (see its call site) — kept as one function so both places agree
+# on what a given set of Eastern words resolves to. `blob` is the normal
+# title/product_type signal (unchanged behavior at the main entry point);
+# `extra_signal`, only passed by the Co-ord Set override, is the
+# tags+description text that revealed the item was really Eastern in the
+# first place — consulted for leaf-NAMING only, never widened further than
+# what the caller already decided counts as a trustworthy signal.
+def _eastern_stitched_leaf(blob, extra_signal=""):
+    combined = f"{blob} {extra_signal}".lower()
+    if KURTA_COMBO_RE.search(blob):
+        return "Kurta Set" if "kurta" in blob else "Shalwar Kameez"
+    if PRINCE_SET_RE.search(combined):
+        return "Sherwani"
+    if "sherwani" in combined:
+        return "Sherwani"
+    # "waistcoat" is intentionally checked against `blob` only, never
+    # `extra_signal` — see EASTERN_TAGS_DESC_RE's own comment for why a
+    # description-only "waistcoat" mention isn't trustworthy here.
+    if "waistcoat" in blob:
+        return "Waistcoat"
+    if LEHENGA_STYLE_RE.search(combined):
+        return "Kurta Set"
+    if "kurti" in combined:
+        return "Kurti"
+    if "kurta" in combined:
+        return "Kurta"
+    if SHIRT_TROUSER_SET_RE.search(blob) or _has_structured_shirt_trouser_desc(extra_signal):
+        return "Kurta Set"
+    return "Shalwar Kameez"
+
+
+# jumpsuit/playsuit/bodysuit are real one-piece garments, not a
+# coordinated multi-piece SET — they must never fall into the buggy
+# `\bco-?ord|suit\b` precedence bug (see the Suits & Sets check) that used
+# to catch bare "suit" as a suffix inside any word. 142 real products
+# (Girls 97, Women 37, Boys 8) were landing in Co-ord Set purely because
+# of that bug; with it fixed, they need this explicit positive route
+# instead of falling through to the generic Shirt default.
+JUMPSUIT_RE = re.compile(r"\b(jumpsuits?|playsuits?|bodysuits?)\b", re.I)
+
+# An athletic tracksuit is a distinct product from a fashion/loungewear
+# "Co-ord Set" — 34 real products (Furor 23, Equator 5, Meme 5, Edenrobe 1)
+# were sitting in Co-ord Set once the regex-precedence bug above was fixed
+# (the bug used to catch them too, just via the bare "suit" suffix). The
+# word itself is unambiguous, so no gender/signal gating is needed the way
+# FORMAL_SUIT_RE below needs it.
+TRACKSUIT_RE = re.compile(r"\btracksuits?\b", re.I)
+
+# Furor's own real "Tracksuit" line uses the word as a COLLECTION name,
+# not a claim that the product itself is a 2-piece set — real examples:
+# "Quarter-Zip Tracksuit Sweatshirt" (product_type "Men Sweatshirts") is
+# just a sweatshirt; "Mock Neck Tracksuit Zipper Jacket" (product_type
+# "Men Jackets") is just a jacket; "Piping Detail Tracksuit Hoodie"/
+# "Tracksuit Pullover Hoodie"/"Tracksuit Zipper Hoodie" (product_type
+# "Men Hoodies") are just hoodies. A genuine 2-piece tracksuit SET never
+# has another garment noun immediately after the word "tracksuit" —
+# Furor's own real sets ("Hoodie Tracksuit"/"Zipper Jacket Tracksuit",
+# product_type "Woman Track Suit") name the other garment BEFORE
+# "tracksuit", with nothing following it; Equator/Charcoal/Meme's bare
+# "___ Tracksuit"/"Tracksuit Set" titles have nothing garment-specific
+# following it either. When a single-garment noun DOES follow, that's the
+# real (single) product — checked at the Tracksuit call site, which falls
+# through to the normal Jacket/Hoodie/Sweatshirt/etc. resolution instead
+# of forcing Tracksuit.
+TRACKSUIT_SINGLE_GARMENT_RE = re.compile(
+    r"\btracksuit[\s\w-]{0,20}\b(jackets?|hoodies?|sweatshirts?|sweaters?|polos?|t-shirts?|tank\s*tops?)\b",
+    re.I,
+)
+
+# A tailored Western 2/3-piece business suit (blazer/lapel/breasted/
+# waistcoat/tuxedo tailoring language) is a distinct product from a casual
+# matching "Co-ord Set" (loungewear/resort/office-casual separates) — same
+# distinction as Tracksuit above, but this one needs real signal words
+# rather than a single unambiguous word, since a plain "Suit" title covers
+# both. Checked only for Men/Boys (see its call site): a handful of
+# Women's "Suit"/"Blazer Co-ord Set" titles use these same words
+# (Engine Clothing, Meme) but their own real descriptions confirm they're
+# genuinely casual separates ("...perfect for casual outings, travel,
+# everyday wear"), not tailored formalwear — verified before excluding
+# Women/Girls from this signal. "waistcoat" is trusted here (unlike
+# EASTERN_TAGS_DESC_RE's own exclusion of it) because in THIS context —
+# already Men/Boys, already failed the Eastern override above — a
+# waistcoat mention is exactly the Western 3-piece-suit signal it looks
+# like, not a false positive.
+FORMAL_SUIT_RE = re.compile(r"\b(blazers?|lapels?|breasted|bespoke|tuxedos?|waistcoats?)\b", re.I)
 
 # Bare "short" is too greedy — it matches "short sleeve shirt/tee/polo",
 # a description of an UPPERWEAR item's sleeve length, not the bottomwear
@@ -499,6 +718,16 @@ KURTA_COMBO_RE = re.compile(
 # Furor, Zellbury — over 1,200 products) unambiguously names a trouser, no
 # collision shape found worth excluding.
 TROUSER_RE = re.compile(r"\b(trousers?|jeans?|pants?|chinos?|cargos?)\b", re.I)
+
+# "Skirt" never had a leaf or keyword anywhere in this file — found during
+# the Bandana.pk onboarding audit (a real "Skirts" collection there), but
+# 95 real products across the EXISTING catalog too ("WILDFLOWER TIER
+# SKIRT", "Denim Skirt With Front Slit") were scattered across Shirt (67),
+# Jeans (10), Shorts (10), Co-ord Set (5), Trouser (3) with nowhere
+# correct to land. Checked ahead of the Trouser/Jeans/Shorts split (title-
+# first, matching that section's own precedent) so a "Denim Skirt" isn't
+# pulled into Jeans by the bare-denim fallback.
+SKIRT_RE = re.compile(r"\bskirts?\b", re.I)
 # Bare "cargo" alone is a strong enough bottomwear signal on its own — real
 # examples with NO other bottomwear word at all: "TWILL CARGO" (product_type
 # "Relaxed Fit"), "Men Cargo Touser" (a real title typo for "Trouser") —
@@ -587,6 +816,12 @@ GENDER_PATTERNS = [
 # after every explicit-gender check (vendor AND full blob) has had a chance.
 AGE_ONLY_RE = re.compile(r"\bkids?\b|\bjuniors?\b|\btoddlers?\b|\binfants?\b", re.I)
 
+# See its call site in classify() for the full reasoning — an explicit
+# "UNISEX" word in a product's own description, used only when a real
+# "men" AND a real "women" word are both present in the same product's
+# tags/title.
+UNISEX_WORD_RE = re.compile(r"\bunisex\b", re.I)
+
 # Kids age-range or toddler-code sizing ("3-4 years", "5-6 Year", "T1"-"T4")
 # is a strong, direct kids signal even when no text says so anywhere — a
 # real Cougar dress had exactly this (sizes 5-6Y/7-8Y/9-10Y) and no textual
@@ -651,6 +886,27 @@ def classify(store, p, title, product_type, tags, vendor, description):
     if TEST_PRODUCT_RE.search(title) or SHOPPING_BAG_RE.search(title) or SHOPPING_BAG_RE.search(product_type or ""):
         return None  # QA placeholder or checkout packaging bag, not real merchandise
     gender = guess_gender(store, title, product_type, tags, vendor, p=p, is_graphql=(store == "cougar"))
+    # A product tagged for BOTH genders simultaneously (e.g. Bandana's
+    # "RUH" capsule line: the exact same product ID appears in both the
+    # ruh-men and ruh-women collections, tagged "RUH Men" AND "RUH Women"
+    # at once) with an explicit "UNISEX" word in its own description is a
+    # genuinely unisex line, not a gendering bug. guess_gender()'s own
+    # GENDER_PATTERNS checks "women" ahead of "men"/"unisex" (for a
+    # different, deliberate reason — see that list's own comment), so
+    # without this it would silently resolve to Women just because a
+    # "women" word happens to be present in tags, ignoring the equally-
+    # present "men" word and the description's own explicit declaration.
+    # Scoped narrowly: only overrides when a real "men" AND a real
+    # "women" word are BOTH present (not just any stray "unisex" mention
+    # elsewhere) — this never touches a product that only ever names one
+    # gender.
+    gender_words_blob = f"{tags or ''} {title or ''}".lower()
+    if (
+        UNISEX_WORD_RE.search(description or "")
+        and re.search(r"\bwomen\b|\bwoman\b", gender_words_blob)
+        and re.search(r"\bmen\b|\bman\b", gender_words_blob)
+    ):
+        gender = "Unisex"
     blob = f"{product_type} {title}".lower()
     # Title-only view of the same blob — used wherever product_type
     # conflicts with what the title itself says (see its uses below: the
@@ -742,6 +998,28 @@ def classify(store, p, title, product_type, tags, vendor, description):
     if SCARF_RE.search(blob) and not OTHER_EASTERN_GARMENT_RE.search(blob) and not UNSTITCHED_RE.search(blob):
         return dict(gender=gender, branch="Accessories", sub=None, leaf="Scarf",
                     style="western", construction="not_applicable")
+    # A bare "waistcoat" is one of EASTERN_RE's own trigger words (a real
+    # koti/traditional waistcoat worn over a shalwar kameez), but several
+    # brands also sell a Western fashion vest/gilet under the same word —
+    # real examples: Outfitters' "Faux Leather Cropped Waistcoat"
+    # (product_type "OUTERWEAR", tags "Jackets"/"Outerwear"/"vest"),
+    # Uniworth's own "Western Waistcoat" line (11 products, the brand's own
+    # naming), Charcoal's denim waistcoats, Lama's "SHORT PINSTRIPE
+    # WAISTCOAT"/"WAISTCOAT WITH POCKETS" (product_type "BLAZERS"). None of
+    # these pair the word with any Eastern companion word anywhere — a
+    # real false positive was caught and excluded before shipping this:
+    # Edenrobe's "Cotton Waistcoat Suit" mentions "Blazer Suiting
+    # Fabric"/"Contrast Blazer Collar" as a STYLE DETAIL on what its own
+    # description confirms is a "Cotton Satin Kurta Pajama" — genuinely
+    # Eastern despite the word "blazer", so the Western signal only wins
+    # when no kurta/kurti/shalwar/kameez/koti/Mashriq word is also present.
+    # Folds into the existing Jacket leaf, same as "blazer"/bare "coat"
+    # elsewhere in this file — no separate Western Vest leaf exists.
+    if "waistcoat" in blob:
+        waistcoat_signal_blob = f"{blob} {tags} {description}".lower()
+        if WESTERN_WAISTCOAT_RE.search(waistcoat_signal_blob) and not EASTERN_WAISTCOAT_COMPANION_RE.search(waistcoat_signal_blob):
+            return dict(gender=gender, branch="Western", sub="Upperwear", leaf="Jacket",
+                        style="western", construction="ready_to_wear")
     if EASTERN_RE.search(blob) or UNSTITCHED_RE.search(blob) or SHIRT_TROUSER_SET_RE.search(blob):
         construction = "unstitched_fabric" if UNSTITCHED_RE.search(blob) else "ready_to_wear"
         sub = "Unstitched" if construction == "unstitched_fabric" else "Stitched"
@@ -780,28 +1058,10 @@ def classify(store, p, title, product_type, tags, vendor, description):
             # leaf name — and getting stranded on the bare Eastern branch
             # node since no Unstitched tree has ever defined it.
             leaf = "Suit"
-        elif KURTA_COMBO_RE.search(blob):
-            # Checked ahead of the standalone sherwani/waistcoat check: a
-            # "Kurta Pajama With Waistcoat" is fundamentally a kurta
-            # ensemble that happens to include a vest, not a standalone
-            # waistcoat suit — the kurta+pajama/shalwar phrase should win.
-            leaf = "Kurta Set" if "kurta" in blob else "Shalwar Kameez"
-        elif "sherwani" in blob:
-            leaf = "Sherwani"
-        elif "waistcoat" in blob:
-            leaf = "Waistcoat"
-        elif "kurti" in blob:
-            leaf = "Kurti"
-        elif "kurta" in blob:
-            leaf = "Kurta"
-        elif SHIRT_TROUSER_SET_RE.search(blob):
-            # Edenrobe's own description confirms this is a stitched
-            # Kurti+Trouser 2-piece ensemble ("Girls' Pret Kurti &
-            # Trouser") even though the title itself never says
-            # "kurta"/"kurti" — see SHIRT_TROUSER_SET_RE's definition.
-            leaf = "Kurta Set"
         else:
-            leaf = "Shalwar Kameez"
+            # KURTA_COMBO_RE/sherwani/waistcoat/sharara-etc/kurti/kurta/
+            # SHIRT_TROUSER_SET_RE, in that order — see _eastern_stitched_leaf.
+            leaf = _eastern_stitched_leaf(blob)
         if leaf == "Kurti" and gender in ("Men", "Boys"):
             # "Kurti" never applies to a boy/man in this catalog's own
             # taxonomy (CATEGORY_TREE only defines a Kurti leaf under
@@ -855,9 +1115,17 @@ def classify(store, p, title, product_type, tags, vendor, description):
     # "jacket" in this exclusion list never matched it) was resolving to
     # Jeans purely because of "denim" in the title, same collision class
     # as "DENIM JACKET"/"Denim Shirt" above.
+    # "denim terry"/"terry denim" is a real fabric-line name (Bandana.pk's
+    # "Denim Terry" collection) meaning terry cloth with a denim-look
+    # print, NOT actual denim — its own description confirms this
+    # explicitly: "the appearance of classic denim with the ease and
+    # softness of terry fabric". A real "Men's Denim Terry Pants" would
+    # otherwise wrongly resolve Jeans purely off the bare word "denim"
+    # (shorts/joggers variants of the same line are unaffected, since
+    # SHORTS_RE/JOGGERS_RE already win ahead of this bare-denim fallback).
     bare_denim = re.search(r"\bdenim\b", blob) and not re.search(
         r"\b(jackets?|shirts?|dress(?:es)?|polos?|collars?|hoodies?|tees?|t-shirts?|tops?|sweatshirts?|vests?)\b", blob
-    )
+    ) and not re.search(r"\bdenim\s+terry\b|\bterry\s+denim\b", blob)
     # Checked against the TITLE first, then the full blob (product_type
     # included) only as a fallback — same precedent as the Accessories
     # leaf lookup above. A real example, ONE Be-One's "Basic Barrel Jeans",
@@ -872,7 +1140,10 @@ def classify(store, p, title, product_type, tags, vendor, description):
     # product_type is even consulted.
     bare_denim_title = re.search(r"\bdenim\b", title_blob) and not re.search(
         r"\b(jackets?|shirts?|dress(?:es)?|polos?|collars?|hoodies?|tees?|t-shirts?|tops?|sweatshirts?|vests?)\b", title_blob
-    )
+    ) and not re.search(r"\bdenim\s+terry\b|\bterry\s+denim\b", title_blob)
+    if SKIRT_RE.search(title_blob) or SKIRT_RE.search(blob):
+        return dict(gender=gender, branch="Western", sub="Bottomwear", leaf="Skirt",
+                    style="western", construction="ready_to_wear")
     if TROUSER_RE.search(title_blob) or SHORTS_RE.search(title_blob) or bare_denim_title:
         src = title_blob
         leaf = "Shorts" if SHORTS_RE.search(src) else "Cargo Trouser" if CARGO_RE.search(src) else "Jeans" if re.search(r"\bjeans?\b", src) or bare_denim_title else "Trouser"
@@ -912,6 +1183,23 @@ def classify(store, p, title, product_type, tags, vendor, description):
         footwear_leaf = "Sandals" if gender == "Women" and SANDAL_LEAF_RE.search(blob) else "Shoes"
         return dict(gender=gender, branch="Western", sub="Footwear", leaf=footwear_leaf,
                     style="western", construction="not_applicable")
+    # jumpsuit/playsuit/bodysuit are one-piece garments, not a coordinated
+    # SET — checked ahead of the co-ord/suit regex below so the fixed
+    # `\bsuits?\b` boundary (see JUMPSUIT_RE's own comment) never has to
+    # decide whether a compound word counts; these get their own leaf
+    # outright.
+    if JUMPSUIT_RE.search(blob):
+        return dict(gender=gender, branch="Western", sub="Upperwear", leaf="Jumpsuit",
+                    style="western", construction="ready_to_wear")
+    # An athletic tracksuit is a distinct product from a fashion/loungewear
+    # Co-ord Set — checked ahead of the co-ord/suit regex below so it gets
+    # its own leaf outright rather than falling into the generic one.
+    # Excludes Furor's "Tracksuit <single garment>" collection-naming
+    # pattern (see TRACKSUIT_SINGLE_GARMENT_RE) — those fall through to the
+    # normal Jacket/Hoodie/Sweatshirt resolution further down instead.
+    if TRACKSUIT_RE.search(blob) and not TRACKSUIT_SINGLE_GARMENT_RE.search(blob):
+        return dict(gender=gender, branch="Western", sub="Suits & Sets", leaf="Tracksuit",
+                    style="western", construction="ready_to_wear")
     # Broadened 2026-08-29 to also catch a bare piece-count ("2PC"/"3 PC"/
     # "3-Piece") or "combo" naming a coordinated set with no "suit"/"co-ord"
     # word at all — real example, Diners' entire Women's/Girls'/Boys' "N
@@ -927,12 +1215,94 @@ def classify(store, p, title, product_type, tags, vendor, description):
     # noun — Equator's "Green & Black Combo Hoodie"/"Tri-Color Combo Tee" use
     # "combo" to describe a COLOR combination, not a multi-piece set, and
     # must keep resolving to their own garment leaf.
-    if re.search(
-        r"\bco-?ord|suit\b"
-        r"|\b[1-4]\s*-?\s*(?:pc|pieces?)\b"
+    #
+    # 2026-08-30 (Co-ord Set audit) — the original `\bco-?ord|suit\b`
+    # alternation had a precedence bug: it parsed as `(\bco-?ord)|(suit\b)`,
+    # so the right-hand alternative had NO leading `\b` and matched "suit"
+    # as a bare suffix inside ANY word — jumpsuit/playsuit/bodysuit (now
+    # routed above) were all wrongly caught by this. Fixed to bound both
+    # sides (`\bsuits?\b`), with pantsuit/nightsuit — real compound words
+    # that legitimately ARE 2-piece sets (verified catalog-wide:
+    # bodysuit/jumpsuit/nightsuit/playsuit/suit(s)/tracksuit is the
+    # complete real list; "pantsuit" has zero real occurrences but is kept
+    # defensively) — allowed back in explicitly. "tracksuit" is
+    # deliberately NOT in this list — it has its own dedicated, earlier
+    # check (TRACKSUIT_RE) that already handles every genuine tracksuit,
+    # INCLUDING excluding Furor's "Tracksuit <single garment>"
+    # collection-naming pattern; leaving "tracksuit" in this regex too
+    # would silently re-catch those excluded single-garment titles here
+    # and wrongly resolve them to the Co-ord Set default instead of letting
+    # them fall through to the real Jacket/Hoodie/Sweatshirt resolution.
+    #
+    # The piece-count sub-check is also now restricted to `title_blob`
+    # only, not the full `blob` — a real example, Cougar's own
+    # `productType: "2PC"` bucket (83 real products, e.g. a single top with
+    # no matching bottom at all), was wrongly pulled into Co-ord Set purely
+    # because product_type said "2PC" even though the title itself never
+    # does. co-ord/suit/pantsuit/nightsuit/combo stay checked against the
+    # full blob, unaffected.
+    is_coord_candidate = bool(re.search(
+        r"\bco-?ords?\b|\bsuits?\b|\bpantsuits?\b|\bnightsuits?\b"
         r"|\bcombos?\b(?!\s+(?:hoodies?|tees?|t-shirts?|shirts?|polos?|sweatshirts?|sweaters?|jackets?)\b)",
         blob,
-    ):
+    )) or bool(re.search(r"\b[1-4]\s*-?\s*(?:pc|pieces?)\b", title_blob))
+    if is_coord_candidate:
+        # A title that reads as a Western "Suit"/"Co-ord Set" can still be
+        # a mislabeled Eastern ensemble — real examples verified against
+        # actual tags/description: Cambridge's tags literally say
+        # "Designer Shalwar Kameez"/"Mashriq" for items titled just
+        # "EMBROIDERED SUIT"; Equator's description says "This two-piece
+        # suit from our Qaftaan collection...includes a kurta..." for an
+        # item titled "French Grey Suit"; Zellbury's "Wash & Wear Suit"
+        # description says "Men Unstitched Shalwar Kameez Fabric" with no
+        # Eastern word anywhere in title/product_type; Edenrobe's/
+        # Cambridge's "Co-Ord Set"-titled items use the structured
+        # Shirt+Trouser "Fit Type:" convention (see
+        # _has_structured_shirt_trouser_desc); Edenrobe's/Diners' "Prince
+        # Suit" items are a Sherwani ensemble under a Western-sounding
+        # name. Scoped deliberately to ONLY this already-co-ord-shaped
+        # candidate set — verified this does NOT reintroduce the earlier,
+        # explicitly-rejected "eastern"-anywhere-in-tags idea (that one
+        # caused 700+ false positives across Shirt/Trouser/Sweatshirt/etc
+        # via an unrelated compound store-collection tag); here, the same
+        # broadened tags+description signal was checked catalog-wide
+        # against the CURRENT Co-ord Set category specifically and found
+        # to only ever fire on genuine Eastern ensembles once "waistcoat"
+        # was excluded (see EASTERN_TAGS_DESC_RE) and the shirt/trouser
+        # heuristic was tightened to the labeled "Fit Type:" convention —
+        # a looser version of both false-matched real Western products
+        # (Equator's own 3-piece business suits via "waistcoat", Furor's
+        # "Resort Co-Ord Set Shirt" line via loose fabric-mention counting).
+        eastern_tags_desc_blob = f"{tags} {description}".lower()
+        is_eastern_override = (
+            EASTERN_TAGS_DESC_RE.search(eastern_tags_desc_blob)
+            or UNSTITCHED_RE.search(eastern_tags_desc_blob)
+            or _has_structured_shirt_trouser_desc(description)
+            # "Prince Suit"/"Prince Coat" is a title-level signal (e.g.
+            # "Grey Boys Prince Suit") — unlike the other override signals
+            # above, it doesn't need tags/description to reveal it.
+            or PRINCE_SET_RE.search(blob)
+        )
+        if is_eastern_override:
+            if UNSTITCHED_RE.search(blob) or UNSTITCHED_RE.search(eastern_tags_desc_blob):
+                sub, construction, leaf, pc = "Unstitched", "unstitched_fabric", "Suit", None
+            else:
+                sub, construction, pc = "Stitched", "ready_to_wear", None
+                if "saree" in eastern_tags_desc_blob or "sari" in eastern_tags_desc_blob or "saree" in blob or "sari" in blob:
+                    leaf = "Saree"
+                else:
+                    leaf = _eastern_stitched_leaf(blob, extra_signal=eastern_tags_desc_blob)
+            if leaf == "Kurti" and gender in ("Men", "Boys"):
+                gender = "Girls" if gender == "Boys" else "Women"
+            return dict(gender=gender, branch="Eastern", sub=sub, leaf=leaf,
+                        style="eastern", construction=construction, piece_count=pc)
+        # A tailored Western 2/3-piece business suit is a distinct product
+        # from a casual Co-ord Set — see FORMAL_SUIT_RE's own comment for
+        # why this is gated to Men/Boys and why "waistcoat" is trusted here
+        # even though it's excluded from the Eastern-override signal above.
+        if gender in ("Men", "Boys") and FORMAL_SUIT_RE.search(f"{blob} {eastern_tags_desc_blob}"):
+            return dict(gender=gender, branch="Western", sub="Formalwear", leaf="Formal Suit",
+                        style="western", construction="ready_to_wear")
         return dict(gender=gender, branch="Western", sub="Suits & Sets", leaf="Co-ord Set",
                     style="western", construction="ready_to_wear")
     # "Hoodie" checked before the bare "sweat" fallback so a hooded
@@ -1001,7 +1371,13 @@ def classify(store, p, title, product_type, tags, vendor, description):
             return "Hoodie"
         if "sweatshirt" in text or "sweat shirt" in text:
             return "Sweatshirt"
-        if "sweater" in text:
+        # "cardigan" folds into the same Sweater leaf — no separate
+        # Cardigan leaf exists, and a cardigan is functionally a knitted
+        # button-up sweater. 47 real EXISTING products ("Modal Rib Lace
+        # Cardigan") had no keyword at all and were falling to Shirt —
+        # found during the Bandana.pk onboarding audit but not specific
+        # to that brand.
+        if "sweater" in text or "cardigan" in text or "turtleneck" in text:
             return "Sweater"
         # "tunic" only maps to "Top" for Women/Girls — that's the only
         # gender pair CATEGORY_TREE defines a "Top" leaf for at all (Men/
@@ -1027,7 +1403,14 @@ def classify(store, p, title, product_type, tags, vendor, description):
         # "Sweater Vest" still resolves Sweater first (already handled by
         # the ordering above), and last among the specific garment checks
         # since a bare vest is the weakest signal of this group.
-        if re.search(r"\bvests?\b", text):
+        # "gilet"/"bodywarmer" fold into the same Jacket leaf — a sleeveless
+        # puffer/quilted layer, same real garment class as "vest" above,
+        # just a different regional word for it. 67 real EXISTING products
+        # (Furor "Puffer Gilet", "Yellow Down Gilet", "Blue Quilted Gilet")
+        # had no jacket/vest/coat word at all and were falling to
+        # Shirt/Hoodie — found during the Bandana.pk onboarding audit but
+        # not specific to that brand.
+        if re.search(r"\bvests?\b|\bgilets?\b|\bbodywarmers?\b", text):
             return "Jacket"
         return None
 

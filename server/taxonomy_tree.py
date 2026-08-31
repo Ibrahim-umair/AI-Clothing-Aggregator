@@ -15,7 +15,7 @@ from db import get_pool
 GENDER_ORDER = ["Men", "Women", "Boys", "Girls", "Unisex"]
 BRANCH_ORDER = ["Eastern", "Western", "Accessories", "Fragrance & Beauty"]
 EASTERN_SUB_ORDER = ["Unstitched", "Semi-Stitched", "Stitched"]
-WESTERN_SUB_ORDER = ["Upperwear", "Bottomwear", "Suits & Sets", "Footwear"]
+WESTERN_SUB_ORDER = ["Upperwear", "Bottomwear", "Suits & Sets", "Formalwear", "Footwear"]
 
 TREE_TTL_SECONDS = 5 * 60
 

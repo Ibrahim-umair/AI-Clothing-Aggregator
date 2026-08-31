@@ -35,6 +35,38 @@ underwears or vests"):
      already cleaned up earlier this session (a "vest" only stays in this
      leaf now if it's a genuine undergarment; see CHANGELOG.md #46), so this
      criterion is simply "all of it", 18 real products.
+  6. Women's Tank Top (category leaf "Tank Top" under Women/Western/
+     Upperwear, id 4393) — added 2026-08-30 per a follow-up request
+     ("the tank tops of women should be hidden (shariah reasons)"),
+     explicitly Women only (not Girls' Tank Top, a separate leaf, left
+     untouched — not asked for). 214 real active products.
+
+Extended 2026-08-31 during the Bandana.pk onboarding audit ("don't add non
+shariah compliant clothes for women") — real gaps found by actually reading
+Bandana's product descriptions before loading anything, not brand-specific
+rules (this WHERE clause is gender+category+text based, so both apply
+retroactively to every existing brand too):
+
+  7. "Spaghetti strap" — Bandana's "Modal Rib Lace Tank" says "V-neckline,
+     spaghetti straps, straight hem" but never says "sleeveless" anywhere,
+     so criterion #3 missed it entirely. Same title/description/raw_source
+     scan as "sleeveless".
+  8. The crop-top check (#4) was TITLE-ONLY — Bandana has 5 real products
+     where "cropped length"/"cropped hem" only appears in the DESCRIPTION,
+     never the title (e.g. "Women's Brushed Spacer Hoodie", "Women's Rib
+     Relaxed Fit Turtleneck"). Extended to scan description/raw_source too,
+     same leaf-gating as before (a real upperwear-top leaf only — bottomwear/
+     outerwear "cropped" length is still not a modesty concern, unchanged).
+  9. Sleeveless carve-out for vests/gilets/bodywarmers: a real Bandana
+     "Goose Down Reversible Gilet" says "sleeveless design" in its own
+     description, but a gilet/bodywarmer/vest is BY DEFINITION a sleeveless
+     OUTERWEAR LAYER worn over other clothing (arms are covered by whatever's
+     underneath) — applying the blanket sleeveless rule to these would hide
+     an entire legitimate outerwear category for no modesty reason. Excluded
+     by garment word in the title (vest/gilet/bodywarmer), not by leaf,
+     since these are internally confirmed as genuine outerwear (not a
+     casual sleeveless top mislabeled "vest") by classify()'s own
+     VEST_OUTERWEAR_SIGNAL_RE check before ever reaching the Jacket leaf.
 
 Real counts confirmed via direct query against the live DB before writing
 anything (see the SELECT-only dry run this script prints first).
@@ -49,6 +81,7 @@ WOMEN_SHORTS_CATEGORY_ID = 51
 WOMEN_TIGHTS_CATEGORY_ID = 1992
 WOMEN_UNDERWEAR_CATEGORY_ID = 529
 WOMEN_UPPERWEAR_CATEGORY_ID = 41
+WOMEN_TANK_TOP_CATEGORY_ID = 4393
 CROP_TOP_LEAVES = ("Shirt", "T-Shirt", "Sweatshirt", "Hoodie", "Sweater", "Polo")
 
 # One WHERE clause combining every criterion above (dedupes naturally: a
@@ -57,6 +90,7 @@ HIDE_WHERE_SQL = """
     p.category_id = %(shorts)s
     OR p.category_id = %(tights)s
     OR p.category_id = %(underwear)s
+    OR p.category_id = %(tank_top)s
     OR (
         p.category_id IN (
             WITH RECURSIVE desc_cats AS (
@@ -70,10 +104,20 @@ HIDE_WHERE_SQL = """
             p.title ILIKE '%%sleeveless%%'
             OR p.description ILIKE '%%sleeveless%%'
             OR p.raw_source::text ILIKE '%%sleeveless%%'
+            OR p.title ILIKE '%%spaghetti strap%%'
+            OR p.description ILIKE '%%spaghetti strap%%'
+            OR p.raw_source::text ILIKE '%%spaghetti strap%%'
         )
+        AND p.title NOT ILIKE '%%vest%%'
+        AND p.title NOT ILIKE '%%gilet%%'
+        AND p.title NOT ILIKE '%%bodywarmer%%'
     )
     OR (
-        p.title ILIKE '%%crop%%'
+        (
+            p.title ILIKE '%%crop%%'
+            OR p.description ILIKE '%%cropped%%'
+            OR p.raw_source::text ILIKE '%%cropped%%'
+        )
         AND p.category_id IN (
             SELECT id FROM categories
             WHERE parent_id = %(women_upperwear)s AND name = ANY(%(crop_leaves)s)
@@ -85,6 +129,7 @@ PARAMS = {
     "shorts": WOMEN_SHORTS_CATEGORY_ID,
     "tights": WOMEN_TIGHTS_CATEGORY_ID,
     "underwear": WOMEN_UNDERWEAR_CATEGORY_ID,
+    "tank_top": WOMEN_TANK_TOP_CATEGORY_ID,
     "women_gender": WOMEN_GENDER_ID,
     "women_upperwear": WOMEN_UPPERWEAR_CATEGORY_ID,
     "crop_leaves": list(CROP_TOP_LEAVES),

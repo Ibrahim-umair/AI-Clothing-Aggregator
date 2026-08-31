@@ -350,7 +350,7 @@ check("hair tie -> Jewelry not Tie", "Pack of 3 Bow Hair Tie", product_type="JEW
       vendor="Women", expect_gender="Women", expect_branch="Accessories", expect_leaf="Jewelry")
 check("'tie up' with a space is not a Tie accessory", "Tie Up Jumpsuit White/Blue",
       product_type="Jump Suits", vendor="Girls", expect_gender="Girls",
-      expect_branch="Western", expect_sub="Suits & Sets", expect_leaf="Co-ord Set")
+      expect_branch="Western", expect_sub="Upperwear", expect_leaf="Jumpsuit")
 check("'tie & die' misspelling of dye is not a Tie accessory",
       "Tie & Die Viscose Dress - FWTD24-009", vendor="Furorjeans",
       expect_branch="Western", expect_leaf="Dress")
@@ -977,6 +977,244 @@ check_leaf_exists("Boys", "Western", "Bottomwear", "Cargo Trouser")
 check_leaf_exists("Girls", "Western", "Bottomwear", "Cargo Trouser")
 check_leaf_exists("Unisex", "Western", "Bottomwear", "Cargo Trouser")
 
+
+# --- Co-ord Set audit (2026-08-30) ---------------------------------------
+# The regex precedence bug: `\bco-?ord|suit\b` parsed as `(\bco-?ord)|(suit\b)`,
+# so bare "suit" matched as a suffix inside ANY word — jumpsuit/playsuit/
+# bodysuit were all wrongly landing in Co-ord Set.
+check("jumpsuit is its own leaf, not Co-ord Set", "Ruffled Jumpsuit",
+      product_type="Girls Jumpsuits", vendor="Girls",
+      expect_gender="Girls", expect_branch="Western", expect_sub="Upperwear", expect_leaf="Jumpsuit")
+check("playsuit is its own leaf, not Co-ord Set", "Floral Playsuit",
+      vendor="Women", expect_branch="Western", expect_sub="Upperwear", expect_leaf="Jumpsuit")
+check("bodysuit is its own leaf, not Co-ord Set", "Ribbed Bodysuit",
+      vendor="Women", expect_branch="Western", expect_sub="Upperwear", expect_leaf="Jumpsuit")
+check_leaf_exists("Women", "Western", "Upperwear", "Jumpsuit")
+check_leaf_exists("Girls", "Western", "Upperwear", "Jumpsuit")
+check_leaf_exists("Boys", "Western", "Upperwear", "Jumpsuit")
+# Real compounds that legitimately ARE 2-piece sets must still resolve
+# under Suits & Sets after the boundary fix — verified catalog-wide as the
+# complete real compound-word list (pantsuit has zero real occurrences
+# but is kept as a defensive allow anyway). Tracksuit gets its own leaf
+# (added 2026-08-30, see CATEGORY_TREE comment) rather than Co-ord Set.
+check("tracksuit is its own leaf, not Co-ord Set", "Men Tracksuit", vendor="Men",
+      expect_branch="Western", expect_sub="Suits & Sets", expect_leaf="Tracksuit")
+check("pantsuit is still Co-ord Set (defensive, no real catalog matches)", "Women Pantsuit",
+      vendor="Women", expect_branch="Western", expect_sub="Suits & Sets", expect_leaf="Co-ord Set")
+check("nightsuit is still Co-ord Set", "Tee Pajama Nightsuit", vendor="Women",
+      expect_branch="Western", expect_sub="Suits & Sets", expect_leaf="Co-ord Set")
+
+# Cougar's own `productType: "2PC"` bucket wrongly pulled single tops (no
+# matching bottom at all) into Co-ord Set purely because product_type said
+# "2PC" — the title never does. Piece-count is now title-only.
+check("product_type-only '2PC' (Cougar) no longer forces Co-ord Set on a plain top", "Ribbed Knit Top",
+      product_type="2PC", vendor="Women", expect_branch="Western", expect_sub="Upperwear", expect_leaf="Shirt")
+check("a real title-stated piece count still resolves Co-ord Set (Diners)", "Printed 2PC",
+      product_type="Girls 2 Piece", vendor="Girls",
+      expect_branch="Western", expect_sub="Suits & Sets", expect_leaf="Co-ord Set")
+
+# Cambridge: tags alone reveal a "Suit"-titled item is really a Shalwar
+# Kameez — classify() never used to read tags/description at all.
+check("Cambridge tags reveal a real Shalwar Kameez under a 'Suit' title", "Cream Dobby Texture Suit",
+      tags="2023,Blended,Designer Shalwar Kameez,Mashriq,RTW,Sale,Summer", vendor="Women",
+      expect_branch="Eastern", expect_sub="Stitched", expect_leaf="Shalwar Kameez")
+# Equator: description alone reveals a "Suit"-titled item is really a kurta
+# ensemble from their own Qaftaan collection.
+check("Equator description reveals a real kurta ensemble under a 'Suit' title", "French Grey Suit",
+      tags="Kurta Trouser,Qaftaan", vendor="Women",
+      description="This two-piece suit from our Qaftaan collection will ensure your comfort and style. "
+                   "It includes a kurta featuring a band collar with a button placket and cuff sleeves.",
+      expect_branch="Eastern", expect_sub="Stitched", expect_leaf="Kurta")
+# Zellbury: description alone reveals a "Suit"-titled item is UNSTITCHED
+# fabric, not a ready-to-wear Western set.
+check("Zellbury description reveals real unstitched fabric under a 'Suit' title", "Marvel - Wash & Wear Suit - 2526",
+      product_type="Blended Collection", vendor="Men",
+      description="4.25 meter Men Unstitched Shalwar Kameez Fabric",
+      expect_branch="Eastern", expect_sub="Unstitched", expect_leaf="Suit")
+# Zellbury/Cougar: sharara/gharara/lehenga/kalidar/pishwas are their own
+# Eastern vocabulary now, resolving to Kurta Set (not the generic Shalwar
+# Kameez default, and not Western Co-ord Set).
+check("Gharara Suit resolves Eastern Kurta Set, not Western Co-ord Set", "Embroidered Gharara Suit - 1512",
+      vendor="Women", expect_branch="Eastern", expect_sub="Stitched", expect_leaf="Kurta Set")
+check("Jamawar Sharara Set resolves Eastern Kurta Set", "Jamawar Sharara Set",
+      vendor="Women", expect_branch="Eastern", expect_sub="Stitched", expect_leaf="Kurta Set")
+check("a stray 'Girls Gharara Set' outside Co-ord Set is also caught", "Girls Gharara Set",
+      vendor="Girls", expect_gender="Girls", expect_branch="Eastern", expect_sub="Stitched", expect_leaf="Kurta Set")
+
+# Edenrobe's/Cambridge's real structural convention for a stitched
+# shirt/frock + trouser/shalwar 2-piece set, labeled with "Fit Type:" per
+# piece — needed because these titles just say "Co-Ord Set", with no
+# Eastern word anywhere for EASTERN_RE to catch directly.
+check("Edenrobe structured Shirt+Trouser description resolves Kurta Set", "Printed Raw Silk Co-Ord Set - EGTKP6-74006ST",
+      vendor="Women",
+      description="Shirt Fit Type: Straight Fit Fabric: Raw Silk Style: Floral Printed Shirt with Lace Detailing "
+                   "Shalwar Fit Type: Straight Fit Fabric: Raw Silk Style: Printed Shalwar with Lace Detailing",
+      expect_branch="Eastern", expect_sub="Stitched", expect_leaf="Kurta Set")
+check("the 'Frock' variant of the same structured convention also resolves Kurta Set", "Girls Co-Ord Set",
+      vendor="Girls",
+      description="Frock Fit Type: Relaxed Fit Fabric: Lawn Style: Printed Frock "
+                   "Trouser Fit Type: Relaxed Fit Fabric: Lawn Style: Plain Trouser",
+      expect_gender="Girls", expect_branch="Eastern", expect_sub="Stitched", expect_leaf="Kurta Set")
+# A real Edenrobe 3-piece variant of the same convention (adds a Dupatta)
+# resolves Kurta Set too, not just the bare 2-piece case.
+check("a Gharara Suit with the structured convention still resolves via its own word first", "Embroidered Organza Gharara Suit - EGTPLED5-50058-3P",
+      vendor="Women",
+      description="Shirt Fit Type: Straight Fit Fabric: Organza Style: Embroidered Shirt "
+                   "Gharara Fit Type: Straight Fit Fabric: Organza Style: Banarsi Work Gharara "
+                   "Dupatta Fabric: Organza Type: Embellished Dupatta with Lace Work",
+      expect_branch="Eastern", expect_sub="Stitched", expect_leaf="Kurta Set")
+
+# A "Prince Suit"/"Prince Coat" is a short embroidered Eastern formal coat
+# (Sherwani-adjacent), not a Western jacket — scoped to items that already
+# look like a coordinated set (a standalone "Prince Coat" with no set
+# signal is a separate, out-of-scope case, deliberately left as Jacket).
+check("'Boys Prince Suit' resolves Eastern Sherwani, not Western Co-ord Set", "Grey Boys Prince Suit",
+      vendor="Boys", expect_gender="Boys", expect_branch="Eastern", expect_sub="Stitched", expect_leaf="Sherwani")
+check("a standalone 'Prince Coat' (no set signal) is untouched, stays Jacket", "Embroidered Karandi Prince Coat",
+      product_type="Jacket", vendor="Men", expect_branch="Western", expect_leaf="Jacket")
+
+# Regression guards: the broadened tags/description signal must NOT
+# reclassify genuine WESTERN suits/sets just because of an incidental word.
+check("a real Western 3-piece suit stays Western (not Eastern) despite 'waistcoat' in its own description, "
+      "and now resolves its own Formal Suit leaf rather than Co-ord Set", "Light Grey Three Piece Suit",
+      vendor="Men",
+      description="Build your power outfit wardrobe with this suit for formal gatherings. Featuring a "
+                   "single-breasted jacket, notch lapels, two-button fastening. The straight trousers have "
+                   "classic loops for the belt, finished with a shawl lapel waistcoat featuring four-button detail.",
+      expect_branch="Western", expect_sub="Formalwear", expect_leaf="Formal Suit")
+# The same description's "waistcoat" must NOT push a Women's version of
+# this into Formal Suit — a handful of real Women's "Suit"/"Blazer Co-ord
+# Set" titles use identical tailoring words but are genuinely casual
+# separates (Engine Clothing, Meme), verified via their own real
+# descriptions ("...perfect for casual outings, travel, everyday wear").
+check("the identical formal-suit description does NOT apply to Women — stays Co-ord Set", "Light Grey Three Piece Suit",
+      vendor="Women",
+      description="Build your power outfit wardrobe with this suit for formal gatherings. Featuring a "
+                   "single-breasted jacket, notch lapels, two-button fastening. The straight trousers have "
+                   "classic loops for the belt, finished with a shawl lapel waistcoat featuring four-button detail.",
+      expect_branch="Western", expect_sub="Suits & Sets", expect_leaf="Co-ord Set")
+check("Furor's Western resort Co-ord Set Shirt stays Co-ord Set despite 2 loose 'fabric' mentions", "Crochet Resort Co-Ord Set Shirt - FMTCS6-105",
+      tags="Co-Ord_Set,Men,Men_Tops,Shirt_Set", vendor="Men",
+      description="Men's Co-ord Set Shirt Relaxed Fit Crochet Fabric. Relaxed Fit Co-ord Set Shirt Crafted "
+                   "from Soft, Breathable Crochet Fabric. Best Worn with Its Matching Trousers for a Complete "
+                   "Resort Look.",
+      expect_branch="Western", expect_sub="Suits & Sets", expect_leaf="Co-ord Set")
+
+# Formal Suit / Tracksuit split (2026-08-30) — a tailored Western 2/3-piece
+# business suit and an athletic tracksuit are both a different product
+# from a casual matching Co-ord Set.
+check("a plain '2 Piece Suit' title with formal signal in description resolves Formal Suit (Boys)", "Boys Navy Blue Double-Breasted Suit Set",
+      vendor="Boys", expect_gender="Boys", expect_branch="Western", expect_sub="Formalwear", expect_leaf="Formal Suit")
+check("a bare 'Suit' title with tuxedo in description resolves Formal Suit", "Formal Suit - EMTCPC20-6697",
+      vendor="Men", description="Notch Collar Tuxedo Suit, single-breasted, comes with a matching waistcoat.",
+      expect_branch="Western", expect_sub="Formalwear", expect_leaf="Formal Suit")
+check("a plain co-ord set with no formal signal at all still resolves Co-ord Set (Men)", "Men Co-ord Set",
+      vendor="Men", expect_branch="Western", expect_sub="Suits & Sets", expect_leaf="Co-ord Set")
+check_leaf_exists("Men", "Western", "Formalwear", "Formal Suit")
+check_leaf_exists("Boys", "Western", "Formalwear", "Formal Suit")
+check_leaf_exists("Men", "Western", "Suits & Sets", "Tracksuit")
+check_leaf_exists("Women", "Western", "Suits & Sets", "Tracksuit")
+check_leaf_exists("Girls", "Western", "Suits & Sets", "Tracksuit")
+
+# Furor's "Tracksuit <single garment>" collection-naming pattern (2026-08-30)
+# — "Tracksuit" describes the LINE, not the product; the actual garment
+# noun that follows is what the product really is.
+check("'Tracksuit Sweatshirt' is a Sweatshirt, not Tracksuit", "Quarter-Zip Tracksuit Sweatshirt - FMTTKS24-012",
+      product_type="Men Sweatshirts", vendor="Men",
+      expect_branch="Western", expect_sub="Upperwear", expect_leaf="Sweatshirt")
+check("'Tracksuit Zipper Jacket' is a Jacket, not Tracksuit", "Mock Neck Tracksuit Zipper Jacket - FMTTKS24-003",
+      product_type="Men Jackets", vendor="Men",
+      expect_branch="Western", expect_sub="Upperwear", expect_leaf="Jacket")
+check("'Tracksuit Pullover Hoodie' is a Hoodie, not Tracksuit", "Tracksuit Pullover Hoodie - FMTTKS5-006",
+      product_type="Men Hoodies", vendor="Men",
+      expect_branch="Western", expect_sub="Upperwear", expect_leaf="Hoodie")
+check("a genuine 2-piece tracksuit SET (garment word BEFORE 'Tracksuit') still resolves Tracksuit", "Hoodie Tracksuit - FWTCSK24-005",
+      product_type="Woman Track Suit", vendor="Women",
+      expect_branch="Western", expect_sub="Suits & Sets", expect_leaf="Tracksuit")
+check("a bare 'Tracksuit' with nothing following it still resolves Tracksuit", "Everyday Gents Tracksuit",
+      vendor="Men", expect_branch="Western", expect_sub="Suits & Sets", expect_leaf="Tracksuit")
+
+# A Western fashion waistcoat/vest is not the same product as a real
+# Eastern koti (2026-08-30 user report).
+check("Outfitters' faux leather waistcoat is Western Jacket, not Eastern Waistcoat", "Faux Leather Cropped Waistcoat",
+      product_type="OUTERWEAR", tags="Jackets,Outerwear,vest,waist coat", vendor="Women",
+      description="The name says it all the right size slightly snugs the body leaving enough room for "
+                   "comfort in the sleeves and waist. PU Machine wash.",
+      expect_branch="Western", expect_sub="Upperwear", expect_leaf="Jacket")
+check("Uniworth's own 'Western Waistcoat' line resolves Western Jacket", "Charcoal Check Western Waistcoat",
+      vendor="Men", expect_branch="Western", expect_sub="Upperwear", expect_leaf="Jacket")
+check("a denim waistcoat resolves Western Jacket", "Waistcoat Denim Blue",
+      vendor="Men", expect_branch="Western", expect_sub="Upperwear", expect_leaf="Jacket")
+# Regression guard: a "blazer"-worded STYLE DETAIL on a genuinely Eastern
+# kurta pajama ensemble must NOT get pulled into Western — real false
+# positive caught during verification (Edenrobe's "Cotton Waistcoat Suit").
+check("a 'blazer collar' detail on a real kurta pajama waistcoat stays Eastern", "Cotton Waistcoat Suit - EMTCS20-99011",
+      product_type="Men Waist Coat Suit", vendor="Men",
+      description="Men's Waistcoat Suit Blazer Suiting Fabric Cotton Satin Kurta Pajama Contrast Blazer "
+                   "Collar Fancy Buttons Decorative Chain & Brooch.",
+      expect_branch="Eastern", expect_sub="Stitched", expect_leaf="Waistcoat")
+check("a plain Eastern koti waistcoat with no Western signal at all stays Eastern", "Waistcoat - ELTWC19-66953",
+      product_type="Woman Waist Coat", vendor="Women",
+      description="Fabric: Lawn stylized printed koti with pockets and accent lining",
+      expect_branch="Eastern", expect_sub="Stitched", expect_leaf="Waistcoat")
+check("a Boys waistcoat paired with Kameez Shalwar stays Eastern despite generic wording", "Boys Kameez Shalwar with waistcoat",
+      vendor="Boys", expect_gender="Boys", expect_branch="Eastern", expect_sub="Stitched", expect_leaf="Waistcoat")
+
+# --- Bandana.pk onboarding audit (2026-08-31) ---------------------------
+# "bra"/"camisole" had no keyword anywhere — 40 real products across
+# OTHER brands too (not just Bandana) were scattered across Shirt/Tank
+# Top/T-Shirt/Co-ord Set/Joggers instead of Underwear.
+check("Sports Bra resolves Underwear, not Tank Top", "White Glide-Fit Sports Bra",
+      vendor="Women", expect_branch="Accessories", expect_leaf="Underwear")
+check("'Jogger Bra' resolves Underwear, not Joggers", "Jogger Bra",
+      vendor="Women", expect_branch="Accessories", expect_leaf="Underwear")
+check("a bare Camisole resolves Underwear", "Reversible Camisole",
+      vendor="Women", expect_branch="Accessories", expect_leaf="Underwear")
+check("'bra' doesn't false-match inside 'bralette' boundary check", "Cobra Print Shirt",
+      vendor="Men", expect_branch="Western", expect_leaf="Shirt")
+# "gilet"/"bodywarmer" fold into Jacket — 67 real EXISTING products across
+# other brands (Furor's "Puffer Gilet", "Yellow Down Gilet") had no
+# jacket/vest/coat word and were falling to Shirt/Hoodie.
+check("a bare 'Gilet' with no other outerwear word resolves Jacket", "Yellow Down Gilet",
+      vendor="Men", expect_branch="Western", expect_sub="Upperwear", expect_leaf="Jacket")
+check("'Bodywarmer' resolves Jacket too", "Quilted Bodywarmer",
+      vendor="Women", expect_branch="Western", expect_sub="Upperwear", expect_leaf="Jacket")
+# "Skirt" never had a leaf or keyword — 95 real EXISTING products across
+# other brands (Co-ord Set/Jeans/Shirt/Shorts/Trouser) had nowhere
+# correct to land.
+check("a bare 'Skirt' resolves its own leaf, not Shirt/Jeans/Shorts", "WILDFLOWER TIER SKIRT",
+      vendor="Women", expect_branch="Western", expect_sub="Bottomwear", expect_leaf="Skirt")
+check("'Denim Skirt' resolves Skirt, not Jeans", "Denim Skirt With Front Slit",
+      vendor="Women", expect_branch="Western", expect_sub="Bottomwear", expect_leaf="Skirt")
+check_leaf_exists("Women", "Western", "Bottomwear", "Skirt")
+check_leaf_exists("Girls", "Western", "Bottomwear", "Skirt")
+# Bandana's "Denim Terry" fabric-line name means terry cloth with a
+# denim-look print, NOT real denim — its own description says so
+# explicitly. A bare "Denim Terry Pants" title would otherwise wrongly
+# resolve Jeans off the bare word "denim".
+check("'Denim Terry Pants' resolves Trouser, not Jeans", "Men's Denim Terry Pants",
+      vendor="Men", expect_branch="Western", expect_sub="Bottomwear", expect_leaf="Trouser")
+check("a real denim item elsewhere (no 'terry') still resolves Jeans", "Men's Denim Pants",
+      vendor="Men", expect_branch="Western", expect_sub="Bottomwear", expect_leaf="Jeans")
+# Bandana's "RUH" capsule line is genuinely unisex — the same product ID
+# appears in both the ruh-men and ruh-women collections, tagged "RUH Men"
+# AND "RUH Women" simultaneously, with the description literally saying
+# "UNISEX".
+check("RUH's dual-gender tags + explicit 'UNISEX' description resolve Unisex, not Women", "Eclipse Sweatshirt",
+      vendor="Bandana", tags="RUH, RUH Men, RUH Men Tops, RUH Women, RUH Women Tops",
+      description="UNISEX. Musa is 6'1\" & wears size M. Maria is 5'4\" & wears size XS. Oversized silhouette.",
+      expect_gender="Unisex", expect_branch="Western", expect_sub="Upperwear", expect_leaf="Sweatshirt")
+check("a normal Women's product with 'unisex' nowhere in its own text is unaffected", "Women's Wrap Dress",
+      vendor="Bandana Women", tags="Women, Women Dress",
+      expect_gender="Women", expect_branch="Western", expect_leaf="Dress")
+# "cardigan"/"turtleneck" fold into Sweater — 47 real EXISTING cardigans
+# had no keyword and were falling to Shirt; turtleneck only resolved
+# correctly by coincidence elsewhere and would fail for a brand (like
+# Bandana) whose product_type is a generic bucket with no useful signal.
+check("a bare 'Cardigan' with no other signal resolves Sweater", "Modal Rib Lace Cardigan",
+      product_type="Tops", vendor="Women", expect_branch="Western", expect_leaf="Sweater")
+check("a bare 'Turtleneck' with generic product_type resolves Sweater", "Rib Relaxed Fit Turtleneck",
+      product_type="Tops", vendor="Women", expect_branch="Western", expect_leaf="Sweater")
 
 print(f"{PASSED} passed, {len(FAILURES)} failed")
 if FAILURES:

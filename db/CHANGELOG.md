@@ -665,3 +665,249 @@ instead, the correct behavior, just leaving that one specific node unused).
 
 289/289 tests pass (13 new). Full 101-query AI-search parity suite still 97.1%, 0 errors, same
 two known kids-gender-gap failures — no regression from either change.
+
+## 2026-08-30 (sixteenth pass — user audit of the Western "Co-ord Set" leaf, per-brand: real
+## Eastern ensembles mislabeled as Western suits, a regex precedence bug, and a stray
+## product_type overriding the title)
+
+77. **A regex alternation precedence bug let bare "suit" match as a suffix inside ANY word.**
+    `r"\bco-?ord|suit\b"` parses as `(\bco-?ord)|(suit\b)` — the right-hand alternative has NO
+    leading `\b`, so "suit" matched inside jumpsuit/playsuit/bodysuit too. 152 real one-piece
+    garments (Girls 97-ish, Women, Boys — jumpsuit/playsuit/bodysuit) were landing in Co-ord
+    Set. Fixed to bound both sides (`\bsuits?\b`), added a new `Jumpsuit` leaf (Upperwear,
+    Women/Girls/Boys) with its own positive route, and explicitly allow-listed
+    tracksuit/pantsuit/nightsuit back in (verified catalog-wide as the complete real
+    compound-word list of genuine 2-piece sets; "pantsuit" has zero real matches but is kept
+    defensively).
+78. **Cougar's own `productType: "2PC"` bucket forced single tops into Co-ord Set** — 93 real
+    products (e.g. a plain top, product_type literally "Girl 2PC Top"/"Women Top 2PC") had no
+    "2PC"/"co-ord"/"suit" word in the *title* at all, only in product_type. The piece-count
+    sub-check is now restricted to the title only (co-ord/suit/tracksuit/pantsuit/nightsuit/
+    combo stay checked against the full blob) — same "title beats a conflicting product_type"
+    precedent as String Sports Shoes/Basic Denim Jacket elsewhere in this file. ~88 of the 93
+    now resolve correctly as Shirt/Jacket; the other 5 happen to also say "kurti"/"kurta" in
+    their own title and were unaffected either way.
+79. **classify() never read tags or description at all — its only signal was
+    `product_type + title`.** This meant several brands' real Eastern ensembles, sold under a
+    Western-sounding "Suit"/"Co-Ord Set" title, had no way to be caught: Cambridge's tags
+    literally say `"Designer Shalwar Kameez", "Mashriq"` for items titled just "EMBROIDERED
+    SUIT"/"Cream Dobby Texture Suit"; Equator's description says "This two-piece suit from our
+    Qaftaan collection...includes a kurta..." for an item titled "French Grey Suit"; Zellbury's
+    "Wash & Wear Suit" description says "Men Unstitched Shalwar Kameez Fabric" with no Eastern
+    word anywhere in title/product_type (so it was resolving Stitched/Western instead of the
+    correct Eastern/Unstitched); Edenrobe's/Cambridge's/Diners' real "Co-Ord Set"-titled items
+    use their own structured description convention, each piece labeled "Fit Type: ... Fabric:
+    ... Style: ..." (e.g. "Shirt Fit Type: Straight Fit Fabric: Organza Style:...Trouser Fit
+    Type:..."), with no kurta/kameez/shalwar word in the title itself; a "Frock" variant of the
+    same convention exists for girls'-wear. Added a scoped override, checked ONLY for items
+    that already look like a coordinated Western set (i.e. only inside the Co-ord Set check
+    itself, never widening any other category's classification): a broadened tags+description
+    signal (extended `EASTERN_TAGS_DESC_RE`, `UNSTITCHED_RE`, and the new "Fit Type:"-labeled
+    shirt/frock+trouser/shalwar heuristic) can downgrade a would-be Co-ord Set match to its real
+    Eastern branch/sub/leaf.
+    - Two real false positives were caught and excluded *before* shipping this, both found by
+      verifying the override against every current Co-ord Set product, not just the reported
+      brands: (a) "waistcoat" is excluded from the tags/description signal specifically —
+      Equator's own genuine Western 3-piece business suits ("single-breasted jacket, notch
+      lapels...finished with a shawl lapel waistcoat...") use that exact word too, so it stays
+      trusted only in title/product_type, same as before; (b) the shirt/trouser heuristic
+      requires the labeled "Fit Type:" convention specifically, not just two loose mentions of
+      "fabric" — a looser version false-matched Furor's own Western "Resort Co-Ord Set Shirt"
+      line, whose flowing prose ("Crafted from Soft, Breathable Crochet Fabric...Best Worn with
+      Its Matching Trousers...") mentions both words without using this brand's labeled
+      convention at all.
+    - Also added `sharara|gharara|lehenga|kalidar|pishwas` to `EASTERN_RE` itself (verified
+      catalog-wide zero-risk: 81 real matches, all in Co-ord Set/Shirt/Kurta, none elsewhere) —
+      resolving to the new shared `_eastern_stitched_leaf` helper's "Kurta Set" default, since
+      these styles are distinct from a plain Shalwar Kameez.
+    - Real per-brand scale (verified against live Co-ord Set data before shipping): Edenrobe
+      1,135, Cambridge 224, Diners 174, Zellbury 24, Cougar 16, Equator 13 — 1,586 total. No
+      other brand's Co-ord Set products matched this override at all (Charcoal/Royal Tag stayed
+      at 1–2 stray items each; Furor/Monark/Engine Clothing/Outfitters/Meme/ONE (Be-One)/Lama/
+      Breakout/Uniworth had zero — their Co-ord Set items really are Western).
+80. **Edenrobe's/Diners' "Prince Suit"/"Prince Coat" is a short embroidered Eastern formal coat
+    (Sherwani-adjacent), not a Western jacket** — but only when it already carries a coordinated
+    Western-set signal (e.g. "Grey Boys Prince Suit", 45 real products across Edenrobe/Diners).
+    Added `PRINCE_SET_RE` as another trigger for the same scoped override above, resolving to
+    Sherwani. A standalone "Prince Coat" with no set signal at all (52 real products, currently
+    Jacket) is a separate, out-of-scope question this audit didn't cover — deliberately left
+    untouched.
+    - Refactored the duplicated sherwani/waistcoat/kurti/kurta/Kurta-Set leaf-naming chain (used
+      both by the main Eastern-branch entry point and this new override) into one shared
+      `_eastern_stitched_leaf` helper, so both places agree on what a given set of Eastern words
+      resolves to — not a behavior change at the main entry point, just removing duplication
+      before adding the second call site.
+    - Explicitly NOT fixed, flagged as brand-specific naming ambiguity too narrow for a general
+      rule: Zellbury's 9 "Co-Ord Set Shirt" products, 7 of which are genuinely standalone shirts
+      ("Matching separate available" in the description — i.e. NOT actually bundled) and only 2
+      of which are real Gharara Suits (already caught by the sharara/gharara/etc. fix above).
+    - Also flagged, deliberately NOT fixed in this pass (a different bug, out of scope for a
+      Co-ord Set audit): ~15+ Meme "PJ SET"/"PYJAMA SET" products currently resolving to Shirt.
+
+313/313 tests pass (24 new). Backfill: 2,018 products recategorized. Net Co-ord Set count:
+5,826 -> 4,077 (net -1,749: 152 to the new Jumpsuit leaf, ~88 Cougar 2PC-in-product_type items
+to Shirt/Jacket, 1,586 to their real Eastern branch/leaf via the tags/description override, a
+handful of others from the Cargo-Trouser-era regex cleanup along the way). New `Jumpsuit` leaf
+added to `CATEGORY_TREE` (Women/Girls/Boys) and to the AI search's `KNOWN_CATEGORIES`
+(server/search_tool.py).
+
+81. **"Co-ord Set" was hosting two genuinely different product types** — the user pointed out
+    that a "co-ord set" is normally a casual matching-separates set (loungewear/resort/
+    office-casual), not a tailored Western business suit, and the Co-ord Set audit above had
+    left real formal suits and tracksuits inside it. Verified against real data before
+    splitting: a strict tailoring-language signal (blazer/lapel/breasted/bespoke/tuxedo/
+    waistcoat — checked against product_type+title+tags+description, gated to Men/Boys only)
+    found 317 real Western business/formal suits across 8 brands (Equator 64, Edenrobe 55,
+    Monark 51, Cambridge 41, Diners 42, Uniworth 35, Charcoal 26, Royal Tag 3). A literal
+    "tracksuit" match found 36 more (Furor 23, Equator 5, Meme 5, Charcoal 2, Edenrobe 1).
+    Explicitly did NOT move a handful of Women's "Suit"/"Blazer Co-ord Set" titles that use the
+    identical tailoring words (Engine Clothing, Meme) — their own real descriptions confirm
+    they're genuinely casual separates ("...perfect for casual outings, travel, everyday
+    wear"), not formalwear — so the new Formal Suit signal is deliberately gated to Men/Boys
+    only, verified against these exact false positives before shipping.
+    - Added two new leaves under Western > Suits & Sets: `Formal Suit` (Men, Boys) and
+      `Tracksuit` (Men, Women, Girls) — both added to `CATEGORY_TREE` and to the AI search's
+      `KNOWN_CATEGORIES`/system prompt (server/search_tool.py), with a new rule + two worked
+      examples so query extraction doesn't conflate "Formal Suit" with either "Co-ord Set" or
+      the unrelated Eastern Unstitched "Suit" leaf.
+    - `TRACKSUIT_RE`/`JUMPSUIT_RE` are both checked ahead of the Suits & Sets block outright
+      (unambiguous words, no gating needed); `FORMAL_SUIT_RE` is checked only after the
+      Eastern-override check already failed, and only for Men/Boys.
+
+322/322 tests pass (9 new). Backfill: 353 products recategorized (317 to Formal Suit, 36 to
+Tracksuit). Idempotency reverified: a second backfill run changed 0 rows.
+
+## 2026-08-30 (seventeenth pass — user follow-up: Furor's "Tracksuit" line names individual
+## pieces, not sets; and Formal Suit deserves its own nav group, not a spot inside Suits & Sets)
+
+82. **Furor's own real "Tracksuit" collection name doesn't mean the product is a 2-piece
+    set** — 19 real products (e.g. "Quarter-Zip Tracksuit Sweatshirt", product_type "Men
+    Sweatshirts"; "Mock Neck Tracksuit Zipper Jacket", product_type "Men Jackets"; "Tracksuit
+    Pullover Hoodie"/"Tracksuit Zipper Hoodie", product_type "Men Hoodies") are single garments
+    from a tracksuit-themed line, not an actual 2-piece set. The tell, verified against every
+    real Tracksuit-category product before shipping: a genuine 2-piece set (Furor's own "Hoodie
+    Tracksuit"/"Zipper Jacket Tracksuit", product_type "Woman Track Suit"; Equator/Charcoal/
+    Meme's bare "___ Tracksuit"/"Tracksuit Set" titles) never has another garment noun
+    immediately AFTER the word "tracksuit" — only before it, or not at all. Added
+    `TRACKSUIT_SINGLE_GARMENT_RE` to detect the single-piece pattern (tracksuit followed shortly
+    by jacket/hoodie/sweatshirt/sweater/polo/t-shirt/tank top); when it matches, the Tracksuit
+    route is skipped and the item falls through to the normal Jacket/Hoodie/Sweatshirt
+    resolution instead. Also removed "tracksuit" from the general co-ord/suit candidate regex
+    (it now has its own fully-handled earlier check) — leaving it there was silently re-catching
+    the excluded single-garment titles and resolving them to the generic Co-ord Set default
+    instead of letting them fall through.
+83. **"Formal Suit" split out of "Suits & Sets" into its own sub-branch, "Formalwear"** — at the
+    user's request: a tailored Western business suit isn't a "set" in the same sense as a
+    Co-ord Set/Tracksuit and shouldn't share that nav grouping. `CATEGORY_TREE` now has a
+    sibling `Formalwear` sub-branch (Men, Boys) holding just the `Formal Suit` leaf;
+    `classify()`'s Formal Suit return now emits `sub="Formalwear"`. `Suits & Sets` keeps
+    `Co-ord Set`/`Tracksuit`. Added `Formalwear` to `WESTERN_SUB_ORDER`
+    (server/taxonomy_tree.py) so it renders as its own mega-menu column group (right after
+    Suits & Sets), and to the AI search's `KNOWN_CATEGORIES` (server/search_tool.py) as a
+    grouping name. No frontend code changes were needed — Header.jsx's mega-menu and Shop.jsx's
+    filters are both driven entirely by `/api/taxonomy`, which reads the live `categories`
+    table, so the new group appears automatically once the table reflects the split.
+    - The pre-existing `Formal Suit` rows (created under the old `Suits & Sets` parent by the
+      previous pass's reseed) were left behind as empty, unreferenced duplicates once backfill
+      re-pointed every product to the new `Formalwear`-parented rows — verified zero products
+      referenced them, then deleted directly (`reseed_categories.py`'s `ON CONFLICT
+      (parent_id, slug)` creates a new row under a new parent rather than moving the old one,
+      so a parent change needs this one-time manual cleanup; adding a leaf under an unchanged
+      parent, the normal case, never does).
+
+327/327 tests pass (5 new). Backfill: 336 products recategorized (317 Formal Suit re-parented
+to Formalwear, 19 Furor single-garment items moved out of Tracksuit to their real
+Jacket/Hoodie/Sweatshirt leaf). 2 orphaned empty `Formal Suit` category rows deleted. Idempotency
+reverified: a second backfill run changed 0 rows.
+
+## 2026-08-30 (eighteenth pass — user report: Outfitters' "Faux Leather Cropped Waistcoat"
+## resolves Eastern Waistcoat, but it's a Western fashion vest)
+
+84. **A bare "waistcoat" is one of `EASTERN_RE`'s own trigger words, with no exception for a
+    Western fashion vest sold under the same word.** Real example: Outfitters' "Faux Leather
+    Cropped Waistcoat" (product_type "OUTERWEAR", tags "Jackets"/"Outerwear"/"vest") was
+    resolving to Eastern > Stitched > Waistcoat — clearly wrong, it's PU/faux-leather outerwear,
+    not a traditional koti. Verified catalog-wide against every current Waistcoat-leaf product
+    (1,730) before shipping: a real Western signal (`western`/`outerwear`/`faux leather`/
+    `pinstripe`/`denim`/`leather`/`blazer`, checked against product_type+title+tags+description)
+    found 21 real products across 5 brands (Uniworth 11 — the brand's own "Western Waistcoat"
+    line; Charcoal 4 — denim waistcoats; Lama 4 — "BLAZERS" product_type; Edenrobe 1; Outfitters
+    1). A real false positive was caught and excluded before shipping: Edenrobe's "Cotton
+    Waistcoat Suit" mentions "Blazer Suiting Fabric"/"Contrast Blazer Collar" as a STYLE DETAIL
+    on what its own description confirms is a "Cotton Satin Kurta Pajama" — genuinely Eastern
+    despite the word "blazer". The Western signal only wins when no Eastern companion word
+    (kurta/kurti/shalwar/kameez/koti/Mashriq) is also present in the same signal — this
+    correctly left 18 real Diners/Edenrobe products (Boys Kameez Shalwar + Waistcoat combos, a
+    genuine koti) untouched as Eastern. Folds into the existing Western `Jacket` leaf (same as
+    "blazer"/bare "coat" elsewhere in this file) — no separate Western Vest leaf exists.
+
+333/333 tests pass (6 new). Backfill: 21 products recategorized (Uniworth 11, Charcoal 4, Lama 4,
+Edenrobe 1, Outfitters 1) to Western > Upperwear > Jacket. Idempotency reverified: a second
+backfill run changed 0 rows.
+
+## 2026-08-31 (nineteenth pass — onboarding a new brand, Bandana.pk, per the user's explicit
+## instruction to read real product descriptions across every category BEFORE writing any
+## classify() rule, to catch brand-naming ambiguity and non-Shariah-compliant items up front)
+
+85. **Pre-load audit, not a blind scrape.** Before adding Bandana (an activewear/basics/
+    loungewear brand, 201 real Shopify collections, no Eastern wear at all), read 2-5 real
+    products with full descriptions across every women's/men's/kids' collection. Found several
+    real gaps this surfaced — all fixed BEFORE the brand's first real load, and all verified to
+    also retroactively fix real EXISTING products across the other 15 brands (this file's
+    vocabulary isn't brand-scoped):
+    - **"bra"/"camisole" had no keyword anywhere** — 40 real EXISTING products ("White Glide-Fit
+      Sports Bra", "BRA TANK TOP", "Jogger Bra") were scattered across Shirt/Tank Top/T-Shirt/
+      Co-ord Set/Joggers instead of Underwear. Added to `UNDERWEAR_RE` (word-boundary anchored,
+      verified it doesn't match inside "bralette"/"Cobra"/"Zebra").
+    - **"gilet"/"bodywarmer" had no mapping** — 67 real EXISTING products (Furor's "Puffer
+      Gilet", "Yellow Down Gilet") had no jacket/vest/coat word and were falling to Shirt/
+      Hoodie. Folded into the existing Jacket leaf, same as bare "vest".
+    - **"Skirt" never had a leaf or keyword** — 95 real EXISTING products ("WILDFLOWER TIER
+      SKIRT", "Denim Skirt With Front Slit") were scattered across Shirt (67)/Jeans (10)/
+      Shorts (10)/Co-ord Set (5)/Trouser (3). New `Skirt` leaf added (Women, Girls), checked
+      ahead of the Trouser/Jeans/Shorts split so a "Denim Skirt" isn't pulled into Jeans.
+    - **"cardigan"/"turtleneck" had no mapping** — 47 real EXISTING cardigans were falling to
+      Shirt; turtleneck only resolved correctly by coincidence elsewhere in the catalog and
+      would have failed for a brand (like Bandana) whose product_type is a generic bucket
+      ("Tops"/"Bottoms"/"Sets") with no useful fallback signal. Both fold into Sweater.
+    - **Bandana's "Denim Terry" fabric-line name** ("Men's Denim Terry Pants") means terry cloth
+      with a denim-look print, NOT real denim — its own description says so explicitly. Would
+      have wrongly resolved Jeans off the bare word "denim". Excluded the adjacent phrase
+      "denim terry"/"terry denim" from the bare-denim fallback (both title and full-blob
+      variants).
+    - **Bandana's "RUH" capsule line is genuinely unisex** — verified the exact same product ID
+      appears in both the `ruh-men` and `ruh-women` collections, tagged "RUH Men" AND "RUH
+      Women" simultaneously, description literally saying "UNISEX". `guess_gender()`'s own
+      priority order (women checked ahead of men/unisex, for a different, deliberate reason)
+      would otherwise silently resolve these to Women. Added a narrowly-scoped override in
+      `classify()`: only fires when a real "men" AND a real "women" word are BOTH present on
+      the same product AND its own description explicitly says "unisex" — never touches a
+      product that only ever names one gender.
+    - Confirmed safe / no action needed: sub-brand and fabric-line names (B-Fit, CoreFlex,
+      Luxelight, LuxeStretch, Luxury Spacer, Pima Cotton, Modal) are consistently pure style
+      modifiers in front of a real garment word in every sample read — never disguising a
+      different garment type.
+86. **Shariah/modesty hide criteria (`hide_categories.py`) tightened** — real gaps found reading
+    Bandana's actual descriptions, extended to the whole catalog (this tool's WHERE clause is
+    gender+category+text based, never brand-scoped):
+    - "Spaghetti strap" added as its own trigger alongside "sleeveless" — a real Bandana product
+      ("Modal Rib Lace Tank") says "spaghetti straps" but never the word "sleeveless" itself.
+    - The crop-top check was TITLE-ONLY; extended to also scan description/raw_source — 5 real
+      Bandana products ("Women's Brushed Spacer Hoodie", "Women's Rib Relaxed Fit Turtleneck")
+      say "cropped length" only in the description, never the title.
+    - Added a carve-out excluding vest/gilet/bodywarmer titles from the sleeveless trigger — a
+      real Bandana "Goose Down Reversible Gilet" says "sleeveless design" in its own
+      description, but a gilet is BY DEFINITION a sleeveless outerwear layer worn over other
+      clothing, not an exposed-skin modesty concern; the blanket rule would otherwise hide an
+      entire legitimate outerwear category.
+    - Re-running this tool against the pre-existing 15-brand catalog (before Bandana was even
+      loaded) with just these 3 changes hid 279 more real products that the previous, narrower
+      version had missed.
+
+349/349 tests pass (16 new). Retroactive backfill against the existing catalog: 278 products
+recategorized (bra/gilet/skirt keywords) + 69 more (cardigan/turtleneck) = 347 total, all
+verified idempotent. Bandana loaded: 1,049 products, 14,882 variants. Bandana Shariah-hidden:
+112 of 526 Women's products (21%) — Boys/Girls/Men/Unisex untouched (112 = 25 wholesale-hidden
+Tank Top + 12 wholesale-hidden Tights/leggings + 8 wholesale-hidden Shorts + 7 wholesale-hidden
+Underwear/bras + 60 sleeveless/spaghetti-strap/cropped-description matches across Shirt/
+T-Shirt/Sweater/Sweatshirt/Hoodie/Dress/Top/Polo).
