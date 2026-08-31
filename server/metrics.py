@@ -15,8 +15,19 @@ from dataclasses import dataclass, field
 # number. Update if OpenAI's published pricing changes.
 _PRICING_PER_1M = {
     "text-embedding-3-large": {"input": 0.13, "output": 0.0},
-    # gpt-5.6-luna pricing not publicly listed as of this writing — left
-    # unpriced on purpose (see the docstring above) rather than guessed.
+    # gpt-5.6-luna: standard pricing is $0.20/$1.20 per 1M input/output —
+    # per an explicit 2026-08-31 request, priced here at the discounted
+    # Batch API rate instead (a flat 50% off standard, OpenAI's
+    # long-standing published Batch discount policy): $0.10/$0.60. Note
+    # this pipeline actually calls the model synchronously (a live user
+    # search), not through the async Batch endpoint, so the true incurred
+    # cost is the $0.20/$1.20 standard rate — this deliberately
+    # understates real spend as a lower-bound estimate, not an accounting
+    # of what was actually billed. Confirmed via OpenRouter's own pricing
+    # page (openrouter.ai/openai/gpt-5.6-luna) for the standard rate; the
+    # batch discount is OpenAI's standard, consistently-documented policy
+    # rather than a number specific to this one model.
+    "gpt-5.6-luna": {"input": 0.10, "output": 0.60},
 }
 
 

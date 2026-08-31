@@ -5,7 +5,7 @@
   "tags": ["libas", "search"],
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
   "refresh": "30s",
   "time": { "from": "now-24h", "to": "now" },
   "panels": [
@@ -135,6 +135,78 @@
           "refId": "A",
           "format": "time_series",
           "rawSql": "SELECT $__timeGroup(created_at, '1h') AS time, SUM(extract_input_tokens + extract_output_tokens + embed_input_tokens) AS \"tokens\" FROM search_logs WHERE $__timeFilter(created_at) GROUP BY 1 ORDER BY 1",
+          "editorMode": "code",
+          "rawQuery": true
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "All-Time (ignores the time range picker above — every row ever logged)",
+      "type": "row",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 33 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 9,
+      "title": "All-Time Total Cost",
+      "type": "stat",
+      "datasource": { "type": "postgres", "uid": "libas-postgres" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 34 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 4,
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "value_and_name",
+        "colorMode": "value",
+        "graphMode": "none"
+      },
+      "description": "Sum of every search_logs.cost_usd row, no date range. gpt-5.6-luna is priced here at OpenAI's discounted Batch rate ($0.10/$0.60 per 1M input/output tokens), not the $0.20/$1.20 standard rate this pipeline actually pays for its real synchronous calls — see metrics.py's own comment. Treat this as a deliberate lower-bound estimate, not an exact bill.",
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT SUM(cost_usd) AS all_time_cost_usd FROM search_logs",
+          "editorMode": "code",
+          "rawQuery": true
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "title": "All-Time Avg Latency",
+      "type": "stat",
+      "datasource": { "type": "postgres", "uid": "libas-postgres" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 34 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "decimals": 0,
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "value_and_name",
+        "colorMode": "value",
+        "graphMode": "none"
+      },
+      "description": "Average of every search_logs.total_latency_ms row, no date range.",
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT AVG(total_latency_ms) AS all_time_avg_latency_ms FROM search_logs",
           "editorMode": "code",
           "rawQuery": true
         }
