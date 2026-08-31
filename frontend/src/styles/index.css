@@ -1395,6 +1395,15 @@ ul { margin: 0; padding: 0; list-style: none; }
   color: var(--text-faint);
   white-space: nowrap;
 }
+/* Real bug, found on a mobile audit: below 900px, .results-count (further
+   down, paired with the mobile Filters trigger button) already shows the
+   same "N products" count — so this one was showing up TWICE on the same
+   screen ("9,955 Products" here, "9,955 products" again right above the
+   Filters button). Hidden at exactly the breakpoint .results-count takes
+   over, so there's always exactly one, never zero or two. */
+@media (max-width: 899px) {
+  .shop-toolbar__count { display: none; }
+}
 
 /* Lives inside filterBody now (under the "Filters" heading, both the
    desktop sidebar and the mobile drawer share this), not as a separate
