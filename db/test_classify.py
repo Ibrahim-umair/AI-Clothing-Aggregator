@@ -522,8 +522,8 @@ check("sweater vest is a Sweater, not Underwear", "Argyle Pattern Sweater Vest",
       vendor="COUGAR MEN (WINTER-2025)", expect_branch="Western", expect_leaf="Sweater")
 check("active wear vest is not Underwear", "Active Wear Vest",
       vendor="ENGINE", product_type="Men", expect_branch="Western")
-check("vest gilet is a Jacket, not Underwear", "Vest Gilet",
-      vendor="Quilted", product_type="Men Jackets", expect_branch="Western", expect_leaf="Jacket")
+check("vest gilet resolves its own Vest leaf, not Underwear", "Vest Gilet",
+      vendor="Quilted", product_type="Men Jackets", expect_branch="Western", expect_leaf="Vest")
 check("suiting vest is not Underwear", "MENS SUITING VEST",
       vendor="Suits", product_type="3 PC SUIT", expect_branch="Western")
 check("description-only undergarment signal still resolves Underwear", "White Plain Sleeveless Ribbed Vest",
@@ -886,10 +886,11 @@ check("a dupatta bundled into a real kurta ensemble still resolves Eastern", "Ku
 
 # 70. Outerwear vests (quilted/padded/sherpa/activewear) had no leaf of
 # their own once ruled out as underwear — ~60 real products were falling
-# to Shirt instead of Jacket.
-check("outerwear 'Vest' folds into Jacket, not Shirt", "Active Wear Vest",
-      product_type="Men", vendor="Engine Clothing", expect_branch="Western", expect_leaf="Jacket")
-check("a real Sweater Vest still resolves Sweater ahead of the Vest->Jacket fallback", "Cougar Sweater Vest",
+# to Shirt instead of their own Vest leaf (folded into Jacket until
+# 2026-09-01 — see CATEGORY_TREE's own comment on the Vest leaf).
+check("outerwear 'Vest' resolves its own Vest leaf, not Shirt", "Active Wear Vest",
+      product_type="Men", vendor="Engine Clothing", expect_branch="Western", expect_leaf="Vest")
+check("a real Sweater Vest still resolves Sweater ahead of the Vest fallback", "Cougar Sweater Vest",
       vendor="Cougar Women", expect_branch="Western", expect_leaf="Sweater")
 check("a real underwear vest (sando signal) still resolves Underwear, unaffected", "Sporty Vest",
       product_type="Undergarment", vendor="Uniworth", description="our sporty undergarment will keep you cool",
@@ -1135,16 +1136,18 @@ check("a bare 'Tracksuit' with nothing following it still resolves Tracksuit", "
       vendor="Men", expect_branch="Western", expect_sub="Suits & Sets", expect_leaf="Tracksuit")
 
 # A Western fashion waistcoat/vest is not the same product as a real
-# Eastern koti (2026-08-30 user report).
-check("Outfitters' faux leather waistcoat is Western Jacket, not Eastern Waistcoat", "Faux Leather Cropped Waistcoat",
+# Eastern koti (2026-08-30 user report), and — as of 2026-09-01 — resolves
+# its own Vest leaf rather than Jacket, since a waistcoat IS a vest, just
+# a different regional word for the identical sleeveless garment.
+check("Outfitters' faux leather waistcoat is Western Vest, not Eastern Waistcoat", "Faux Leather Cropped Waistcoat",
       product_type="OUTERWEAR", tags="Jackets,Outerwear,vest,waist coat", vendor="Women",
       description="The name says it all the right size slightly snugs the body leaving enough room for "
                    "comfort in the sleeves and waist. PU Machine wash.",
-      expect_branch="Western", expect_sub="Upperwear", expect_leaf="Jacket")
-check("Uniworth's own 'Western Waistcoat' line resolves Western Jacket", "Charcoal Check Western Waistcoat",
-      vendor="Men", expect_branch="Western", expect_sub="Upperwear", expect_leaf="Jacket")
-check("a denim waistcoat resolves Western Jacket", "Waistcoat Denim Blue",
-      vendor="Men", expect_branch="Western", expect_sub="Upperwear", expect_leaf="Jacket")
+      expect_branch="Western", expect_sub="Upperwear", expect_leaf="Vest")
+check("Uniworth's own 'Western Waistcoat' line resolves Western Vest", "Charcoal Check Western Waistcoat",
+      vendor="Men", expect_branch="Western", expect_sub="Upperwear", expect_leaf="Vest")
+check("a denim waistcoat resolves Western Vest", "Waistcoat Denim Blue",
+      vendor="Men", expect_branch="Western", expect_sub="Upperwear", expect_leaf="Vest")
 # Regression guard: a "blazer"-worded STYLE DETAIL on a genuinely Eastern
 # kurta pajama ensemble must NOT get pulled into Western — real false
 # positive caught during verification (Edenrobe's "Cotton Waistcoat Suit").
@@ -1172,13 +1175,14 @@ check("a bare Camisole resolves Underwear", "Reversible Camisole",
       vendor="Women", expect_branch="Accessories", expect_leaf="Underwear")
 check("'bra' doesn't false-match inside 'bralette' boundary check", "Cobra Print Shirt",
       vendor="Men", expect_branch="Western", expect_leaf="Shirt")
-# "gilet"/"bodywarmer" fold into Jacket — 67 real EXISTING products across
+# "gilet"/"bodywarmer" fold into the Vest leaf (Jacket until 2026-09-01 —
+# see CATEGORY_TREE's own comment) — 67 real EXISTING products across
 # other brands (Furor's "Puffer Gilet", "Yellow Down Gilet") had no
 # jacket/vest/coat word and were falling to Shirt/Hoodie.
-check("a bare 'Gilet' with no other outerwear word resolves Jacket", "Yellow Down Gilet",
-      vendor="Men", expect_branch="Western", expect_sub="Upperwear", expect_leaf="Jacket")
-check("'Bodywarmer' resolves Jacket too", "Quilted Bodywarmer",
-      vendor="Women", expect_branch="Western", expect_sub="Upperwear", expect_leaf="Jacket")
+check("a bare 'Gilet' with no other outerwear word resolves Vest", "Yellow Down Gilet",
+      vendor="Men", expect_branch="Western", expect_sub="Upperwear", expect_leaf="Vest")
+check("'Bodywarmer' resolves Vest too", "Quilted Bodywarmer",
+      vendor="Women", expect_branch="Western", expect_sub="Upperwear", expect_leaf="Vest")
 # "Skirt" never had a leaf or keyword — 95 real EXISTING products across
 # other brands (Co-ord Set/Jeans/Shirt/Shorts/Trouser) had nowhere
 # correct to land.
@@ -1265,6 +1269,35 @@ check("'Pants With Belt' resolves Trouser, not the Belt accessory", "Tapered Cot
       vendor="Women", expect_gender="Women", expect_branch="Western", expect_sub="Bottomwear", expect_leaf="Trouser")
 check("a real standalone belt is unaffected", "Faux Leather Belt",
       vendor="Men", expect_branch="Accessories", expect_leaf="Belt")
+# Real Zellbury bug, 1,796 real products: the piece-count regex required
+# the digit and "p" adjacent (only an optional HYPHEN between them, never
+# a space) and only ever checked title+product_type, never description —
+# so a real 3-piece set whose OWN description says "Buy 3 Piece Printed
+# Lawn Shirt Shalwar Dupatta..." never matched on either count, and fell
+# through to the named-piece-counting fallback, which ALSO undercounted
+# it (see the next test) — landing on "2-Piece" instead of "3-Piece".
+check("a '3 Piece' (space, not hyphen) stated only in the description resolves 3-Piece",
+      "Shirt Shalwar Dupatta - 0582", product_type="Essential Unstitched", vendor="Zellbury Women",
+      description="Buy 3 Piece Printed Lawn Shirt Shalwar Dupatta in Black Color",
+      expect_gender="Women", expect_branch="Eastern", expect_sub="Unstitched", expect_leaf="3-Piece")
+# Same real product family, no explicit count anywhere (title-only named-
+# piece fallback) — "shalwar" wasn't in the countable keyword list at all,
+# so "Shirt Shalwar Dupatta" only counted 2 (shirt, dupatta) instead of 3.
+check("named-piece fallback counts 'shalwar' as its own piece, not just 'trouser'",
+      "Shirt Shalwar Dupatta", product_type="Essential Unstitched", vendor="Zellbury Women",
+      expect_gender="Women", expect_branch="Eastern", expect_sub="Unstitched", expect_leaf="3-Piece")
+# User-reported: browsing Women's Jackets turned up real vests. Read every
+# one of the 156 real vest/gilet/bodywarmer/Western-waistcoat products
+# sitting in Jacket across every gender before adding this leaf — none
+# showed any real Eastern signal, so this is a Western sub-category split
+# (a sleeveless vest is a different garment from a jacket, which has
+# sleeves), not an Eastern branch move.
+check("a real Women's vest resolves its own Vest leaf, not Jacket", "Women's Brushed Spacer Vest",
+      vendor="Bandana Women", expect_gender="Women", expect_branch="Western", expect_leaf="Vest")
+check("a coat whose description mentions 'vests' only as a likely 'vents' typo stays Jacket",
+      "Summar Coat Slim Fit 2 Button Down Charcoal Black", vendor="Men",
+      description="Window Check Fabric Notch Lapel Two Buttons Two Flap Pockets Two Back Side Vests Contrast Elbow Patches",
+      expect_gender="Men", expect_branch="Western", expect_leaf="Jacket")
 
 print(f"{PASSED} passed, {len(FAILURES)} failed")
 if FAILURES:

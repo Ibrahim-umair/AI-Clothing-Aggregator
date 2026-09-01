@@ -93,6 +93,17 @@ BRANDS_ALL = [
 BRANDS = BRANDS_ALL
 
 # gender -> branch -> subbranch (or None) -> [(name, slug)]
+# "Vest" added 2026-09-01 — user-reported: browsing Women's Jackets turned
+# up real vests (a sleeveless outer layer, a fundamentally different
+# garment from a jacket, which has sleeves). Read every one of the 156 real
+# vest/gilet/bodywarmer products sitting in Jacket across every gender
+# before making this change (Men 103, Cambridge's quilted/sherpa/puffer
+# vests and Edenrobe's "Vest Gilet" line the bulk of it; Women 32, Bandana/
+# Cougar/Lama casual and activewear vests; Boys 13, Girls 6, Unisex 2) —
+# none showed any real Eastern signal (no shalwar/kameez/kurta/koti
+# wording anywhere), so this is purely a Western sub-category split, not a
+# branch move. They previously folded into Jacket because no separate
+# Vest leaf existed at all (see _upperwear_leaf_from's own prior comment).
 CATEGORY_TREE = {
     "Men": {
         "Western": {
@@ -103,7 +114,7 @@ CATEGORY_TREE = {
             # dedicated category-by-category audit prompted after real
             # tank-tops/pocket-squares/scarves turned up in the live Men's
             # Shirt listing.
-            "Upperwear": [("T-Shirt","t-shirt"),("Polo","polo"),("Shirt","shirt"),("Jacket","jacket"),("Sweatshirt","sweatshirt"),("Hoodie","hoodie"),("Sweater","sweater"),("Tank Top","tank-top")],
+            "Upperwear": [("T-Shirt","t-shirt"),("Polo","polo"),("Shirt","shirt"),("Jacket","jacket"),("Vest","vest"),("Sweatshirt","sweatshirt"),("Hoodie","hoodie"),("Sweater","sweater"),("Tank Top","tank-top")],
             "Bottomwear": [("Trouser","trouser"),("Cargo Trouser","cargo-trouser"),("Jeans","jeans"),("Shorts","shorts"),("Joggers","joggers"),("Tights","tights")],
             # "Formal Suit"/"Tracksuit" added 2026-08-30 — a tailored Western
             # 2/3-piece business suit (blazer/lapel/breasted/waistcoat/tuxedo
@@ -147,7 +158,7 @@ CATEGORY_TREE = {
         "Western": {
             # "Tank Top" added 2026-08-29 — see Men's tree comment. 165 real
             # Women's tank tops were falling to Shirt for the same reason.
-            "Upperwear": [("T-Shirt","t-shirt"),("Polo","polo"),("Top","top"),("Shirt","shirt"),("Jacket","jacket"),("Sweatshirt","sweatshirt"),("Hoodie","hoodie"),("Sweater","sweater"),("Dress","dress"),("Tank Top","tank-top"),("Jumpsuit","jumpsuit")],
+            "Upperwear": [("T-Shirt","t-shirt"),("Polo","polo"),("Top","top"),("Shirt","shirt"),("Jacket","jacket"),("Vest","vest"),("Sweatshirt","sweatshirt"),("Hoodie","hoodie"),("Sweater","sweater"),("Dress","dress"),("Tank Top","tank-top"),("Jumpsuit","jumpsuit")],
             # "Skirt" added 2026-08-31 — see SKIRT_RE's own comment. 95 real
             # products across the existing catalog had nowhere correct to
             # land.
@@ -191,7 +202,7 @@ CATEGORY_TREE = {
     },
     "Boys": {
         "Western": {
-            "Upperwear": [("T-Shirt","t-shirt"),("Polo","polo"),("Shirt","shirt"),("Sweatshirt","sweatshirt"),("Hoodie","hoodie"),("Sweater","sweater"),("Jacket","jacket"),("Tank Top","tank-top"),("Jumpsuit","jumpsuit")],
+            "Upperwear": [("T-Shirt","t-shirt"),("Polo","polo"),("Shirt","shirt"),("Sweatshirt","sweatshirt"),("Hoodie","hoodie"),("Sweater","sweater"),("Jacket","jacket"),("Vest","vest"),("Tank Top","tank-top"),("Jumpsuit","jumpsuit")],
             "Bottomwear": [("Trouser","trouser"),("Cargo Trouser","cargo-trouser"),("Shorts","shorts"),("Jeans","jeans"),("Joggers","joggers")],
             # "Formal Suit" added 2026-08-30 — see Men's tree comment. 17
             # real Boys' tuxedo/double-breasted formal suits (Edenrobe,
@@ -207,7 +218,7 @@ CATEGORY_TREE = {
     },
     "Girls": {
         "Western": {
-            "Upperwear": [("T-Shirt","t-shirt"),("Polo","polo"),("Top","top"),("Shirt","shirt"),("Sweatshirt","sweatshirt"),("Hoodie","hoodie"),("Sweater","sweater"),("Jacket","jacket"),("Dress","dress"),("Tank Top","tank-top"),("Jumpsuit","jumpsuit")],
+            "Upperwear": [("T-Shirt","t-shirt"),("Polo","polo"),("Top","top"),("Shirt","shirt"),("Sweatshirt","sweatshirt"),("Hoodie","hoodie"),("Sweater","sweater"),("Jacket","jacket"),("Vest","vest"),("Dress","dress"),("Tank Top","tank-top"),("Jumpsuit","jumpsuit")],
             "Bottomwear": [("Trouser","trouser"),("Cargo Trouser","cargo-trouser"),("Shorts","shorts"),("Jeans","jeans"),("Joggers","joggers"),("Tights","tights"),("Skirt","skirt")],
             # "Tracksuit" added 2026-08-30 — see Men's tree comment. 1 real
             # Girls' tracksuit (Edenrobe) was sitting in Co-ord Set.
@@ -236,7 +247,7 @@ CATEGORY_TREE = {
             # sale collection, nothing gendered) — was stranding on the
             # bare Western branch node with nowhere for a Unisex dress to
             # go, caught by the branch-level-orphan audit.
-            "Upperwear": [("T-Shirt","t-shirt"),("Polo","polo"),("Shirt","shirt"),("Sweatshirt","sweatshirt"),("Hoodie","hoodie"),("Sweater","sweater"),("Jacket","jacket"),("Dress","dress"),("Tank Top","tank-top")],
+            "Upperwear": [("T-Shirt","t-shirt"),("Polo","polo"),("Shirt","shirt"),("Sweatshirt","sweatshirt"),("Hoodie","hoodie"),("Sweater","sweater"),("Jacket","jacket"),("Vest","vest"),("Dress","dress"),("Tank Top","tank-top")],
             "Bottomwear": [("Trouser","trouser"),("Cargo Trouser","cargo-trouser"),("Jeans","jeans"),("Shorts","shorts"),("Joggers","joggers")],
             # Added alongside the FOOTWEAR_RE broadening (CHANGELOG #56) —
             # 4 real Lama/Zellbury footwear products ("LEATHER COWBOY
@@ -1075,12 +1086,15 @@ def classify(store, p, title, product_type, tags, vendor, description):
     # description confirms is a "Cotton Satin Kurta Pajama" — genuinely
     # Eastern despite the word "blazer", so the Western signal only wins
     # when no kurta/kurti/shalwar/kameez/koti/Mashriq word is also present.
-    # Folds into the existing Jacket leaf, same as "blazer"/bare "coat"
-    # elsewhere in this file — no separate Western Vest leaf exists.
+    # Routes to the "Vest" leaf (added 2026-09-01 — see CATEGORY_TREE's own
+    # comment) rather than Jacket: a Western "waistcoat" IS a vest, just a
+    # different regional word for the identical sleeveless garment (same
+    # real-world item as Uniworth's own "Western Waistcoat" line naming
+    # confirms) — not a style variant of a jacket, which has sleeves.
     if "waistcoat" in blob:
         waistcoat_signal_blob = f"{blob} {tags} {description}".lower()
         if WESTERN_WAISTCOAT_RE.search(waistcoat_signal_blob) and not EASTERN_WAISTCOAT_COMPANION_RE.search(waistcoat_signal_blob):
-            return dict(gender=gender, branch="Western", sub="Upperwear", leaf="Jacket",
+            return dict(gender=gender, branch="Western", sub="Upperwear", leaf="Vest",
                         style="western", construction="ready_to_wear")
     if EASTERN_RE.search(blob) or UNSTITCHED_RE.search(blob) or SHIRT_TROUSER_SET_RE.search(blob):
         construction = "unstitched_fabric" if UNSTITCHED_RE.search(blob) else "ready_to_wear"
@@ -1088,9 +1102,20 @@ def classify(store, p, title, product_type, tags, vendor, description):
 
         # Broadened to also catch the bare "-3P"/"-2P" SKU-suffix convention
         # (no trailing "c") that several Edenrobe titles use, on top of the
-        # "3PC"/"3 Piece" phrasing the original pattern already covered.
+        # "3PC"/"3-Piece" phrasing the original pattern already covered, AND
+        # a literal SPACE between the digit and "Piece" — real bug found
+        # auditing Zellbury's Women's Unstitched catalog: 1,796 real
+        # products titled "Shirt Shalwar Dupatta" (a genuine 3-piece
+        # ensemble) whose OWN description says "Buy 3 Piece Printed Lawn
+        # Shirt Shalwar Dupatta..." / "This elegant 3-piece set...", but
+        # `\b([1-4])-?p...` requires the digit and "p" adjacent (only an
+        # optional HYPHEN between them, never a space) and only ever
+        # checked `blob` (title+product_type), never the description at
+        # all — so this never matched, on either count, and every one of
+        # these fell through to the named-piece count below instead.
         piece_count = None
-        m = re.search(r"\b([1-4])-?p(?:c|ieces?)?\b", blob)
+        piece_count_blob = f"{blob} {description or ''}".lower()
+        m = re.search(r"\b([1-4])[\s-]?p(?:c|ieces?)?\b", piece_count_blob)
         if m:
             piece_count = int(m.group(1))
         elif sub == "Unstitched":
@@ -1098,7 +1123,13 @@ def classify(store, p, title, product_type, tags, vendor, description):
             # their constituent pieces ("Shirt Trouser Dupatta") rather than
             # giving a number. Counting the named pieces is a real, direct
             # signal, not a guess, and lands on the same 1/2/3-Piece leaves.
-            named = sum(1 for kw in ("shirt", "trouser", "dupatta", "shawl") if kw in blob)
+            # "shalwar" added alongside "trouser" — the same Zellbury audit
+            # above: even without the description-based fix, "Shirt Shalwar
+            # Dupatta" was only counting 2 (shirt, dupatta) because
+            # "shalwar" — the single most common Eastern bottom-piece word,
+            # more common here than "trouser" — was never in this list at
+            # all, undercounting a real 3-piece set to "2-Piece".
+            named = sum(1 for kw in ("shirt", "trouser", "shalwar", "dupatta", "shawl") if kw in blob)
             if named:
                 piece_count = min(named, 3)
 
@@ -1460,20 +1491,30 @@ def classify(store, p, title, product_type, tags, vendor, description):
         # underwear vest (that's already been ruled out earlier via
         # is_underwear_vest) — real examples confirm it's genuine outerwear/
         # activewear (Engine Clothing's "Active Wear Vest", Cambridge's
-        # "Quilted Vest"/"Sherpa Vest") that had no leaf of its own and fell
-        # to the generic Shirt default. Checked after "sweater" so a real
+        # "Quilted Vest"/"Sherpa Vest"). Checked after "sweater" so a real
         # "Sweater Vest" still resolves Sweater first (already handled by
-        # the ordering above), and last among the specific garment checks
-        # since a bare vest is the weakest signal of this group.
-        # "gilet"/"bodywarmer" fold into the same Jacket leaf — a sleeveless
-        # puffer/quilted layer, same real garment class as "vest" above,
-        # just a different regional word for it. 67 real EXISTING products
-        # (Furor "Puffer Gilet", "Yellow Down Gilet", "Blue Quilted Gilet")
-        # had no jacket/vest/coat word at all and were falling to
-        # Shirt/Hoodie — found during the Bandana.pk onboarding audit but
-        # not specific to that brand.
+        # the ordering above), and after "coat"/"jacket" so a real coat
+        # whose own description happens to mention "vests" only as a
+        # tailoring detail (Charcoal's "Two Back Side Vests" — almost
+        # certainly a scrape-source typo for "vents") stays a Jacket: this
+        # function only ever sees title_blob/blob (title+product_type),
+        # never description, so that case never even reaches here.
+        # Own leaf as of 2026-09-01 (user-reported: browsing Women's
+        # Jackets turned up real vests) — a sleeveless outer layer is a
+        # fundamentally different garment from a jacket (which has
+        # sleeves), not just a style variant of one. 156 real products
+        # across every gender were previously folding into Jacket here
+        # because no separate Vest leaf existed at all — see CATEGORY_TREE's
+        # own comment on the "Vest" leaf for the full per-gender breakdown.
+        # "gilet"/"bodywarmer" fold into the same new Vest leaf — a
+        # sleeveless puffer/quilted layer, same real garment class as
+        # "vest" above, just a different regional word for it. 67 real
+        # EXISTING products (Furor "Puffer Gilet", "Yellow Down Gilet",
+        # "Blue Quilted Gilet") had no jacket/vest/coat word at all and
+        # were falling to Shirt/Hoodie — found during the Bandana.pk
+        # onboarding audit but not specific to that brand.
         if re.search(r"\bvests?\b|\bgilets?\b|\bbodywarmers?\b", text):
-            return "Jacket"
+            return "Vest"
         return None
 
     # Title-first, full-blob fallback — same precedent as every other

@@ -19,7 +19,7 @@ KNOWN_CATEGORIES = [
     "Perfume", "Pocket Square", "Polo", "Sandals", "Saree", "Scarf", "Shalwar Kameez", "Shawl",
     "Sherwani", "Shirt", "Shoes", "Shorts", "Skirt", "Socks", "Suit", "Sunglasses", "Sweater",
     "Sweatshirt", "Tank Top", "Tie", "Tights", "Top", "Tracksuit", "Trouser", "T-Shirt",
-    "Underwear", "Waistcoat", "Wallet", "Watch",
+    "Underwear", "Vest", "Waistcoat", "Wallet", "Watch",
     "Upperwear", "Bottomwear", "Footwear", "Suits & Sets", "Formalwear", "Stitched", "Unstitched",
     "Western", "Eastern", "Accessories", "Fragrance & Beauty",
 ]

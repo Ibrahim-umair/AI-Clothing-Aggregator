@@ -961,3 +961,48 @@ to 48 in the first pass, then to a residue of lower-confidence/ambiguous cases a
 (cargo-pocket-shirt-vs-trouser, tank/turtleneck-vs-dress, and a couple of jacket/hoodie edge
 cases were found but NOT fixed here — smaller in volume, higher regression risk to a
 heavily-tuned function, reported to the user for a decision rather than rushed in).
+
+## 2026-09-01 (twenty-first pass — two more user reports: "2 pieces were containing 3 pieces",
+"women jackets were containing vests")
+
+93. **The piece-count regex required the digit and "p" adjacent — an optional HYPHEN, never a
+    literal SPACE — and only ever checked `title+product_type`, never `description`.** Real,
+    high-volume bug: 1,796 Zellbury Women's Unstitched products titled "Shirt Shalwar Dupatta"
+    (a genuine 3-piece ensemble) whose OWN description says "Buy 3 Piece Printed Lawn Shirt
+    Shalwar Dupatta..." / "This elegant 3-piece set..." never matched on either count — the
+    space between "3" and "Piece", or the fact it's only ever stated in the description — and
+    fell through to the named-piece-counting fallback instead, which (#94, below) undercounted
+    them anyway. Widened the regex to `[\s-]?` and added a `description`-inclusive blob for
+    this specific check (same class of extension as #79's tags+description override).
+94. **The named-piece-counting fallback ("Shirt Trouser Dupatta" → count the named pieces) only
+    recognized "shirt"/"trouser"/"dupatta"/"shawl" — not "shalwar," the single most common
+    Eastern bottom-piece word, more common in this catalog than "trouser."** Same 1,796 Zellbury
+    products: "Shirt Shalwar Dupatta" only counted 2 (shirt, dupatta), landing on "2-Piece"
+    instead of "3-Piece," even before the #93 fix above. Added "shalwar" to the keyword list.
+95. **No separate "Vest" leaf existed anywhere in `CATEGORY_TREE`** — a sleeveless outer layer
+    (vest/gilet/bodywarmer, or a Western "waistcoat" — the identical garment, just a different
+    regional word) was folding into the Jacket leaf by default, alongside actual sleeved
+    jackets/blazers/coats. User-reported: browsing Women's Jackets turned up real vests. Read
+    every one of the 156 real vest/gilet/bodywarmer/Western-waistcoat products already sitting
+    in Jacket, across every gender, before making this change — none showed any real Eastern
+    signal (no shalwar/kameez/kurta/koti wording anywhere in any of them), so this is purely a
+    Western sub-category split, not an Eastern branch move as the user's own report considered
+    possible. Added a new "Vest" leaf to `CATEGORY_TREE` (Men/Women/Boys/Girls/Unisex — every
+    gender with real vest products) and routed the existing vest/gilet/bodywarmer keyword match
+    and the existing Western-waistcoat override to it instead of Jacket. A residual 15 products
+    whose titles literally say "Vest Jacket" (Cambridge/Furor/Bandana/Edenrobe) were
+    deliberately left as Jacket — descriptions gave genuinely mixed evidence (some explicitly
+    say "sleeveless," e.g. Furor's "Tactical Utility Vest Jacket" ("Sleeveless Hunter Jacket"),
+    others describe a padded jacket with no sleeveless confirmation at all, e.g. Furor's "Safari
+    Vest Jacket" ("Men's Safari Jacket... Snap Button Flap Pockets," no vest/sleeveless word
+    anywhere) — not enough of a consistent signal to safely reclassify without risking real
+    jackets landing in Vest.
+
+364/364 tests pass (12 new, one set updated for the new expected leaf on 7 existing tests: a
+Vest/Gilet/Western-waistcoat product now resolves "Vest," not "Jacket," which is a behavior
+CHANGE, not a regression). `reseed_categories.py`'s DSN made env-var-configurable too (same
+pattern as backfill_categories.py, #92's own follow-up commit), needed to add the new Vest
+category nodes to production without hand-editing the file. Backfill against the existing
+117,657-product catalog: 5 new category rows added (Vest × 5 genders) via `reseed_categories.py`,
+then 3,297 products recategorized via `backfill_categories.py` (the bulk of it #93/#94's
+piece-count fix; 207 of it #95's Vest leaf — Men 130, Women 41, Boys 28, Girls 6, Unisex 2).
