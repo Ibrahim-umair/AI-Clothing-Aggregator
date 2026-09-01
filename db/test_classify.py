@@ -1335,30 +1335,33 @@ check("'Hooded Denim Jacket' resolves Jacket too", "Black Hooded Denim Jacket",
       vendor="Cambridge", expect_branch="Western", expect_leaf="Jacket")
 check("'Hooded Duffle Coat' resolves Jacket (coat folds into Jacket)", "Men's Hooded Duffle Coat Olive",
       vendor="Charcoal", expect_branch="Western", expect_leaf="Jacket")
-# "Gilet" wins over the hoodie/jacket ambiguity outright — real examples,
-# both confirmed genuinely sleeveless via description before trusting the
-# title: Furor's "Hooded Puffer Gilet" (description: "Gilet Jacket...
-# Regular Fit Polyester Fabric") and Cougar's "Hooded Gilet Jacket"
-# (description: "...sleeveless construction and 100% polyester parachute
-# fabric").
-check("'Hooded Puffer Gilet' resolves Vest, not Hoodie or Jacket", "Hooded Puffer Gilet - FMTJP24-043",
+# "Gilet" wins over the hoodie ambiguity when NO "jacket" word is also
+# present — real example: Furor's "Hooded Puffer Gilet" (no "jacket"
+# anywhere in the title) was landing on Hoodie off the bare "hooded"
+# adjective before this.
+check("'Hooded Puffer Gilet' (no 'jacket' word) resolves Vest, not Hoodie", "Hooded Puffer Gilet - FMTJP24-043",
       vendor="Furor", description="Gilet Jacket Regular Fit Polyester Fabric Chest Zipper Pocket",
       expect_branch="Western", expect_leaf="Vest")
-check("'Hooded Gilet Jacket' resolves Vest too", "Hooded Gilet Jacket",
-      vendor="Cougar", description="A streamlined quilted gilet in khaki with mock neck styling. The sleeveless construction and 100% polyester parachute fabric.",
-      expect_branch="Western", expect_leaf="Vest")
-# Real regression caught after shipping the "gilet wins" rule above:
+# Explicit user decision (2026-09-01, asked directly after two rounds of
+# back-and-forth on this exact question — "logically one would want to
+# see sleeveless/vest type jackets in JACKETS SECTION"): whenever
+# "jacket" is ALSO in the title, Jacket wins outright — title word beats
+# confirmed construction, full stop, even for a garment whose own
+# description explicitly confirms sleeveless. Real examples, all visually
+# confirmed genuinely sleeveless via the actual product photo before this
+# rule was set: Cougar's "Hooded Gilet Jacket" ("...sleeveless
+# construction and 100% polyester parachute fabric"), Charcoal's
+# "QUILTED SUEDE GILET JACKET SLEEVELESS" (photo-verified real vest),
 # Edenrobe's "Vest Gilet - 12008-SL Boys Jacket" (empty description, no
-# evidence either way) was silently drifting to Vest, even though the
-# exact same class of ambiguous "Vest/Gilet ... Jacket" title was already
-# deliberately left as Jacket when the Vest leaf itself was created (see
-# CATEGORY_TREE's own comment). "Gilet" only wins over an ALSO-present
-# "jacket" word when the description explicitly confirms sleeveless
-# (Cougar's case, tested above) — otherwise Jacket wins, same as every
-# other ambiguous "Vest Jacket" title.
-check("'Vest Gilet ... Jacket' with NO confirming evidence resolves Jacket, not Vest",
-      "Vest Gilet - 12008-SL Boys Jacket", vendor="Boys",
+# evidence either way — same class of ambiguous title already left as
+# Jacket when the Vest leaf itself was created, see CATEGORY_TREE's own
+# comment). Do not reintroduce a sleeveless-description exception here
+# without asking again.
+check("'Hooded Gilet Jacket' resolves Jacket, not Vest — title word wins", "Hooded Gilet Jacket",
+      vendor="Cougar", description="A streamlined quilted gilet in khaki with mock neck styling. The sleeveless construction and 100% polyester parachute fabric.",
       expect_branch="Western", expect_leaf="Jacket")
+check("'Vest Gilet ... Jacket' also resolves Jacket", "Vest Gilet - 12008-SL Boys Jacket",
+      vendor="Boys", expect_branch="Western", expect_leaf="Jacket")
 # The literal NOUN "hoodie" is still trusted outright, even alongside
 # "jacket" — real genuine hoodies verified by description before keeping
 # this: Cambridge's "WAFFLE/OTTOMAN HOODIE ZIPPER JACKET" line (100% soft
