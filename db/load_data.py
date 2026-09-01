@@ -1503,12 +1503,31 @@ def classify(store, p, title, product_type, tags, vendor, description):
         # "gilet" wins outright over any hoodie/jacket ambiguity below —
         # it's this catalog's most unambiguous sleeveless-outerwear word
         # (see the Vest leaf's own comment). Real examples otherwise lost
-        # to Hoodie: Furor's "Hooded Puffer Gilet" (description: "Gilet
-        # Jacket... Regular Fit Polyester Fabric"), Cougar's "Hooded Gilet
-        # Jacket" (description: "...sleeveless construction and 100%
-        # polyester parachute fabric") — both genuinely gilets despite
-        # "hooded" and/or "jacket" also being present in the title.
-        if "gilet" in text:
+        # to Hoodie: Furor's "Hooded Puffer Gilet" (no "jacket" word in
+        # the title at all — resolves here unconditionally), Cougar's
+        # "Hooded Gilet Jacket" (description: "...sleeveless construction
+        # and 100% polyester parachute fabric") — both genuinely gilets
+        # despite "hooded" and/or "jacket" also being present.
+        #
+        # BUT: when "jacket" is ALSO in the title and nothing confirms
+        # sleeveless, "gilet" does NOT win — real regression, user
+        # re-reported after this shipped ("vest jackets are supposed to
+        # be in jackets"): Edenrobe's "Vest Gilet - 12008/12013-SL Boys
+        # Jacket" (empty description, no evidence either way) silently
+        # drifted to Vest once this check shipped, even though the exact
+        # same class of ambiguous "Vest/Gilet ... Jacket" title was
+        # already deliberately left as Jacket when the Vest leaf itself
+        # was created (see CATEGORY_TREE's own comment: 15 products,
+        # "genuinely mixed evidence... not enough to safely reclassify").
+        # `description` is available here via closure (this function is
+        # nested inside classify()) even though `text` itself never
+        # includes it — Cougar's "sleeveless" confirmation only exists in
+        # its description, not its title, which is exactly why this
+        # override has to reach past `text` for it.
+        if "gilet" in text and (
+            "jacket" not in text
+            or (description and re.search(r"\bsleeveless\b", description, re.I))
+        ):
             return "Vest"
         # User-reported: browsing Hoodie turned up real hooded JACKETS —
         # 99 real products, the vast majority Cambridge/Charcoal/Cougar/

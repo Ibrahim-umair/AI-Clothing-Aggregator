@@ -1347,6 +1347,18 @@ check("'Hooded Puffer Gilet' resolves Vest, not Hoodie or Jacket", "Hooded Puffe
 check("'Hooded Gilet Jacket' resolves Vest too", "Hooded Gilet Jacket",
       vendor="Cougar", description="A streamlined quilted gilet in khaki with mock neck styling. The sleeveless construction and 100% polyester parachute fabric.",
       expect_branch="Western", expect_leaf="Vest")
+# Real regression caught after shipping the "gilet wins" rule above:
+# Edenrobe's "Vest Gilet - 12008-SL Boys Jacket" (empty description, no
+# evidence either way) was silently drifting to Vest, even though the
+# exact same class of ambiguous "Vest/Gilet ... Jacket" title was already
+# deliberately left as Jacket when the Vest leaf itself was created (see
+# CATEGORY_TREE's own comment). "Gilet" only wins over an ALSO-present
+# "jacket" word when the description explicitly confirms sleeveless
+# (Cougar's case, tested above) — otherwise Jacket wins, same as every
+# other ambiguous "Vest Jacket" title.
+check("'Vest Gilet ... Jacket' with NO confirming evidence resolves Jacket, not Vest",
+      "Vest Gilet - 12008-SL Boys Jacket", vendor="Boys",
+      expect_branch="Western", expect_leaf="Jacket")
 # The literal NOUN "hoodie" is still trusted outright, even alongside
 # "jacket" — real genuine hoodies verified by description before keeping
 # this: Cambridge's "WAFFLE/OTTOMAN HOODIE ZIPPER JACKET" line (100% soft
