@@ -1521,7 +1521,21 @@ def classify(store, p, title, product_type, tags, vendor, description):
         # checked catalog-wide is a genuine tank top, no collision found.
         if re.search(r"\btanks?\b", text):
             return "Tank Top"
-        if re.search(r"\b(tees?|t-shirts?|tshirts?)\b", text):
+        # "vest" + a tee word together means SLEEVELESS, same as "tank"
+        # above — checked before the generic tee check right below so it
+        # wins, mirroring that exact precedent. Real example, Engine
+        # Clothing's "Boys Vest T Shirt" (a plain graphic tank top, Looney
+        # Tunes print, genuinely sleeveless — photo-verified) was resolving
+        # T-Shirt instead of Tank Top once the spaced "t shirt" fix below
+        # was added, since a bare tee check has no way to know "vest" here
+        # means sleeveless rather than being irrelevant noise.
+        if "vest" in text and re.search(r"\b(tees?|t[\s-]?shirts?)\b", text):
+            return "Tank Top"
+        # "t shirt" (space-separated, no hyphen) was missing — the same
+        # real example above fell all the way through to the generic Vest
+        # catch-all before this, since neither "t-shirt" nor "tshirt"
+        # matched the literal spaced phrase.
+        if re.search(r"\b(tees?|t[\s-]?shirts?)\b", text):
             return "T-Shirt"
         # "gilet" wins over any hoodie ambiguity below — it's this
         # catalog's most unambiguous sleeveless-outerwear word (see the

@@ -1383,6 +1383,16 @@ check("a plain 'Ribbed Vest' with no outerwear signal resolves Tank Top", "Ribbe
 check("'Sleeveless Panel Knit Vest' resolves Tank Top too", "Men Sleeveless Panel Knit Vest",
       vendor="Engine Clothing", description="Sleeveless Panel Knit Top, PC Jersey fabric",
       expect_branch="Western", expect_leaf="Tank Top")
+# "t shirt" (space-separated, no hyphen) was missing from the T-Shirt
+# regex entirely — real example, Engine Clothing's "Boys Vest T Shirt"
+# (a plain graphic tank top, Looney Tunes print, genuinely sleeveless —
+# photo-verified) fell all the way through to the generic Vest catch-all.
+# "vest" + a tee word together means SLEEVELESS (same precedent as
+# "tank"), so this resolves Tank Top, not T-Shirt.
+check("'Vest T Shirt' (spaced, no hyphen) resolves Tank Top, not T-Shirt", "Boys Vest T Shirt",
+      vendor="Boys", expect_branch="Western", expect_leaf="Tank Top")
+check("a plain spaced 'T Shirt' with no 'vest' still resolves T-Shirt", "Boys T Shirt",
+      vendor="Boys", expect_branch="Western", expect_leaf="T-Shirt")
 # Guards against over-triggering the rule above: a genuine quilted/
 # puffer/gilet vest whose own DESCRIPTION happens to mention a ribbed
 # HEM as a design detail (real examples already in this catalog, e.g.
