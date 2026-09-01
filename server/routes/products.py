@@ -157,6 +157,28 @@ async def list_products(request: Request):
             f"EXISTS (SELECT 1 FROM variants vs WHERE vs.product_id = p.id AND lower(vs.size_label) = ANY(${len(params)}::text[]) AND vs.current_available = true)"
         )
     featured = q.get("sort") == "featured"
+    # Real user report: browsing Shop with no explicit price sort ("Newest
+    # Arrivals", the default) showed 20-50 same-brand products in a row
+    # before another brand ever appeared. Root cause is worse here than the
+    # Featured section's own version of this bug (see FEATURED_PER_BRAND_CAP
+    # above): every brand's catalog was bulk-loaded as one contiguous block
+    # of ids, so the *actual* SQL this endpoint runs when the frontend sends
+    # no sort param at all is `SORTS["default"]` — plain `p.id` ascending —
+    # which is pure insertion order, i.e. one brand's ENTIRE catalog before
+    # the next brand's first product, for every category filter. Explicit
+    # `?sort=newest` (only reachable today via Home's "View All" link) is
+    # less extreme but has the identical failure mode on any brand's
+    # bulk-reload day (already documented/fixed for Featured).
+    # Unlike Featured, this can't cap the eligible pool to N-per-brand —
+    # Shop's own toolbar promises the full total ("3,297 Products") and has
+    # to actually page through all of them, not a curated teaser. Instead,
+    # this ranks EVERY matching row via ROW_NUMBER() PARTITION BY brand (no
+    # cap) and orders the whole result set by (rank, brand) — "one from
+    # each brand, then the next from each brand, ..." — a real, complete,
+    # duplicate-free ordering over 100% of the filtered rows, computed
+    # entirely in SQL so LIMIT/OFFSET pagination still works correctly (and
+    # cheaply) no matter how large the filtered set is.
+    diversify_listing = not featured and q.get("sort") in (None, "", "newest")
     if featured:
         # Featured gets its own category/product exclusions layered on top
         # of whatever the request already filtered by — see
@@ -183,7 +205,7 @@ async def list_products(request: Request):
     color_image_idx = len(params)
     limit_idx = len(params) + 1
     offset_idx = len(params) + 2
-    list_sql = f"""
+    base_sql = f"""
       SELECT
         p.id, p.title, p.handle, p.first_seen_at,
         b.name AS store_display, b.slug AS store,
@@ -204,9 +226,60 @@ async def list_products(request: Request):
         ORDER BY vv.current_price ASC NULLS LAST LIMIT 1
       ) v ON true
       WHERE {where_sql}
-      ORDER BY {order_by_sql}
-      LIMIT ${limit_idx} OFFSET ${offset_idx}
     """
+    if diversify_listing:
+        # "One from each brand, then the next from each brand, ..." — see
+        # diversify_listing's own comment above for why this can't just cap
+        # a pool like Featured does; rn has to be computed over the FULL
+        # filtered set for the ordering to be real and complete. That's
+        # unavoidably an all-rows sort, but it does NOT need to carry the
+        # per-row price/image lookups (base_sql's JOIN LATERAL) along for
+        # that ride — ranks a lightweight id-only query first (measured:
+        # ~400ms even for the largest 114k-row unfiltered case, no LATERAL
+        # join), pages THAT down to just the LIMIT/OFFSET rows actually
+        # needed, and only then re-joins for the expensive per-row columns.
+        # Doing the LATERAL join before ranking (an earlier version of this
+        # fix) meant running it once per matching row just to throw away
+        # all but 24 of them — measured 3.2s on the same unfiltered case.
+        ranked_ids_sql = f"""
+          SELECT id, brand_id, rn FROM (
+            SELECT p.id, p.brand_id,
+                   ROW_NUMBER() OVER (PARTITION BY p.brand_id ORDER BY p.first_seen_at DESC, p.id DESC) AS rn
+            FROM products p
+            WHERE {where_sql}
+          ) ranked
+          ORDER BY rn ASC, brand_id ASC
+          LIMIT ${limit_idx} OFFSET ${offset_idx}
+        """
+        list_sql = f"""
+          SELECT
+            p.id, p.title, p.handle, p.first_seen_at,
+            b.name AS store_display, b.slug AS store,
+            COALESCE(
+              (SELECT vi.image_url FROM variants vi JOIN colors ci ON ci.id = vi.color_id
+               WHERE vi.product_id = p.id AND lower(ci.canonical_name) = ANY(${color_image_idx}::text[])
+                 AND vi.image_url IS NOT NULL LIMIT 1),
+              (SELECT pi.url FROM product_images pi WHERE pi.product_id = p.id ORDER BY pi.position LIMIT 1)
+            ) AS image_url,
+            v.price, v.compare_at_price, v.available, v.variant_count
+          FROM ({ranked_ids_sql}) rk
+          JOIN products p ON p.id = rk.id
+          JOIN brands b ON b.id = p.brand_id
+          JOIN LATERAL (
+            SELECT vv.current_price AS price, vv.current_compare_at AS compare_at_price,
+                   (SELECT BOOL_OR(v2.current_available) FROM variants v2 WHERE v2.product_id = p.id) AS available,
+                   (SELECT COUNT(*) FROM variants v3 WHERE v3.product_id = p.id) AS variant_count
+            FROM variants vv WHERE vv.product_id = p.id
+            ORDER BY vv.current_price ASC NULLS LAST LIMIT 1
+          ) v ON true
+          ORDER BY rk.rn ASC, rk.brand_id ASC
+        """
+    else:
+        list_sql = f"""
+          {base_sql}
+          ORDER BY {order_by_sql}
+          LIMIT ${limit_idx} OFFSET ${offset_idx}
+        """
     if featured:
         # Wraps the same base query, capping each brand to its
         # FEATURED_PER_BRAND_CAP newest products via ROW_NUMBER() BEFORE
