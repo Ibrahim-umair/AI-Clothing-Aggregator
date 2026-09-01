@@ -1362,6 +1362,36 @@ check("'Hooded Gilet Jacket' resolves Jacket, not Vest — title word wins", "Ho
       expect_branch="Western", expect_leaf="Jacket")
 check("'Vest Gilet ... Jacket' also resolves Jacket", "Vest Gilet - 12008-SL Boys Jacket",
       vendor="Boys", expect_branch="Western", expect_leaf="Jacket")
+# User-reported directly, browsing Men's Vest: "seeing... open knit vest
+# (sweater) on vests." "Open knit" is a real, specific knitwear term —
+# always sweater-weight fabric, never a plain jersey tank. Photo-verified
+# before trusting the title: Outfitters' "Open Knit Vest" is a thick
+# ribbed knit layering piece worn over a collared shirt, unmistakably a
+# sweater vest.
+check("'Open Knit Vest' resolves Sweater, not the outerwear Vest leaf", "Open Knit Vest",
+      vendor="Outfitters", expect_branch="Western", expect_leaf="Sweater")
+# A DIFFERENT real pattern in the same audit: a plain ribbed/knit "vest"
+# with NO other outerwear signal is a basic jersey tank, not a sweater
+# and not outerwear. Photo-verified: Furor's whole "Ribbed Vest" line
+# (FMTV5/FMTV6/FWTT SKUs, description "Regular Fit Rib Fabric") is a
+# plain scoop-neck ribbed tank, and Engine Clothing's "Men Sleeveless
+# Panel Knit Vest" is a plain jersey ringer tank — neither has padding,
+# quilting, a collar, or any closure.
+check("a plain 'Ribbed Vest' with no outerwear signal resolves Tank Top", "Ribbed Vest - FMTV6-003",
+      vendor="Furor", description="Men's Vest Regular Fit Rib Fabric",
+      expect_branch="Western", expect_leaf="Tank Top")
+check("'Sleeveless Panel Knit Vest' resolves Tank Top too", "Men Sleeveless Panel Knit Vest",
+      vendor="Engine Clothing", description="Sleeveless Panel Knit Top, PC Jersey fabric",
+      expect_branch="Western", expect_leaf="Tank Top")
+# Guards against over-triggering the rule above: a genuine quilted/
+# puffer/gilet vest whose own DESCRIPTION happens to mention a ribbed
+# HEM as a design detail (real examples already in this catalog, e.g.
+# Cambridge's padded vests, Diners' "Ribbed hem. Front zip closure.")
+# must stay Vest — this function never even sees description at all
+# (title_blob/blob only), so these were never actually at risk, but the
+# title-level guard (VEST_REAL_OUTERWEAR_RE) is tested directly too.
+check("a genuine padded vest is unaffected by the ribbed-tank rule", "Water-Repellent Padded Vest",
+      vendor="Men", expect_branch="Western", expect_leaf="Vest")
 # The literal NOUN "hoodie" is still trusted outright, even alongside
 # "jacket" — real genuine hoodies verified by description before keeping
 # this: Cambridge's "WAFFLE/OTTOMAN HOODIE ZIPPER JACKET" line (100% soft

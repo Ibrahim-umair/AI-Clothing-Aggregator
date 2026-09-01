@@ -628,6 +628,29 @@ ACTIVEWEAR_VEST_SIGNAL_RE = re.compile(
     r"\bgym\b|\bactive\s*wear\b|\btraining\b|\bworkouts?\b|\bdry[\s-]?fit\b|\bsports?\s*vest\b",
     re.I,
 )
+# A THIRD distinction inside the same "Vest" leaf, same real class of bug
+# as ACTIVEWEAR_VEST_SIGNAL_RE above — user-reported directly, browsing
+# Men's Vest: "seeing... open knit vest (sweater) on vests." A plain
+# ribbed/knit "vest" with no other outerwear signal is a basic jersey
+# TANK, the same real garment already routed to Tank Top above — not a
+# puffer/quilted/waistcoat OUTERWEAR layer. Photo-verified before
+# trusting the title: Furor's whole "Ribbed Vest" line (FMTV5/FMTV6/FWTT
+# SKUs — description "Regular Fit Rib Fabric") is a plain scoop-neck
+# ribbed tank, and Engine Clothing's "Men Sleeveless Panel Knit Vest" is
+# a plain jersey ringer tank — neither has any padding, quilting, collar,
+# or closure, just a bare knit tank silhouette. Distinct from "open knit"
+# above (a sweater-weight knit stitch, always outerwear-adjacent, never
+# this) and gated to exclude any real outerwear word so a genuine quilted/
+# puffer/sherpa/suede/down/leather/nylon/gilet/waistcoat vest that merely
+# mentions a ribbed TRIM or hem as a detail (Cambridge's "Ribbed hem"
+# design note on an otherwise-quilted vest, a real example already in
+# this catalog) is never caught by this.
+PLAIN_RIBBED_KNIT_VEST_RE = re.compile(r"\b(ribbed?|knit)\b", re.I)
+VEST_REAL_OUTERWEAR_RE = re.compile(
+    r"\bquilted\b|\bpuffer\b|\bsherpa\b|\bsuede\b|\bgilets?\b|\bdown\b|"
+    r"\bleather\b|\bnylon\b|\bwaistcoats?\b|\bopen knit\b",
+    re.I,
+)
 
 # "kurta pajama"/"kurta shalwar" is a two-piece SET, not the same product as
 # a plain kurta sold alone — the two need different leaves. Checked before
@@ -1556,7 +1579,13 @@ def classify(store, p, title, product_type, tags, vendor, description):
         # Cardigan") had no keyword at all and were falling to Shirt —
         # found during the Bandana.pk onboarding audit but not specific
         # to that brand.
-        if "sweater" in text or "cardigan" in text or "turtleneck" in text:
+        # "open knit" is a real, specific knitwear term — always describes
+        # sweater-weight fabric (a loose/lacy knit stitch), never a plain
+        # jersey tank. User-reported, browsing Men's Vest: Outfitters'
+        # "Open Knit Vest" (photo-verified: a thick ribbed knit layering
+        # piece worn over a collared shirt, unmistakably a sweater vest,
+        # not outerwear) was landing on the generic Vest leaf.
+        if "sweater" in text or "cardigan" in text or "turtleneck" in text or "open knit" in text:
             return "Sweater"
         # "tunic" only maps to "Top" for Women/Girls — that's the only
         # gender pair CATEGORY_TREE defines a "Top" leaf for at all (Men/
@@ -1635,6 +1664,17 @@ def classify(store, p, title, product_type, tags, vendor, description):
         # bodywarmer catch-all below so this narrower, stronger signal
         # wins first.
         if re.search(r"\bvests?\b", text) and ACTIVEWEAR_VEST_SIGNAL_RE.search(text):
+            return "Tank Top"
+        # See PLAIN_RIBBED_KNIT_VEST_RE's own comment for the real
+        # examples (Furor's "Ribbed Vest" line, Engine Clothing's "Men
+        # Sleeveless Panel Knit Vest") and why VEST_REAL_OUTERWEAR_RE
+        # keeps this from ever touching a genuine puffer/quilted/gilet/
+        # waistcoat vest.
+        if (
+            re.search(r"\bvests?\b", text)
+            and PLAIN_RIBBED_KNIT_VEST_RE.search(text)
+            and not VEST_REAL_OUTERWEAR_RE.search(text)
+        ):
             return "Tank Top"
         if re.search(r"\bvests?\b|\bgilets?\b|\bbodywarmers?\b", text):
             return "Vest"
