@@ -130,6 +130,19 @@ export default function Shop() {
     setSearchParams({ ...paramsFromSelection(nextSelection), ...(sort !== "newest" ? { sort } : {}) });
   }
 
+  // Switching gender/branch resets whatever's nested under it (branch/sub/
+  // category) — a Western sub-category selected under Men has no meaning
+  // once you're looking at Women, and may not even exist there. Brand
+  // stays untouched, same as Breadcrumb's own "All" reset — it's an
+  // independent facet, not part of the gender/branch/sub/category chain.
+  function setGender(nextGender) {
+    updateParams({ gender: nextGender || undefined, branch: undefined, sub: undefined, category: undefined, page: undefined });
+  }
+
+  function setBranch(nextBranch) {
+    updateParams({ branch: nextBranch || undefined, sub: undefined, category: undefined, page: undefined });
+  }
+
   function setSort(nextSort) {
     updateParams({ sort: nextSort === "newest" ? undefined : nextSort, page: undefined });
   }
@@ -214,6 +227,16 @@ export default function Shop() {
   const brandFacets = taxonomy?.brandFacets || [];
   const sizeFacets = selection.category ? taxonomy?.sizeFacets || [] : [];
   const colorFacets = taxonomy?.colorFacets || [];
+  const genderFacets = taxonomy?.genderFacets || [];
+  // Branch (Western/Eastern/Accessories/Fragrance & Beauty) is a child of
+  // gender in this taxonomy — only meaningful, and only ever shown, once a
+  // gender is actually selected. Derived straight from the mega-menu data
+  // already being fetched for siblingCategories below, no extra request.
+  const branchFacets = useMemo(() => {
+    const columns = taxonomy?.menus?.[selection.gender];
+    if (!columns) return [];
+    return columns.map((c) => ({ value: c.branch, count: c.count }));
+  }, [taxonomy, selection.gender]);
 
   const siblingCategories = useMemo(() => {
     const columns = taxonomy?.menus?.[selection.gender];
@@ -259,6 +282,54 @@ export default function Shop() {
             </span>
           ))}
         </div>
+      )}
+
+      {genderFacets.length > 0 && (
+        <FilterGroup label="Shop For">
+          <div className="size-grid">
+            <button
+              type="button"
+              className={`size-chip ${!selection.gender ? "size-chip--active" : ""}`}
+              onClick={() => setGender(null)}
+            >
+              All
+            </button>
+            {genderFacets.map((g) => (
+              <button
+                type="button"
+                key={g.value}
+                className={`size-chip ${selection.gender === g.value ? "size-chip--active" : ""}`}
+                onClick={() => setGender(g.value)}
+              >
+                {g.value} ({g.count})
+              </button>
+            ))}
+          </div>
+        </FilterGroup>
+      )}
+
+      {branchFacets.length > 0 && (
+        <FilterGroup label="Category">
+          <div className="size-grid">
+            <button
+              type="button"
+              className={`size-chip ${!selection.branch ? "size-chip--active" : ""}`}
+              onClick={() => setBranch(null)}
+            >
+              All
+            </button>
+            {branchFacets.map((b) => (
+              <button
+                type="button"
+                key={b.value}
+                className={`size-chip ${selection.branch === b.value ? "size-chip--active" : ""}`}
+                onClick={() => setBranch(b.value)}
+              >
+                {b.value} ({b.count})
+              </button>
+            ))}
+          </div>
+        </FilterGroup>
       )}
 
       {sizeFacets.length > 0 && (
