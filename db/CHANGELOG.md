@@ -1006,3 +1006,54 @@ category nodes to production without hand-editing the file. Backfill against the
 117,657-product catalog: 5 new category rows added (Vest × 5 genders) via `reseed_categories.py`,
 then 3,297 products recategorized via `backfill_categories.py` (the bulk of it #93/#94's
 piece-count fix; 207 of it #95's Vest leaf — Men 130, Women 41, Boys 28, Girls 6, Unisex 2).
+
+## 2026-09-01 (twenty-second pass — user follow-up: "the men vests look very diverse from
+actual vests to vest sweater and jackets", then "seeing hooded jackets in hoodies")
+
+96. **A "vest" carrying an activewear signal (gym/training/sports/"active wear"/dry-fit) is a
+    sleeveless ATHLETIC TOP, not the outerwear layer the new Vest leaf (#95) was otherwise full
+    of.** Read all 130 real Men's Vest products before concluding what was actually wrong.
+    Real examples, description verified before trusting the title: One (Be-One)'s "Gym Vest"
+    ("Gym vest in dry fit fabrication"), Equator's "Training Vest" ("from our Activewear
+    collection...wicks moisture...workouts"), Engine Clothing's "Active Wear Vest" ("activewear
+    vest...Lycra Poly Jersey...workouts, training"). These are the same real garment this
+    catalog already calls "Tank Top" for every other brand — routed there instead, no new leaf
+    needed. Deliberately left Engine Clothing's bare "Men Vest"/"Men Sleeveless Panel Knit Vest"
+    (no activewear word in the title) as Vest — not enough signal to move with confidence.
+97. **"Hooded" is an ADJECTIVE describing a jacket/coat FEATURE, not the garment's own type — it
+    was winning outright over the real garment noun (jacket/coat) appearing later in the same
+    title.** 99 real Hoodie-filed products across 10 brands were actually hooded jackets/coats:
+    Cambridge/Charcoal/Cougar/Diners/Equator/Furor/Lama/Meme/One(Be-One)/Uniworth's "HOODED
+    PUFFER JACKET", "Hooded Denim Jacket", "MEN'S HOODED DUFFLE COAT", "HOODED PUFFER BOMBER
+    JACKET". Only the literal NOUN "hoodie" is trusted outright now; a bare "hooded" (no
+    "hoodie" noun) is checked again, but only as a LAST RESORT after jacket/coat/blazer/dress
+    have all had first claim on a stronger, more specific noun. Real genuine hoodies verified
+    by description before keeping them as-is: Cambridge's "WAFFLE/OTTOMAN HOODIE ZIPPER JACKET"
+    line (100% soft fleece, cotton-poly blend) and Charcoal's "JACKET FULL SLEEVE KNIT HOODIE"
+    line (100% fleece cotton) both contain the literal "hoodie" noun and correctly stay Hoodie
+    despite "jacket" also appearing.
+98. **"Gilet" wins outright over the hoodie/jacket ambiguity above** — real examples, both
+    confirmed genuinely sleeveless via description: Furor's "Hooded Puffer Gilet" ("Gilet
+    Jacket... Regular Fit Polyester Fabric") and Cougar's "Hooded Gilet Jacket" ("...sleeveless
+    construction and 100% polyester parachute fabric") were landing on Hoodie; now resolve Vest
+    (#95's leaf).
+99. **"With a hood(ie)" describes an attached-hood DETAIL on another garment, not the garment's
+    own type** — same class of fix as `GARMENT_DETAIL_RE`'s existing "with...belt/tie/scarf"
+    stripping (#60/#91), applied locally inside the Upperwear leaf-picker since title_blob/blob
+    never go through that stripping elsewhere. Real examples: Outfitters' "Faux Leather Jacket
+    With Hoodie" (Synthetic Faux Leather) and "Denim Jacket With Hoodie" (100% Cotton denim) are
+    both real jackets that merely include an attached hood, landing on Hoodie before this fix.
+100. **The last-resort bare-"hooded" fallback (#97) still needed an explicit "shirt" exclusion**
+    — "shirt" is never an active check in this function (it's the caller's own final default,
+    not a returned leaf here), so it couldn't "already have claimed the return" the way
+    jacket/coat do. Real examples: One (Be-One)'s "Hooded Check Shirt" ("Regular fit short
+    sleeve shirt in check fabrication, featuring... contrasting jersey hood") and Meme's
+    "HOODED DENIM SHIRT" ("SLIM FIT SHACKET WITH REGULAR COLLAR FEATURING HOOD. SNAP BUTTON
+    DOWN CLOSURE") are both genuine collared, buttoned shirts with a hood as a design detail —
+    were landing on Hoodie, now correctly fall through to the Shirt default.
+
+378/378 tests pass (14 new/updated). Backfill against the existing 117,657-product catalog: 22
+products recategorized for #96 (19 Men, 2 Boys, 1 Women — the same bug existed in every
+gender's Vest bucket), then 175 more for #97-99 (the vast majority — real hooded jackets/coats
+across 10 brands, catalog-wide, not just the two brands #95 was originally scoped to), then 6
+more for #100. Idempotency reverified: a second backfill run changed 0 rows.

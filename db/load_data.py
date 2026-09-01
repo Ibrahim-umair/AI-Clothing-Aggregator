@@ -1470,7 +1470,43 @@ def classify(store, p, title, product_type, tags, vendor, description):
             return "Tank Top"
         if re.search(r"\b(tees?|t-shirts?|tshirts?)\b", text):
             return "T-Shirt"
-        if "hoodie" in text or "hooded" in text:
+        # "gilet" wins outright over any hoodie/jacket ambiguity below —
+        # it's this catalog's most unambiguous sleeveless-outerwear word
+        # (see the Vest leaf's own comment). Real examples otherwise lost
+        # to Hoodie: Furor's "Hooded Puffer Gilet" (description: "Gilet
+        # Jacket... Regular Fit Polyester Fabric"), Cougar's "Hooded Gilet
+        # Jacket" (description: "...sleeveless construction and 100%
+        # polyester parachute fabric") — both genuinely gilets despite
+        # "hooded" and/or "jacket" also being present in the title.
+        if "gilet" in text:
+            return "Vest"
+        # User-reported: browsing Hoodie turned up real hooded JACKETS —
+        # 99 real products, the vast majority Cambridge/Charcoal/Cougar/
+        # Diners/Equator/Furor/Lama/Meme/One(Be-One)/Uniworth titled things
+        # like "HOODED PUFFER JACKET", "Hooded Denim Jacket", "MEN'S
+        # HOODED DUFFLE COAT", "HOODED PUFFER BOMBER JACKET" — "hooded" is
+        # an ADJECTIVE describing a feature of the jacket/coat, not the
+        # garment's own type, and it was winning outright over the actual
+        # garment noun ("jacket"/"coat") appearing later in the same
+        # title. Only the literal NOUN "hoodie" is trusted here now — real
+        # genuine hoodies verified by description before trusting this:
+        # Cambridge's "WAFFLE/OTTOMAN HOODIE ZIPPER JACKET" line (100%
+        # soft fleece, cotton-poly blend — a real hoodie despite "jacket"
+        # also appearing) and Charcoal's "JACKET FULL SLEEVE KNIT HOODIE"
+        # line (100% fleece cotton) both correctly stay Hoodie via this
+        # noun-only check. "with...hood(ie)" is stripped first, same class
+        # of fix as GARMENT_DETAIL_RE's "with...belt/tie/scarf" (applied
+        # locally here since title_blob/blob never go through that
+        # stripping — it's only ever applied to accessory_blob elsewhere):
+        # real examples, Outfitters' "Faux Leather Jacket With Hoodie"
+        # (Synthetic Faux Leather) and "Denim Jacket With Hoodie" (100%
+        # Cotton denim), are both real jackets that merely include an
+        # attached hood, not hoodies themselves. The weaker bare-"hooded"
+        # signal (no "hoodie" noun present) is checked again further down,
+        # ONLY as a last resort after jacket/coat/blazer/dress have all
+        # had a chance to claim a stronger, more specific noun first.
+        hoodie_text = re.sub(r"\bwith\b.{0,20}?\bhood(?:s|ie|ies)?\b", " ", text)
+        if "hoodie" in hoodie_text:
             return "Hoodie"
         if "sweatshirt" in text or "sweat shirt" in text:
             return "Sweatshirt"
@@ -1497,6 +1533,24 @@ def classify(store, p, title, product_type, tags, vendor, description):
             return "Jacket"
         if re.search(r"\bdress\b(?!\s+(?:\w+\s+)?shirts?\b)|\bfrock\b", text):
             return "Dress"
+        # Last-resort weak signal — a bare "hooded" with no "hoodie" noun,
+        # no gilet, and no jacket/coat/blazer/dress noun already claimed
+        # above (all real, more specific outerwear types checked first;
+        # see the "hoodie" noun check above for why "hooded" alone can't
+        # be trusted this early). Also excludes "shirt" — real examples,
+        # One (Be-One)'s "Hooded Check Shirt" ("Regular fit short sleeve
+        # shirt in check fabrication, featuring... contrasting jersey
+        # hood and double pockets"), Meme's "HOODED DENIM SHIRT" ("SLIM
+        # FIT SHACKET WITH REGULAR COLLAR FEATURING HOOD. SNAP BUTTON DOWN
+        # CLOSURE") — are all genuine collared, buttoned SHIRTS with a
+        # hood as a design detail, not hoodies; "shirt" isn't checked
+        # elsewhere in this function since it's the caller's own final
+        # fallback, so it has to be excluded explicitly here rather than
+        # just "already having claimed the return above" like jacket/coat
+        # did. A real, genuine hooded sweatshirt with no other garment
+        # word still needs to land somewhere.
+        if "hooded" in text and not re.search(r"\bshirts?\b", text):
+            return "Hoodie"
         # A bare "vest" reaching this point is, by construction, NOT an
         # underwear vest (that's already been ruled out earlier via
         # is_underwear_vest) — real examples confirm it's genuine outerwear/

@@ -1324,6 +1324,62 @@ check("a coat whose description mentions 'vests' only as a likely 'vents' typo s
       "Summar Coat Slim Fit 2 Button Down Charcoal Black", vendor="Men",
       description="Window Check Fabric Notch Lapel Two Buttons Two Flap Pockets Two Back Side Vests Contrast Elbow Patches",
       expect_gender="Men", expect_branch="Western", expect_leaf="Jacket")
+# User-reported: browsing Hoodie turned up real hooded jackets. Read all
+# 99 real Hoodie-filed products with an outerwear-sounding title word
+# before deciding what to do — "hooded" is an ADJECTIVE describing a
+# feature, not the garment's own type, and was winning outright over the
+# actual garment noun (jacket/coat) appearing later in the same title.
+check("'Hooded Puffer Jacket' resolves Jacket, not Hoodie", "Hooded Puffer Jacket",
+      vendor="Cambridge", expect_branch="Western", expect_leaf="Jacket")
+check("'Hooded Denim Jacket' resolves Jacket too", "Black Hooded Denim Jacket",
+      vendor="Cambridge", expect_branch="Western", expect_leaf="Jacket")
+check("'Hooded Duffle Coat' resolves Jacket (coat folds into Jacket)", "Men's Hooded Duffle Coat Olive",
+      vendor="Charcoal", expect_branch="Western", expect_leaf="Jacket")
+# "Gilet" wins over the hoodie/jacket ambiguity outright — real examples,
+# both confirmed genuinely sleeveless via description before trusting the
+# title: Furor's "Hooded Puffer Gilet" (description: "Gilet Jacket...
+# Regular Fit Polyester Fabric") and Cougar's "Hooded Gilet Jacket"
+# (description: "...sleeveless construction and 100% polyester parachute
+# fabric").
+check("'Hooded Puffer Gilet' resolves Vest, not Hoodie or Jacket", "Hooded Puffer Gilet - FMTJP24-043",
+      vendor="Furor", description="Gilet Jacket Regular Fit Polyester Fabric Chest Zipper Pocket",
+      expect_branch="Western", expect_leaf="Vest")
+check("'Hooded Gilet Jacket' resolves Vest too", "Hooded Gilet Jacket",
+      vendor="Cougar", description="A streamlined quilted gilet in khaki with mock neck styling. The sleeveless construction and 100% polyester parachute fabric.",
+      expect_branch="Western", expect_leaf="Vest")
+# The literal NOUN "hoodie" is still trusted outright, even alongside
+# "jacket" — real genuine hoodies verified by description before keeping
+# this: Cambridge's "WAFFLE/OTTOMAN HOODIE ZIPPER JACKET" line (100% soft
+# fleece, cotton-poly blend) and Charcoal's "JACKET FULL SLEEVE KNIT
+# HOODIE" line (100% fleece cotton) are both real hoodies despite
+# "jacket" also appearing in the title.
+check("a genuine fleece 'Hoodie Zipper Jacket' stays Hoodie", "Waffle Hoodie Zipper Jacket",
+      vendor="Cambridge", description="Crafted from soft LSF fleece with a waffle texture, cotton-poly blend.",
+      expect_branch="Western", expect_leaf="Hoodie")
+check("'Jacket ... Knit Hoodie' (fleece) stays Hoodie too", "Jacket Full Sleeve Knit Hoodie Grey Heather",
+      vendor="Charcoal", description="100% Fleece Cotton", expect_branch="Western", expect_leaf="Hoodie")
+# "with a hood(ie)" describes an attached-hood DETAIL on another garment,
+# not the garment's own type — same class of fix as GARMENT_DETAIL_RE's
+# "with...belt/tie/scarf" stripping. Real examples: Outfitters' "Faux
+# Leather Jacket With Hoodie" (Synthetic Faux Leather) and "Denim Jacket
+# With Hoodie" (100% Cotton denim) are both real jackets that merely
+# include an attached hood.
+check("'Jacket With Hoodie' resolves Jacket, not Hoodie", "Faux Leather Jacket With Hoodie",
+      vendor="Outfitters", expect_branch="Western", expect_leaf="Jacket")
+check("a plain 'Hooded Sweatshirt' with no competing noun still resolves Hoodie", "Men's Hooded Pullover",
+      vendor="Men", expect_branch="Western", expect_leaf="Hoodie")
+# "shirt" isn't checked elsewhere in this function (it's the caller's own
+# final default), so a "hooded shirt" needs an explicit exclusion or the
+# last-resort bare-"hooded" fallback swallows it. Real examples: One
+# (Be-One)'s "Hooded Check Shirt" ("Regular fit short sleeve shirt in
+# check fabrication, featuring... contrasting jersey hood") and Meme's
+# "HOODED DENIM SHIRT" ("SLIM FIT SHACKET WITH REGULAR COLLAR FEATURING
+# HOOD. SNAP BUTTON DOWN CLOSURE") are both genuine collared, buttoned
+# shirts with a hood as a design detail, not hoodies.
+check("'Hooded Check Shirt' resolves Shirt, not Hoodie", "Hooded Check Shirt",
+      vendor="One (Be-One)",
+      description="Regular fit short sleeve shirt in check fabrication, featuring front buttoned placket with contrasting jersey hood and double pockets in front",
+      expect_branch="Western", expect_leaf="Shirt")
 
 print(f"{PASSED} passed, {len(FAILURES)} failed")
 if FAILURES:
