@@ -618,6 +618,16 @@ VEST_OUTERWEAR_SIGNAL_RE = re.compile(
     r"\btees?\b|\bt-shirts?\b|\btank\s*tops?\b",
     re.I,
 )
+# A DIFFERENT distinction from the underwear-vs-not check right above —
+# this decides whether an already-confirmed OUTERWEAR-class "vest" is
+# really a sleeveless ATHLETIC TOP (the same garment this catalog already
+# calls "Tank Top") rather than a puffer/quilted/waistcoat outer LAYER.
+# See _upperwear_leaf_from's own comment for the real examples this was
+# built against.
+ACTIVEWEAR_VEST_SIGNAL_RE = re.compile(
+    r"\bgym\b|\bactive\s*wear\b|\btraining\b|\bworkouts?\b|\bdry[\s-]?fit\b|\bsports?\s*vest\b",
+    re.I,
+)
 
 # "kurta pajama"/"kurta shalwar" is a two-piece SET, not the same product as
 # a plain kurta sold alone — the two need different leaves. Checked before
@@ -1513,6 +1523,25 @@ def classify(store, p, title, product_type, tags, vendor, description):
         # "Blue Quilted Gilet") had no jacket/vest/coat word at all and
         # were falling to Shirt/Hoodie — found during the Bandana.pk
         # onboarding audit but not specific to that brand.
+        # A "vest" carrying an activewear signal in its own title (gym/
+        # training/sports/"active wear"/dry-fit) is a sleeveless ATHLETIC
+        # TOP — the same real garment this catalog already calls "Tank
+        # Top" for every other brand — not the puffer/quilted/waistcoat
+        # OUTERWEAR layer the plain "Vest" leaf above is otherwise full of.
+        # User-reported (browsing Men's Vest after the leaf above shipped):
+        # "the men vests look very diverse." Real examples, verified via
+        # description before ever trusting the title alone: One (Be-One)'s
+        # "Gym Vest" ("Gym vest in dry fit fabrication"), Equator's
+        # "Training Vest" ("from our Activewear collection...wicks
+        # moisture...workouts"), Engine Clothing's "Active Wear Vest"
+        # ("activewear vest...Lycra Poly Jersey...workouts, training") —
+        # all real athletic tanks, sitting in the same leaf as Cambridge's
+        # genuine quilted winter puffer vests and Uniworth's formal
+        # Western waistcoats. Checked ahead of the plain vest/gilet/
+        # bodywarmer catch-all below so this narrower, stronger signal
+        # wins first.
+        if re.search(r"\bvests?\b", text) and ACTIVEWEAR_VEST_SIGNAL_RE.search(text):
+            return "Tank Top"
         if re.search(r"\bvests?\b|\bgilets?\b|\bbodywarmers?\b", text):
             return "Vest"
         return None

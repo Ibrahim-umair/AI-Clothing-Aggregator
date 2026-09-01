@@ -884,17 +884,43 @@ check("'Duppatta' misspelling still resolves Scarf", "Dyed Duppatta",
 check("a dupatta bundled into a real kurta ensemble still resolves Eastern", "Kurta With Dupatta",
       vendor="Women", expect_branch="Eastern", expect_leaf="Kurta")
 
-# 70. Outerwear vests (quilted/padded/sherpa/activewear) had no leaf of
-# their own once ruled out as underwear — ~60 real products were falling
-# to Shirt instead of their own Vest leaf (folded into Jacket until
-# 2026-09-01 — see CATEGORY_TREE's own comment on the Vest leaf).
-check("outerwear 'Vest' resolves its own Vest leaf, not Shirt", "Active Wear Vest",
-      product_type="Men", vendor="Engine Clothing", expect_branch="Western", expect_leaf="Vest")
+# 70. Outerwear vests (quilted/padded/sherpa) had no leaf of their own
+# once ruled out as underwear — ~60 real products were falling to Shirt
+# instead of their own Vest leaf (folded into Jacket until 2026-09-01 —
+# see CATEGORY_TREE's own comment on the Vest leaf). "Active Wear Vest"
+# itself moved to the Tank Top test below on 2026-09-01 (see
+# ACTIVEWEAR_VEST_SIGNAL_RE's own comment) — a real activewear vest
+# resolves Tank Top now, not Vest.
+check("a plain outerwear 'Vest' resolves its own Vest leaf, not Shirt", "Suede Padded Vest",
+      product_type="Men Jackets", vendor="Cambridge", expect_branch="Western", expect_leaf="Vest")
 check("a real Sweater Vest still resolves Sweater ahead of the Vest fallback", "Cougar Sweater Vest",
       vendor="Cougar Women", expect_branch="Western", expect_leaf="Sweater")
 check("a real underwear vest (sando signal) still resolves Underwear, unaffected", "Sporty Vest",
       product_type="Undergarment", vendor="Uniworth", description="our sporty undergarment will keep you cool",
       expect_branch="Accessories", expect_leaf="Underwear")
+# User-reported (browsing Men's Vest after the leaf above shipped): "the
+# men vests look very diverse... vest sweater and jackets" — read every
+# one of the 130 real Men's Vest products before concluding what was
+# actually wrong: a genuine second garment class, sleeveless ATHLETIC
+# tops, was hiding in the same leaf as Cambridge's real quilted puffer
+# vests and Uniworth's formal Western waistcoats. Real examples,
+# descriptions verified before trusting the title: One (Be-One)'s "Gym
+# Vest" ("Gym vest in dry fit fabrication"), Equator's "Training Vest"
+# ("from our Activewear collection...wicks moisture...workouts"), Engine
+# Clothing's "Active Wear Vest" ("activewear vest...Lycra Poly
+# Jersey...workouts, training"). These are the same real garment this
+# catalog already calls "Tank Top" for every other brand, not an
+# outerwear layer — routed there instead of the plain Vest leaf.
+check("a 'Gym Vest' resolves Tank Top, not the outerwear Vest leaf", "Regular Fit Gym Vest",
+      vendor="One (Be-One)", description="Regular fit sleeveless vest in textured dry fit fabrication, featuring crew neck",
+      expect_branch="Western", expect_leaf="Tank Top")
+check("a 'Training Vest' resolves Tank Top too", "Grey Training Vest",
+      vendor="Equator", description="This training vest from our Activewear collection is made with ultimate comfort in mind.",
+      expect_branch="Western", expect_leaf="Tank Top")
+check("'Active Wear Vest' resolves Tank Top, not Vest", "Men Active Wear Vest",
+      product_type="Men", vendor="Engine Clothing", expect_branch="Western", expect_leaf="Tank Top")
+check("a 'Sports Vest' resolves Tank Top too", "Boys Panel Sports Vest",
+      vendor="Engine Clothing", expect_gender="Boys", expect_branch="Western", expect_leaf="Tank Top")
 
 # 71. Diners' bare piece-count ("2PC"/"3PC") and "combo" naming for a
 # coordinated Western set, with no "suit"/"co-ord" word at all — real
