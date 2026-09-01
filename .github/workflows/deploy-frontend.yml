@@ -1,0 +1,44 @@
+# Real fix for a real gap: Cloudflare's dashboard "Connect to Git" wizard
+# only does a ONE-TIME build — confirmed via the Cloudflare API that no
+# persistent build/webhook config was ever registered for this Worker
+# (`/builds/workers/{script}/config` returned 404). Every push since had
+# to be deployed by hand (`npm run build && npx wrangler deploy`). This
+# workflow is that same, exact command sequence, just running on push
+# instead of a person's keyboard.
+name: Deploy frontend
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "frontend/**"
+      - ".github/workflows/deploy-frontend.yml"
+  workflow_dispatch: {}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+
+      # The live API has no domain (nip.io + Caddy, chosen specifically to
+      # avoid buying one) — see api.js's own VITE_API_BASE fallback for why
+      # this has to be supplied at build time, not read at runtime.
+      - run: npm run build
+        env:
+          VITE_API_BASE: https://3-235-254-9.nip.io/api
+
+      - run: npx wrangler deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
