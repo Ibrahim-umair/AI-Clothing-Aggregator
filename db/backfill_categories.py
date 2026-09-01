@@ -10,13 +10,23 @@ Only touches products.category_id — variants/images/prices are untouched,
 so this is much cheaper than re-running the full load.
 """
 import json
+import os
 import re
 import psycopg2
 import psycopg2.extras
 
 from load_data import CATEGORY_TREE, classify, strip_html
 
-DSN = "host=localhost port=5433 dbname=libas user=libas password=libas_dev_password"
+# Same env-var convention as server/db.py, so this can run against
+# production (real host/password from SSM) without editing the file —
+# falls back to the local dev defaults when unset.
+DSN = (
+    f"host={os.environ.get('PGHOST', 'localhost')} "
+    f"port={os.environ.get('PGPORT', '5433')} "
+    f"dbname={os.environ.get('PGDATABASE', 'libas')} "
+    f"user={os.environ.get('PGUSER', 'libas')} "
+    f"password={os.environ.get('PGPASSWORD', 'libas_dev_password')}"
+)
 
 
 def main():
