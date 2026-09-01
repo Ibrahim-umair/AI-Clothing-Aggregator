@@ -392,8 +392,8 @@ export default function AiSearch() {
             </>
           ) : error ? (
             <div className="empty-state">
-              <h3>Couldn't reach the search engine</h3>
-              <p>Something went wrong talking to the server. Check your connection and try again.</p>
+              <h3>AI mode is taking a short break</h3>
+              <p>We've hit a snag on our end and the team's already on it. Please check back shortly — or browse the regular Shop page in the meantime.</p>
               <button type="button" className="btn btn--primary" onClick={retry}>
                 Try again
               </button>
