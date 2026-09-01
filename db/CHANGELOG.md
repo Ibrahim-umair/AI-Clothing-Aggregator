@@ -1103,3 +1103,45 @@ resolve to the actual Formal Suit leaf (was 36). A smaller, separate residual no
 fixed in this pass: 2 Cambridge "Sharp Vest" products (a standalone vest piece from the same
 collection, not the full suit) remain in Co-ord Set — different root cause (a vest-vs-Co-ord-Set
 boundary question, not formal-suit-related), out of scope for this fix.
+
+## 2026-09-01 (twenty-fourth pass — three rapid user follow-ups on the Vest leaf, each one
+found by actually looking, not trusting a title alone)
+
+104. **"Jacket" in the title wins over "gilet"/"vest" outright — no exception, not even for a
+    photo-confirmed-sleeveless garment.** Real regression: the prior pass's "gilet wins unless
+    'jacket' + no evidence" rule still let a genuinely sleeveless "Gilet Jacket"/"Vest Jacket"
+    product stay in Vest whenever its description happened to confirm sleeveless (Cougar's
+    "Hooded Gilet Jacket," Charcoal's "QUILTED SUEDE GILET JACKET SLEEVELESS," Engine
+    Clothing's "Men Gilet Jacket" — all photo-verified real vests). Asked the user directly via
+    AskUserQuestion rather than flip again on a guess: explicit answer was title word wins,
+    full stop, regardless of confirmed construction ("logically one would want to see
+    sleeveless/vest type jackets in JACKETS SECTION"). Simplified the rule accordingly and
+    removed the sleeveless-description exception entirely.
+105. **"Open knit" is sweater-weight fabric, never a plain jersey tank.** User-reported directly,
+    browsing Men's Vest: "seeing... open knit vest (sweater)." Outfitters' "Open Knit Vest" is
+    photo-confirmed a thick ribbed knit layering piece worn over a collared shirt — unmistakably
+    a sweater vest. Added "open knit" as its own Sweater trigger.
+106. **A plain ribbed/knit "vest" with no other outerwear signal is a basic jersey tank, not
+    outerwear and not a sweater** — a different real pattern found in the same sweep. Furor's
+    entire "Ribbed Vest" line (6 products, FMTV5/FMTV6/FWTT SKUs, description "Regular Fit Rib
+    Fabric") and Engine Clothing's "Men Sleeveless Panel Knit Vest" are both photo-confirmed
+    plain scoop-neck/ringer tanks — no padding, quilting, collar, or closure. Routed to Tank
+    Top, the same real garment this catalog already uses for every other brand's activewear
+    vests. Gated with a new `VEST_REAL_OUTERWEAR_RE` so a genuine quilted/puffer/gilet/
+    waistcoat vest whose text merely mentions a ribbed hem/trim as a detail is never caught.
+107. **The T-Shirt regex required a hyphen ("t-shirt") or no separator ("tshirt") — never a
+    literal space ("t shirt").** Found chasing one specific mislabel (Engine Clothing's "Boys
+    Vest T Shirt," a photo-confirmed plain graphic tank landing on the generic Vest leaf) but
+    verifying the fix's real scope in Python (not Postgres — its `~*` POSIX regex doesn't
+    support `\b` word boundaries the way Python's `re` does, and an initial SQL-side check
+    silently under-counted as a result) turned up a much bigger, catalog-wide, previously-
+    invisible bug: 2,957 real products titled "Boys T Shirt," "Men T Shirt," "Women T Shirt,"
+    "Girls T Shirt," bare "T Shirt," never matched this regex at all and were falling through
+    to the generic Shirt default. Also added "vest" + a tee word together as a sleeveless
+    signal (mirroring the existing "tank" precedent) so "Vest T Shirt" itself correctly
+    resolves Tank Top, not T-Shirt.
+
+388/388 tests pass (11 new/updated). Backfill against the existing 117,657-product catalog: 22
+products for #104 (back to Jacket), 8 for #105/#106 (1 to Sweater, 7 to Tank Top), 2,885 for
+#107 (the vast majority the spaced-T-Shirt fix, catalog-wide, not Vest-specific). Idempotency
+reverified after each.
