@@ -1057,3 +1057,49 @@ products recategorized for #96 (19 Men, 2 Boys, 1 Women — the same bug existed
 gender's Vest bucket), then 175 more for #97-99 (the vast majority — real hooded jackets/coats
 across 10 brands, catalog-wide, not just the two brands #95 was originally scoped to), then 6
 more for #100. Idempotency reverified: a second backfill run changed 0 rows.
+
+## 2026-09-01 (twenty-third pass — user-reported Vest sizing looked like jacket sizes; applying
+the same size-anomaly-as-signal technique catalog-wide surfaced a real, much larger bug elsewhere)
+
+101. **Investigated first, before touching anything**: user reported Men's Vest showing chest-inch
+    sizes (44/46, jacket-style) and asked to fix it. Found the real candidates via a script (29
+    Men's Vest products with numeric chest sizing), then — per explicit instruction — read every
+    one personally rather than trusting the script's output: downloaded and viewed 10 of the 29
+    products' actual photos, spanning every distinct style in the set (Cambridge's quilted/
+    padded/sherpa/suede vests, Uniworth's formal Western Waistcoat line). Every single one is a
+    real, genuinely sleeveless vest — chest-inch sizing is these brands' own legitimate sizing
+    convention for structured vests, not a categorization bug. No change made; a real absence of
+    a bug is a valid finding, not a failure to find one.
+102. **Applied the same technique across every category, not just Vest** (as asked) — computed
+    each (gender, leaf)'s dominant size-system, flagged categories where a numeric-inch minority
+    seemed inconsistent with the garment type. Most flags turned out to be other real, legitimate
+    alternate conventions (chest sizes for Jacket/Shirt/Waistcoat, waist sizes for Trouser/
+    Shorts/Joggers) and were set aside without further action — same discipline as #101, an
+    anomaly is a reason to look, not a reason to conclude.
+103. **One flag was real and much bigger than the original report**: Men's Co-ord Set had 49% of
+    its sized variants using chest-inch sizing — implausible for what's supposed to be casual
+    matching separates. Read the actual flagged products (not just their sizes): 393 distinct
+    products, dominated by exactly the brands already known to sell formal Western business
+    suits (#81) — Uniworth, Monark, Edenrobe, Royal Tag, Cambridge, Equator. Titles/descriptions
+    ("Sharp 3 Piece Suit," "SHARP (3PC)," real "Model is 6'2" with a 40" chest, and is wearing a
+    size 40" tailoring-fit boilerplate) confirmed these are genuine formal 2/3-piece business
+    suits, not casual separates — `FORMAL_SUIT_RE` (#81) missed them because none of them use
+    ANY of its trigger words (blazer/lapel/breasted/bespoke/tuxedo/waistcoat) — bare "suit" was
+    deliberately excluded from that regex originally (too broad on its own; a casual Co-ord Set
+    sometimes loosely uses the same word). Widened the net with two narrower, safe additions
+    instead of just adding bare "suit": (a) the PHRASE "formal suit" — unambiguous enough to
+    trust outright, since a casual set never calls itself "formal" — which alone caught 112 real
+    Edenrobe products literally titled "Formal Suit - EBTCPC..." (only 36 of 148 "Formal
+    Suit"-titled products were resolving to the actual Formal Suit leaf before this); and (b)
+    "suit" combined with that exact tailoring-fit boilerplate phrase, which catches Cambridge's
+    "SHARP"/"LUXER" lines that never say "formal" either. Verified the boilerplate-alone isn't
+    itself a safe signal before combining it with anything: it appears on 16 total Co-ord Set
+    products, 2 of which ("KNIT & PAJAMA," a genuine loungewear set) don't say "suit" at all —
+    requiring both together keeps that one correctly excluded.
+
+381/381 tests pass (5 new). Backfill against the existing 117,657-product catalog: 135 products
+recategorized (mostly #103's Formal Suit fix). 148 of 149 "Formal Suit"-titled products now
+resolve to the actual Formal Suit leaf (was 36). A smaller, separate residual noted but not
+fixed in this pass: 2 Cambridge "Sharp Vest" products (a standalone vest piece from the same
+collection, not the full suit) remain in Co-ord Set — different root cause (a vest-vs-Co-ord-Set
+boundary question, not formal-suit-related), out of scope for this fix.

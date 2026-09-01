@@ -1380,6 +1380,37 @@ check("'Hooded Check Shirt' resolves Shirt, not Hoodie", "Hooded Check Shirt",
       vendor="One (Be-One)",
       description="Regular fit short sleeve shirt in check fabrication, featuring front buttoned placket with contrasting jersey hood and double pockets in front",
       expect_branch="Western", expect_leaf="Shirt")
+# User-reported size anomaly on Vest (chest-inch sizing) turned up nothing
+# wrong there (verified via real product photos — every one really is a
+# genuine sleeveless vest), but the same technique applied across every
+# category surfaced a real, much bigger bug elsewhere: 112 real Edenrobe
+# products literally titled "Formal Suit - EBTCPC..." (product_type "Men
+# Formal Suits") were still sitting in Co-ord Set, because their own text
+# never says blazer/lapel/tuxedo/etc — only "suit" — and bare "suit" was
+# deliberately excluded from FORMAL_SUIT_RE (too broad on its own, see
+# that regex's own original comment). "Formal Suit" the PHRASE is safe to
+# trust outright — a casual Co-ord Set never calls itself "formal."
+check("a product titled 'Formal Suit' resolves the Formal Suit leaf", "Formal Suit - EBTCPC22-4482",
+      vendor="Suiting", product_type="Men Formal Suits", tags="70_Discount,Above-50_Discount",
+      description="Men's Pant Coat Suit Suiting Fabric",
+      expect_gender="Men", expect_branch="Western", expect_sub="Formalwear", expect_leaf="Formal Suit")
+# A second, narrower real pattern found in the same audit: Cambridge's
+# "SHARP"/"LUXER" formal-suit lines never say "formal" or any
+# FORMAL_SUIT_RE word either — just "suit" plus this brand's own
+# tailoring-fit boilerplate ("Model is 6'2" with a 40" chest, and is
+# wearing a size 40"), which also shows up as real chest-inch sizing in
+# the variant data (34-58), not S/M/L/XL. Requires BOTH "suit" AND the
+# boilerplate together — a real Cambridge loungewear set ("KNIT &
+# PAJAMA") uses the same boilerplate but never says "suit," and correctly
+# stays excluded.
+check("'Sharp 3 Piece Suit' + the chest-fit boilerplate resolves Formal Suit", "Sharp 3 Piece Suit",
+      store="cambridge", vendor="Cambridge",
+      description="Go for a sophisticated smart look with this textured suit. Slim Fit, 3 Pc. Model is 6'2\" with a 40\" chest, and is wearing a size 40.",
+      expect_gender="Men", expect_branch="Western", expect_sub="Formalwear", expect_leaf="Formal Suit")
+check("the same chest-fit boilerplate on a real pajama set (no 'suit' word) is unaffected, not Formal Suit",
+      "Knit & Pajama", store="cambridge", vendor="Cambridge",
+      description="Stripes pajama and knitted tees combine in this soft cotton pyjama set. Model is 6'2\" with a 40\" chest, and is wearing a size 40.",
+      expect_gender="Men", expect_branch="Western", expect_leaf="Shirt")
 
 print(f"{PASSED} passed, {len(FAILURES)} failed")
 if FAILURES:

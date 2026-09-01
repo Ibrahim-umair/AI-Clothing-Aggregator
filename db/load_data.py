@@ -729,7 +729,33 @@ TRACKSUIT_SINGLE_GARMENT_RE = re.compile(
 # already Men/Boys, already failed the Eastern override above — a
 # waistcoat mention is exactly the Western 3-piece-suit signal it looks
 # like, not a false positive.
-FORMAL_SUIT_RE = re.compile(r"\b(blazers?|lapels?|breasted|bespoke|tuxedos?|waistcoats?)\b", re.I)
+FORMAL_SUIT_RE = re.compile(
+    r"\b(blazers?|lapels?|breasted|bespoke|tuxedos?|waistcoats?)\b"
+    # "formal suit" the PHRASE (not bare "suit" alone — deliberately still
+    # excluded, see above) is unambiguous enough to trust outright — a
+    # casual Co-ord Set never calls itself "formal." Real bug found via a
+    # size-anomaly audit (chest-inch sizing on a "Co-ord Set" item — user-
+    # reported, unrelated original complaint about Vest sizing turned up
+    # this too): 112 real products literally titled "Formal Suit -
+    # EBTCPC..." (Edenrobe) were still sitting in Co-ord Set because
+    # their own text never says blazer/lapel/tuxedo/etc, only "suit" —
+    # only 36 of 148 "Formal Suit"-titled products were actually
+    # resolving to the Formal Suit leaf before this.
+    r"|\bformal\s+suits?\b",
+    re.I,
+)
+# A second, narrower signal for the same real bug: several brands
+# (Cambridge's "SHARP"/"LUXER" lines, real examples "Sharp 3 Piece Suit",
+# "SHARP (3PC)") never say "formal" or any FORMAL_SUIT_RE word either —
+# just "suit" plus this brand's own tailoring-fit boilerplate ("Model is
+# 6'2" with a 40" chest, and is wearing a size 40"). That exact boilerplate
+# phrase, checked against every current Co-ord Set product before trusting
+# it: appears on only 16 total, 14 of which also say "suit" (all real
+# formal suits, chest-inch sized in the variant data too); the other 2
+# ("KNIT & PAJAMA," a genuine loungewear set) don't say "suit" at all, so
+# requiring BOTH together — not just the boilerplate alone — keeps this
+# safe.
+FORMAL_SUIT_CHEST_BOILERPLATE_RE = re.compile(r"\bchest,?\s+and\s+is\s+wearing\b", re.I)
 
 # Bare "short" is too greedy — it matches "short sleeve shirt/tee/polo",
 # a description of an UPPERWEAR item's sleeve length, not the bottomwear
@@ -1403,7 +1429,11 @@ def classify(store, p, title, product_type, tags, vendor, description):
         # from a casual Co-ord Set — see FORMAL_SUIT_RE's own comment for
         # why this is gated to Men/Boys and why "waistcoat" is trusted here
         # even though it's excluded from the Eastern-override signal above.
-        if gender in ("Men", "Boys") and FORMAL_SUIT_RE.search(f"{blob} {eastern_tags_desc_blob}"):
+        formal_signal_blob = f"{blob} {eastern_tags_desc_blob}"
+        if gender in ("Men", "Boys") and (
+            FORMAL_SUIT_RE.search(formal_signal_blob)
+            or (re.search(r"\bsuits?\b", formal_signal_blob) and FORMAL_SUIT_CHEST_BOILERPLATE_RE.search(formal_signal_blob))
+        ):
             return dict(gender=gender, branch="Western", sub="Formalwear", leaf="Formal Suit",
                         style="western", construction="ready_to_wear")
         return dict(gender=gender, branch="Western", sub="Suits & Sets", leaf="Co-ord Set",
