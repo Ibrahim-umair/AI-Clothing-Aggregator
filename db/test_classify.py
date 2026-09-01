@@ -1215,6 +1215,56 @@ check("a bare 'Cardigan' with no other signal resolves Sweater", "Modal Rib Lace
       product_type="Tops", vendor="Women", expect_branch="Western", expect_leaf="Sweater")
 check("a bare 'Turtleneck' with generic product_type resolves Sweater", "Rib Relaxed Fit Turtleneck",
       product_type="Tops", vendor="Women", expect_branch="Western", expect_leaf="Sweater")
+# Bandana's "B-Fit" activewear line: vendor is just "B-Fit" (no gender
+# word, so the vendor-only check finds nothing) and EVERY B-Fit product —
+# men's and women's alike — carries a shared cross-collection tag literally
+# named "B-Fit Men Women". Once that hits the merged blob, "women" wins
+# (GENDER_PATTERNS checks it before "men" on purpose — see that list's own
+# comment) and silently overrides a title that says "Men's" in plain
+# English. 53 of 56 real "Men's B-Fit..." products were miscategorized
+# under Women for exactly this reason before the title-prefix tier fixed it.
+check("'Men's B-Fit...' title beats a same-blob 'B-Fit Men Women' tag", "Men's B-Fit CoolMax Joggers",
+      vendor="B-Fit", tags="B-Fit, B-Fit Men, B-Fit Men Bottoms, B-Fit Men Women, Men, Men Activewear",
+      expect_gender="Men", expect_branch="Western", expect_sub="Bottomwear", expect_leaf="Joggers")
+check("the same tag doesn't break a genuinely Women's B-Fit product", "Women's B-Fit CoolMax Joggers",
+      vendor="B-Fit", tags="B-Fit, B-Fit Women, B-Fit Men Women, Women, Women Activewear",
+      expect_gender="Women", expect_branch="Western", expect_sub="Bottomwear", expect_leaf="Joggers")
+# "Tote(s)" had no keyword of its own at all — real Bandana/Lama examples
+# ("Women Tote", "Journey Tote", "SUNDAY MARKET TOTE") were falling all the
+# way through to the generic Western>Shirt default.
+check("a bare 'Tote' resolves Bag, not Shirt", "Journey Tote",
+      vendor="Bandana", expect_branch="Accessories", expect_leaf="Bag")
+# "Cap Sleeve" is a sleeve STYLE (covers just the shoulder), nothing to do
+# with headwear — two real Bandana products ("Women's Raglan Cap Sleeve
+# Tee", "Boys' Graphic Cap Sleeve Tee") were landing on the literal Cap
+# accessory leaf off the bare substring "cap".
+check("'Cap Sleeve Tee' resolves T-Shirt, not the Cap accessory", "Women's Raglan Cap Sleeve Tee",
+      vendor="Bandana Women", expect_gender="Women", expect_branch="Western", expect_leaf="T-Shirt")
+check("a real standalone cap is unaffected", "Embroidered Baseball Cap",
+      vendor="Unisex", expect_branch="Accessories", expect_leaf="Cap")
+# "Sock-fit" is a real sneaker-construction term (a knit upper built like a
+# sock), not an actual pair of socks — real Lama example, "SOCK-FIT CASUAL
+# SNEAKERS" (Rs. 8,970, shoe-tier pricing vs. every genuine Socks product
+# under Rs. 1,950), was landing on Accessories>Socks off the bare
+# substring "sock".
+check("'Sock-fit Sneakers' resolves Shoes, not the Socks accessory", "Sock-Fit Casual Sneakers",
+      vendor="Lama", product_type="Footwear", expect_branch="Western", expect_sub="Footwear", expect_leaf="Shoes")
+check("a real standalone sock product is unaffected", "Cotton Sneaker Socks",
+      vendor="Lama", expect_branch="Accessories", expect_leaf="Socks")
+# "with...belt/tie" garment-detail stripping didn't cover "scarf" — a real
+# Lama dress ("CITY DRESS WITH SCARF DETAIL") was landing on
+# Accessories>Scarf instead of Dress.
+check("'Dress With Scarf Detail' resolves Dress, not the Scarf accessory", "City Dress With Scarf Detail",
+      vendor="Women", expect_gender="Women", expect_branch="Western", expect_leaf="Dress")
+check("a real standalone scarf is unaffected", "Printed Silk Scarf",
+      vendor="Women", expect_branch="Accessories", expect_leaf="Scarf")
+# GARMENT_NOUN_RE only recognized "trousers", not the equally common
+# "pants" spelling — a real Lama product, "TAPERED COTTON PANTS WITH
+# BELT", was landing on Accessories>Belt instead of Trouser.
+check("'Pants With Belt' resolves Trouser, not the Belt accessory", "Tapered Cotton Pants With Belt",
+      vendor="Women", expect_gender="Women", expect_branch="Western", expect_sub="Bottomwear", expect_leaf="Trouser")
+check("a real standalone belt is unaffected", "Faux Leather Belt",
+      vendor="Men", expect_branch="Accessories", expect_leaf="Belt")
 
 print(f"{PASSED} passed, {len(FAILURES)} failed")
 if FAILURES:

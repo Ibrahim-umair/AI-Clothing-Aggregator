@@ -911,3 +911,53 @@ verified idempotent. Bandana loaded: 1,049 products, 14,882 variants. Bandana Sh
 Tank Top + 12 wholesale-hidden Tights/leggings + 8 wholesale-hidden Shorts + 7 wholesale-hidden
 Underwear/bras + 60 sleeveless/spaghetti-strap/cropped-description matches across Shirt/
 T-Shirt/Sweater/Sweatshirt/Hoodie/Dress/Top/Polo).
+
+## 2026-09-01 (twentieth pass — user-reported "saw some women clothing within men", plus a
+full audit of Bandana/Lama, the two most-recently-onboarded brands)
+
+87. **A gender word anywhere in the merged tags/title/product_type blob could still override
+    an unambiguous title, even after the vendor-priority fix (#27/#34).** Real, high-volume
+    example: Bandana tags EVERY "B-Fit" activewear product — men's and women's alike — with a
+    shared cross-collection tag literally named `"B-Fit Men Women"`. `vendor` for this line is
+    just `"B-Fit"` (no gender word, so the vendor-only check doesn't resolve anything), so this
+    fell through to the merged blob, where `\bwomen\b` matched the tag and won outright over
+    `\bmen\b` (per `GENDER_PATTERNS`' own deliberate women-before-men ordering — see #1) —
+    silently overriding a title that says "Men's B-Fit CoolMax Joggers" in plain English.
+    Fixed with a new tier, `TITLE_GENDER_PREFIX_PATTERNS`, checked after vendor but before the
+    noisy merged blob: an explicit "Men's"/"Women's"/"Boys'"/"Girls'" at the very START of the
+    title is as deliberate and reliable a signal as vendor, anchored so it can't collide with
+    an incidental mid-title word the way an unanchored check would (same class of risk as the
+    "Spider Man" fix, #54). *53 of 56 real "Men's B-Fit..." products were filed under Women for
+    exactly this reason before the fix.*
+88. **"Tote(s)" had no keyword or leaf of its own at all** — real Bandana/Lama examples
+    ("Women Tote", "Journey Tote", "SUNDAY MARKET TOTE", "GOZO TRAVELER TOTE") had no other
+    accessory keyword and fell all the way through to the generic Western→Upperwear→Shirt
+    default. Folded into the existing Bag leaf/pattern.
+89. **"Cap Sleeve" (a sleeve style — covers just the shoulder) collided with the literal Cap
+    headwear keyword.** Real examples: Bandana's "Women's Raglan Cap Sleeve Tee", "Boys'
+    Graphic Cap Sleeve Tee". Excluded `caps?(?!\s*sleeves?)`, same class of fix as #10's
+    "shawl collar" exclusion.
+90. **"Sock-fit" (a real sneaker-construction term — a knit upper built like a sock) collided
+    with the literal Socks keyword.** Real example: Lama's "SOCK-FIT CASUAL SNEAKERS" (Rs.
+    8,970 — shoe-tier pricing, confirmed against the other 114 genuine Socks products, all
+    under Rs. 1,950) was landing on Accessories→Socks instead of Western→Footwear→Shoes.
+    Excluded `socks?(?!-fit\b)`.
+91. **`GARMENT_DETAIL_RE` ("with...belt/tie" = a design detail on another garment, #60) didn't
+    cover "scarf."** Real example: Lama's "CITY DRESS WITH SCARF DETAIL" was landing on
+    Accessories→Scarf instead of Dress. Also fixed a second bug in the same area: the
+    stand-alone `SCARF_RE` check right after the accessory block was reading the raw
+    (unstripped) blob instead of the with-detail-stripped one, so the stripping added for the
+    ACCESSORY_RE check above it never actually reached this check.
+92. **`GARMENT_NOUN_RE` (the "is there a real garment named here" guard used by the
+    with-detail stripping above) only recognized "trousers", not the equally common "pants"
+    spelling.** Real example: Lama's "TAPERED COTTON PANTS WITH BELT" was landing on
+    Accessories→Belt instead of Trouser for exactly this reason.
+
+360/360 tests pass (10 new). Retroactive backfill against the existing 117,657-product catalog:
+100 products recategorized (mostly #87's B-Fit gender fix) + 4 more (#91/#92's scarf/pants
+fixes) = 104 total. Re-auditing the full Bandana+Lama catalog (3,879 products, not a sample)
+after the backfill: 0 gender mismatches remaining (was 59), category mismatches down from 70
+to 48 in the first pass, then to a residue of lower-confidence/ambiguous cases after #88-92
+(cargo-pocket-shirt-vs-trouser, tank/turtleneck-vs-dress, and a couple of jacket/hoodie edge
+cases were found but NOT fixed here — smaller in volume, higher regression risk to a
+heavily-tuned function, reported to the user for a decision rather than rushed in).

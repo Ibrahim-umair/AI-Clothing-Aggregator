@@ -394,26 +394,43 @@ BRANCH_KEYWORDS = [
 # DENIM JEANS FOR GIRLS", Charcoal's "LINEN PAPERBAG PANTS", etc.) were
 # resolving to the Bag accessory leaf since this whole check runs before
 # the bottomwear one further down.
+# "cap sleeve(s)" excluded from the Cap match, "sock-fit" from Socks — two
+# real Bandana/Lama miscategorizations found auditing the Bandana/Lama
+# catalogs: "Women's Raglan Cap Sleeve Tee" (a sleeve STYLE, nothing to do
+# with headwear) landed under Accessories>Cap, and Lama's "SOCK-FIT CASUAL
+# SNEAKERS" (Rs. 8,970 — shoe-tier pricing, confirmed against the other 114
+# real Socks products all under Rs. 1,950) landed under Accessories>Socks
+# because "sock-fit" (a real sneaker-construction term, a knit upper built
+# like a sock) contains the bare word "sock". Same class of bug as the
+# existing "front tie"/"waist tie"/"black watch" exclusions just above.
 ACCESSORY_RE = re.compile(
-    r"\b(belts?|caps?|hats?|beanies?|wallets?|cufflinks?|sunglass(?:es)?|"
+    r"\b(belts?|caps?(?!\s*sleeves?)|hats?|beanies?|wallets?|cufflinks?|sunglass(?:es)?|"
     r"jewel(?:l?ery|ry)?|bracelets?|necklaces?|earrings?|handbags?|"
-    r"clutch(?:es)?|sock(?:s)?|key\s*chains?|backpacks?|pocket\s*squares?)\b"
+    r"clutch(?:es)?|sock(?:s)?(?!-fit\b)|key\s*chains?|backpacks?|pocket\s*squares?)\b"
     r"|(?<!paper[\s-])(?<!paper)\bbags?\b"
+    # "tote(s)" folds into the same Bag leaf — real Bandana/Lama examples
+    # ("Women Tote", "Journey Tote", "SUNDAY MARKET TOTE", "GOZO TRAVELER
+    # TOTE") had no other accessory keyword at all and were falling all
+    # the way through to the generic Western>Shirt default.
+    r"|\btotes?\b"
     r"|shawl(?!\s*collar)"
     r"|(?<!black)(?<!black\s)watch(?:es)?(?!\s*maker)"
     r"|(?<!front\s)(?<!hair\s)(?<!waist\s)\btie\b(?!-)(?!\s+up\b)(?!\s*(?:[&]|and)?\s*(?:dye|die)\b)",
     re.I,
 )
-# "with ... belt/tie" describes a design detail already attached to another
-# garment, not a standalone belt/tie being sold — real examples: "Barrel Fit
-# Jeans With Belt Detail", "Long Dress With  Waist Belt", "BUTTON DOWN SHIRT
-# WITH TIE DETAIL", "GRAPHIC TOP WITH TIE DETAIL". Every one of these had
-# "with" somewhere before the belt/tie word, which a real standalone
-# accessory listing ("Faux Leather Belt", "Poly Silk Tie") never does.
+# "with ... belt/tie/scarf" describes a design detail already attached to
+# another garment, not a standalone belt/tie/scarf being sold — real
+# examples: "Barrel Fit Jeans With Belt Detail", "Long Dress With  Waist
+# Belt", "BUTTON DOWN SHIRT WITH TIE DETAIL", "GRAPHIC TOP WITH TIE DETAIL",
+# and (Lama) "CITY DRESS WITH SCARF DETAIL" — a genuine dress landing on
+# Accessories>Scarf instead, off the same class of bug "belt"/"tie" were
+# already fixed for. Every one of these had "with" somewhere before the
+# belt/tie/scarf word, which a real standalone accessory listing ("Faux
+# Leather Belt", "Poly Silk Tie", "Printed Silk Scarf") never does.
 # Stripped out of the blob before ACCESSORY_RE runs rather than folded into
-# that regex, since the gap between "with" and "belt"/"tie" is variable
-# width and Python's re module requires fixed-width lookbehind.
-GARMENT_DETAIL_RE = re.compile(r"\bwith\b.{0,40}?\b(?:belt|tie)s?\b", re.I)
+# that regex, since the gap between "with" and "belt"/"tie"/"scarf" is
+# variable width and Python's re module requires fixed-width lookbehind.
+GARMENT_DETAIL_RE = re.compile(r"\bwith\b.{0,40}?\b(?:belt|tie|scarf)s?\b", re.I)
 # Real example the bare stripping above got wrong: Equator's "Black With
 # Brown Contrast Leather Belt" (tags explicitly say "Accessories"/"BELT")
 # is a genuine standalone belt whose OWN two-tone color is being
@@ -426,7 +443,11 @@ GARMENT_DETAIL_RE = re.compile(r"\bwith\b.{0,40}?\b(?:belt|tie)s?\b", re.I)
 # accessory whose own description happens to start with "with" isn't
 # emptied out and lost.
 GARMENT_NOUN_RE = re.compile(
-    r"\b(shirts?|tops?|dress(?:es)?|jeans?|trousers?|jumpsuits?|jackets?|"
+    # "pants?" added alongside "trousers?" — real Lama example, "TAPERED
+    # COTTON PANTS WITH BELT", was landing on Accessories>Belt because this
+    # list only recognized the word "trousers", not the equally-common
+    # "pants" spelling for the exact same garment.
+    r"\b(shirts?|tops?|dress(?:es)?|jeans?|trousers?|pants?|jumpsuits?|jackets?|"
     r"kurt[ai]s?|co-?ords?|playsuits?|tees?|t-shirts?|sweaters?|"
     r"sweatshirts?|hoodies?|frocks?|gowns?|rompers?|skirts?)\b",
     re.I,
@@ -799,6 +820,19 @@ GENDER_PATTERNS = [
     (re.compile(r"\bunisex\b", re.I), "Unisex"),
 ]
 
+# Anchored to the START of the title only — see guess_gender()'s own use of
+# this for why an anchored check is needed in addition to GENDER_PATTERNS
+# above (which scans anywhere in a merged blob, tags included). "'?s?"
+# covers both "Men's"/"Women's" (the possessive form real titles use) and a
+# bare plural "Mens"/"Womens" some stores use instead.
+TITLE_GENDER_PREFIX_PATTERNS = [
+    (re.compile(r"^women'?s?\b", re.I), "Women"),
+    (re.compile(r"^boys?'?\b", re.I), "Boys"),
+    (re.compile(r"^girls?'?\b", re.I), "Girls"),
+    (re.compile(r"^men'?s?\b", re.I), "Men"),
+    (re.compile(r"^unisex\b", re.I), "Unisex"),
+]
+
 # "kids"/"junior"/"toddler"/"infant" are age-only words — they don't specify
 # boy vs girl on their own, unlike the explicit gender words in
 # GENDER_PATTERNS above. Deliberately kept OUT of that list and checked only
@@ -861,6 +895,29 @@ def guess_gender(store, title, product_type, tags, vendor, p=None, is_graphql=Fa
     vendor_blob = (vendor or "").lower()
     for pattern, g in GENDER_PATTERNS:
         if pattern.search(vendor_blob):
+            return g
+
+    # A gender word at the very START of the title is a second, still-
+    # reliable tier, checked before the noisy merged blob below — real bug
+    # found auditing Bandana's "B-Fit" activewear line: vendor is just
+    # "B-Fit" (no gender word, so the vendor-only check above doesn't
+    # resolve anything), and Bandana tags EVERY B-Fit product — men's and
+    # women's alike — with a shared cross-collection tag literally named
+    # "B-Fit Men Women". Once that hits the merged blob below, "women"
+    # matches and (per GENDER_PATTERNS' own deliberate women-before-men
+    # ordering) wins outright, silently overriding a title that says
+    # "Men's B-Fit CoolMax Joggers" in plain English. 53 of 56 "Men's
+    # B-Fit..." products were filed under Women for exactly this reason.
+    # A leading "Men's"/"Women's"/"Boys'"/"Girls'" is a deliberate, human-
+    # authored declaration — same class of reliable signal as vendor,
+    # unlike a tag whose own name happens to contain both gender words as
+    # a bucket label. Anchored to the title's start specifically so this
+    # can't collide with an incidental mid-title word (the existing
+    # "Spider Man" problem GENDER_PATTERNS' own ordering already guards
+    # against) the way an unanchored check would.
+    title_start = (title or "").lower().strip()
+    for pattern, g in TITLE_GENDER_PREFIX_PATTERNS:
+        if pattern.match(title_start):
             return g
 
     blob = f"{vendor or ''} {tags or ''} {product_type or ''} {title or ''}".lower()
@@ -962,7 +1019,7 @@ def classify(store, p, title, product_type, tags, vendor, description):
             # leaf exists in CATEGORY_TREE, and 34 real "Hat" + 129 real
             # "Beanie" titles/product_types ("Boonie Hat", "Bucket Hat",
             # "Ribbed Beanie") were landing in the generic Shirt default.
-            ("Cap", re.compile(r"\bcaps?\b|\bhats?\b|\bbeanies?\b")),
+            ("Cap", re.compile(r"\bcaps?(?!\s*sleeves?)\b|\bhats?\b|\bbeanies?\b")),
             ("Cufflink", re.compile(r"\bcufflinks?\b")),
             ("Watch", re.compile(r"(?<!black)(?<!black\s)\bwatch(?:es)?\b(?!\s*maker)")),
             ("Sunglasses", re.compile(r"\bsunglass(?:es)?\b")),
@@ -979,10 +1036,10 @@ def classify(store, p, title, product_type, tags, vendor, description):
             # product_type's "wallet(s)" match instead — same
             # title-vs-product_type conflict class as the String Sports
             # Shoes/Basic Denim Jacket fixes elsewhere in this file.
-            ("Bag", re.compile(r"(?<!paper[\s-])(?<!paper)\bbags?\b|\bhandbags?\b|\bbackpacks?\b|\bclutch(?:es)?\b")),
+            ("Bag", re.compile(r"(?<!paper[\s-])(?<!paper)\bbags?\b|\bhandbags?\b|\bbackpacks?\b|\bclutch(?:es)?\b|\btotes?\b")),
             ("Wallet", re.compile(r"\bwallets?\b")),
             ("Shawl", re.compile(r"\bshawl\b(?!\s*collar)")),
-            ("Socks", re.compile(r"\bsocks?\b")),
+            ("Socks", re.compile(r"\bsocks?(?!-fit\b)\b")),
             ("Keychain", re.compile(r"\bkey\s*chains?\b")),
             # Added 2026-08-29 — 323 real Men's/7 Unisex pocket squares
             # (Uniworth "100% Silk Pocket Square", Cambridge/Equator formal
@@ -995,7 +1052,12 @@ def classify(store, p, title, product_type, tags, vendor, description):
             leaf = next((n for n, rx in _KEYWORD_LEAVES if rx.search(accessory_blob)), "Bag")
         return dict(gender=gender, branch="Accessories", sub=None, leaf=leaf,
                     style="western", construction="not_applicable")
-    if SCARF_RE.search(blob) and not OTHER_EASTERN_GARMENT_RE.search(blob) and not UNSTITCHED_RE.search(blob):
+    # Uses accessory_blob (the with-detail-stripped version), not the raw
+    # blob — see GARMENT_DETAIL_RE's own comment: "CITY DRESS WITH SCARF
+    # DETAIL" is a real dress, not a standalone scarf, and without this the
+    # stripping done above for the ACCESSORY_RE check never reaches this
+    # separate SCARF_RE check right after it.
+    if SCARF_RE.search(accessory_blob) and not OTHER_EASTERN_GARMENT_RE.search(blob) and not UNSTITCHED_RE.search(blob):
         return dict(gender=gender, branch="Accessories", sub=None, leaf="Scarf",
                     style="western", construction="not_applicable")
     # A bare "waistcoat" is one of EASTERN_RE's own trigger words (a real
