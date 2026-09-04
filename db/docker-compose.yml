@@ -17,7 +17,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: libas
-      POSTGRES_PASSWORD: libas_dev_password
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-libas_dev_password}
       POSTGRES_DB: libas
     ports:
       - "5433:5432"
@@ -45,9 +45,14 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      GF_SECURITY_ADMIN_USER: admin
-      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
       GF_AUTH_ANONYMOUS_ENABLED: "false"
+      # Read by Grafana itself to expand $POSTGRES_PASSWORD in
+      # monitoring/grafana/provisioning/datasources/postgres.yml — must
+      # match the postgres service's own password above (same ${...}
+      # so one db/.env value drives both, dev default or real prod secret).
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-libas_dev_password}
     ports:
       - "3001:3000"
     volumes:
@@ -76,7 +81,7 @@ services:
       PGPORT: "5432"
       PGDATABASE: libas
       PGUSER: libas
-      PGPASSWORD: libas_dev_password
+      PGPASSWORD: ${POSTGRES_PASSWORD:-libas_dev_password}
     env_file:
       # Reuses the one real .env instead of duplicating OPENAI_API_KEY
       # into a second gitignored file — same secret, one place.

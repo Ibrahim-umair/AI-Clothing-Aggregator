@@ -14,7 +14,8 @@
 
 .EXAMPLE
   ./scripts/prod-tunnel.ps1 -Target grafana
-  # then open http://localhost:3001  (user: admin / password: admin)
+  # then open http://localhost:3001 (user: admin — the password is NOT the
+  # local-dev "admin" default; pull it the same way as the DB password below)
 
 .EXAMPLE
   ./scripts/prod-tunnel.ps1 -Target db
@@ -38,7 +39,7 @@ if ((Test-Path $pluginDir) -and ($env:Path -notlike "*$pluginDir*")) {
 $InstanceId = "i-03771ac3d2f76e37d"
 
 $ports = @{
-    grafana = @{ Remote = 3001; Local = 3001; Note = "Grafana -> http://localhost:3001" }
+    grafana = @{ Remote = 3001; Local = 3001; Note = "Grafana -> http://localhost:3001 (user=admin, password: see docker env, NOT the local-dev default)" }
     db      = @{ Remote = 5433; Local = 5433; Note = "Postgres -> localhost:5433 (db=libas, user=libas)" }
 }
 $p = $ports[$Target]

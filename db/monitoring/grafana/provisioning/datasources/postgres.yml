@@ -15,4 +15,8 @@ datasources:
       postgresVersion: 1600
       timescaledb: false
     secureJsonData:
-      password: libas_dev_password
+      # $POSTGRES_PASSWORD is expanded by Grafana itself from the grafana
+      # container's own environment at provisioning-load time (a Grafana
+      # feature, not docker-compose's ${...} substitution) — so this file
+      # never needs a real password in it, dev or prod. See db/docker-compose.yml.
+      password: $POSTGRES_PASSWORD

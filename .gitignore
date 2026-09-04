@@ -2,6 +2,8 @@
 .env
 *.env
 .env.*
+!db/.env.example
+local-notes/
 
 # Dependencies
 node_modules/
