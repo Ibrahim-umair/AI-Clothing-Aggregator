@@ -91,6 +91,50 @@ python run_scrape.py --store cougar
 
 An explicitly-set environment variable always wins over `.env`.
 
+## Known incident: shared-IP rate limiting (2026-09-23)
+
+A production `--tier daily` run finished in under 6 minutes (vs. the usual
+several hours) with 9 of 18 stores reporting `failed after 5 attempts: None`
+and canary alerts for drops far past the 30% threshold (Cambridge -91%,
+Diners -87%, Charcoal -84%, Engine Clothing -82%, Edenrobe -47%). All 9
+failures clustered within about a minute of each other, mid-run.
+
+Root cause: `pacing.py`'s `Pacer` only throttles requests *within* one
+store, on the documented assumption that concurrent stores are independent
+origins with "no shared bucket to coordinate across." That's wrong for
+Shopify specifically — see `project_scraping_methodology.md` in memory,
+Shopify rate-limits by shared IP across its hosted stores, not just per
+store. Running `SCRAPE_STORE_CONCURRENCY=5` sent enough simultaneous
+traffic from the one EC2 IP to trip Shopify's limit on whichever stores
+happened to be in flight at that moment — even though each store's own
+request rate looked polite. Compounding this, `_request_with_retry`'s 429
+branch never set `last_exc`, so every one of these failures printed the
+uninformative `None` instead of "429, rate limited" — fixed in the same
+pass (`fetchers.py`).
+
+No data corruption resulted: writes are per-product atomic, and a store's
+soft-delist step (`removed` count) only runs after its fetch loop finishes
+cleanly, so a mid-run failure just leaves that store's `removed` count at 0
+for this run rather than wrongly delisting products it never got to see.
+The failed stores are simply as stale as before this run; nothing was lost.
+
+**Recovery**: re-run just the failed stores with concurrency 1 (fully
+sequential — sidesteps the shared-IP limit entirely, same principle as the
+original one-time scrape's global cross-store delay):
+
+```powershell
+foreach ($s in "bandana","cambridge","charcoal","diners","edenrobe","engine_clothing","lama","uniworth","zellbury") {
+    python run_scrape.py --store $s --concurrency 1
+}
+```
+
+**Not yet fixed** (would need a real design change, out of scope for the
+incident fix above): there is still no *global* cross-store rate limiter —
+`SCRAPE_STORE_CONCURRENCY` > 1 can still trip this again. A shared token
+bucket across all Pacer instances (or just running `--tier daily` at
+`--concurrency 2-3` instead of the default 5) would reduce the odds of a
+repeat until that's built.
+
 ## Scheduling (once a deployment target is chosen)
 
 `run_scrape.py` is a plain script — any scheduler just needs to run it on a

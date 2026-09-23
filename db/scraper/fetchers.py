@@ -32,6 +32,13 @@ def _request_with_retry(fn, store_label, max_retries, backoff_base_seconds):
         try:
             resp = fn()
             if resp.status_code == 429:
+                # Was a silent no-op on last_exc before this fix — every
+                # store that got rate-limited on all 5 attempts raised
+                # "failed after 5 attempts: None", hiding the real cause
+                # (a real production run on 2026-09-23 hit this on 9/18
+                # stores at once — see CHANGELOG for the actual root cause,
+                # Shopify's shared-IP rate limit across concurrent stores).
+                last_exc = requests.HTTPError(f"429 from {store_label} (rate limited)")
                 retry_after = resp.headers.get("Retry-After")
                 delay = float(retry_after) if retry_after else backoff_base_seconds * (2 ** (attempt - 1))
                 time.sleep(min(delay, 300))
