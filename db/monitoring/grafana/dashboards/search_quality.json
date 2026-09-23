@@ -169,7 +169,7 @@
         "colorMode": "value",
         "graphMode": "none"
       },
-      "description": "Sum of every search_logs.cost_usd row, no date range. gpt-5.6-luna is priced here at OpenAI's discounted Batch rate ($0.10/$0.60 per 1M input/output tokens), not the $0.20/$1.20 standard rate this pipeline actually pays for its real synchronous calls — see metrics.py's own comment. Treat this as a deliberate lower-bound estimate, not an exact bill.",
+      "description": "Sum of every search_logs.cost_usd row, no date range. Each row is priced by whichever extraction model was live at the time (gpt-5.6-luna through 2026-09-23, gpt-6-luna after) at OpenAI's discounted Batch rate, not the higher standard rate this pipeline actually pays for its real synchronous calls — see metrics.py's own comment for both models' rates. Treat this as a deliberate lower-bound estimate, not an exact bill.",
       "targets": [
         {
           "refId": "A",

@@ -28,6 +28,13 @@ _PRICING_PER_1M = {
     # batch discount is OpenAI's standard, consistently-documented policy
     # rather than a number specific to this one model.
     "gpt-5.6-luna": {"input": 0.10, "output": 0.60},
+    # gpt-6-luna (released 2026-09-23, replaces gpt-5.6-luna as SEARCH_MODEL
+    # — see rag.py): standard pricing is $0.10/$0.50 per 1M input/output,
+    # confirmed permanent (not promotional) per OpenAI. Same convention as
+    # above — priced here at the discounted Batch rate (flat 50% off
+    # standard): $0.05/$0.25. This pipeline still calls it synchronously, so
+    # this remains a deliberate lower-bound estimate, not actual billed cost.
+    "gpt-6-luna": {"input": 0.05, "output": 0.25},
 }
 
 

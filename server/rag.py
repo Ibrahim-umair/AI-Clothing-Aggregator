@@ -29,7 +29,11 @@ openai = AsyncOpenAI() if os.environ.get("OPENAI_API_KEY") else None
 
 # Overridable without a code change (SEARCH_MODEL in server_py/.env) so the
 # extraction model can be swapped/rolled back without a deploy.
-SEARCH_MODEL = os.environ.get("SEARCH_MODEL", "gpt-5.6-luna")
+# gpt-6-luna (released 2026-09-23) replaces gpt-5.6-luna here: same reasoning-
+# model family/Chat Completions restriction (see extract_search_filters
+# below), 50%/58% cheaper per OpenAI's published standard rates — see
+# metrics.py for the pricing entry.
+SEARCH_MODEL = os.environ.get("SEARCH_MODEL", "gpt-6-luna")
 
 VALID_GENDER_OVERRIDES = {"Women", "Men", "Boys", "Girls", "Unisex"}
 
@@ -77,11 +81,15 @@ async def extract_search_filters(query: str) -> tuple[dict, LLMCallRecord]:
     with Timer() as t:
         completion = await openai.chat.completions.create(
             model=SEARCH_MODEL,
-            # Required on the gpt-5.x reasoning models: /v1/chat/completions
-            # rejects function tools outright unless reasoning is off. Sent
-            # conditionally so SEARCH_MODEL can still be rolled back to a
-            # pre-5.x model (gpt-4o-mini), which rejects the parameter.
-            **({"reasoning_effort": "none"} if re.match(r"^gpt-5", SEARCH_MODEL) else {}),
+            # Required on the gpt-5.x/gpt-6.x reasoning models: Chat
+            # Completions rejects function tools outright unless reasoning is
+            # off (confirmed still true for gpt-6-luna, same restriction as
+            # gpt-5.6-luna — OpenAI's own docs point to the Responses API
+            # instead for tool calls *with* reasoning, which this pipeline
+            # doesn't use). Sent conditionally so SEARCH_MODEL can still be
+            # rolled back to a pre-5.x model (gpt-4o-mini), which rejects the
+            # parameter entirely.
+            **({"reasoning_effort": "none"} if re.match(r"^gpt-[56]", SEARCH_MODEL) else {}),
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": query},

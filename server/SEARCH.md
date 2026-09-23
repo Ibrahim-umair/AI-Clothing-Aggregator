@@ -15,8 +15,10 @@ POST /api/search
 
 One request does, **concurrently** (`asyncio.gather`, was `Promise.all`),
 not sequentially:
-1. An OpenAI tool-call (`gpt-5.6-luna`, forced `search_filters` function,
-   `strict: true`, `reasoning_effort: "none"` — required on gpt-5.x reasoning
+1. An OpenAI tool-call (`gpt-6-luna` as of 2026-09-23, replacing
+   `gpt-5.6-luna` — same reasoning-model family, 50%/58% cheaper per
+   OpenAI's published rates; forced `search_filters` function, `strict: true`,
+   `reasoning_effort: "none"` — required on gpt-5.x/gpt-6.x reasoning
    models for function-tool calls) extracts objective filters
    (gender/category/price/brand/sale/sizes/colors) plus a semantic residual,
    a confirmation sentence, and 2-4 next-query refinement suggestions — one
