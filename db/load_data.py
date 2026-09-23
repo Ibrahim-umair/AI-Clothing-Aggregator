@@ -32,7 +32,17 @@ def connect():
     return conn, conn.cursor()
 
 DATA_DIR = r"C:\Work\scraping-init\scraped_data"
-DSN = "host=localhost port=5433 dbname=libas user=libas password=libas_dev_password"
+# Env-var driven (same convention as backfill_categories.py/reseed_categories.py)
+# so this — and run_scrape.py, which imports DSN from here — can run against
+# production via SSM without a code change; falls back to the local dev
+# defaults when unset.
+DSN = (
+    f"host={os.environ.get('PGHOST', 'localhost')} "
+    f"port={os.environ.get('PGPORT', '5433')} "
+    f"dbname={os.environ.get('PGDATABASE', 'libas')} "
+    f"user={os.environ.get('PGUSER', 'libas')} "
+    f"password={os.environ.get('PGPASSWORD', 'libas_dev_password')}"
+)
 
 BRANDS_ALL = [
     ("outfitters", "Outfitters", "https://outfitters.com.pk", "liquid_rest"),
