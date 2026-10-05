@@ -160,19 +160,25 @@ export function HeartIcon({ size = 16, ...props }) {
 // to it in the navbar.
 export function LogoMark({ size = 26, ...props }) {
   return (
+    // Temporary mark: the same line-drawn hanger as the favicon (index.html)
+    // and the launch videos, shifted down 14 units so it sits centred in the
+    // square viewBox.
     <svg
-      viewBox="0 0 28 28"
+      viewBox="0 0 100 100"
       width={size}
       height={size}
       fill="none"
       stroke="currentColor"
-      strokeWidth="2"
+      strokeWidth="7"
+      strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
       {...props}
     >
-      <rect x="2" y="2" width="24" height="24" rx="5" />
-      <path d="M14 7.5 20.5 14 14 20.5 7.5 14Z" fill="currentColor" stroke="none" />
+      <g transform="translate(0 14)">
+        <path d="M50 14c-7 0-11 6-6 11l6 5" />
+        <path d="M50 30 L12 58 L88 58 Z" />
+      </g>
     </svg>
   );
 }
