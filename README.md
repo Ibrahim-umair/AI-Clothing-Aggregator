@@ -109,5 +109,10 @@ Every `/api/search` call is logged to Postgres — resolved filters, latency, to
   📁scraper/               per-store scraping, incremental (daily + hourly) scheduling
   📁monitoring/grafana/    dashboard + data source provisioning
 📁frontend/                React + Vite storefront
+📁videos/                  promo videos: design docs + Remotion template (see below)
 🐳docker-compose.yml
 ```
+
+## Promo videos
+
+`videos/` holds the house style for Libas promo videos: `docs/` (a general premium-video playbook and the Libas brand system) and `template/` (the approved Remotion project with two reference compositions). The project skill `.claude/skills/libas-video/` walks Claude through making a new one from real app data, including from a cloud session. To render locally: `cd videos/template && npm ci && npx remotion studio`.

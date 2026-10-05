@@ -25,3 +25,6 @@ scraped_data/
 # Editor / OS noise
 .vscode/
 .DS_Store
+
+# Video renders and stills (regenerable from videos/template)
+videos/template/out/
