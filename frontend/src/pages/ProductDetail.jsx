@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { formatPrice, discountPercent, decodeHtmlEntities } from "../lib/format.js";
+import { formatPrice, discountPercent, decodeHtmlEntities, displayTitle } from "../lib/format.js";
 import { colorHex } from "../lib/colors.js";
 import { ArrowUpRightIcon, ExpandIcon, HeartIcon } from "../components/icons.jsx";
 import { fetchProduct, fetchProducts } from "../lib/api.js";
@@ -181,7 +181,7 @@ export default function ProductDetail() {
         <div className="detail__info">
           <div>
             <span className="detail__store">{product.store_display}</span>
-            <h1 className="detail__title">{product.title}</h1>
+            <h1 className="detail__title">{displayTitle(product.title)}</h1>
           </div>
 
           <div className="detail__price-row">
@@ -301,7 +301,7 @@ function Breadcrumb({ product }) {
       ))}
       <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
         <span className="breadcrumb__sep">/</span>
-        <span className="breadcrumb__current">{product.title}</span>
+        <span className="breadcrumb__current">{displayTitle(product.title)}</span>
       </span>
     </div>
   );
