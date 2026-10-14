@@ -49,6 +49,20 @@ async def init_db() -> None:
     await pool.execute("CREATE INDEX IF NOT EXISTS idx_search_logs_created_at ON search_logs (created_at DESC)")
 
 
+# The privacy policy (frontend/src/pages/Privacy.jsx, "How long we keep
+# it") promises search records are deleted after 12 months. This is what
+# makes that true — run at startup and then daily from main.py's lifespan.
+SEARCH_LOG_RETENTION = "12 months"
+
+
+async def purge_old_search_logs() -> int:
+    pool = await get_pool()
+    status = await pool.execute(
+        f"DELETE FROM search_logs WHERE created_at < now() - interval '{SEARCH_LOG_RETENTION}'"
+    )
+    return int(status.split()[-1])
+
+
 async def log_search(*, query: str, gender_override: str | None, result: dict, metrics: dict) -> None:
     filters = result.get("filters", {})
     extract = metrics["extract"]

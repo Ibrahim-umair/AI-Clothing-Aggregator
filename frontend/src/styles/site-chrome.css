@@ -1,0 +1,167 @@
+/* ---------- Site chrome: footer, cookie consent, legal pages ----------
+   Kept out of index.css so these launch-compliance pieces can be read (and
+   changed) on their own. Uses only the design tokens from index.css's
+   :root / [data-theme="dark"] blocks, so both themes come for free.
+------------------------------------- */
+
+/* Pushes the footer to the bottom on short pages (a 404, an empty
+   Favourites) instead of leaving it floating mid-screen. */
+.app-shell > main { flex: 1 0 auto; }
+
+/* ---------- Footer ---------- */
+.site-footer {
+  margin-top: 72px;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-soft);
+  font-size: 13px;
+}
+
+.site-footer__inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 32px;
+  padding-top: 28px;
+  padding-bottom: 28px;
+}
+
+.site-footer__note {
+  flex: 1 1 320px;
+  max-width: 560px;
+  margin: 0;
+  line-height: 1.55;
+}
+
+.site-footer__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 4px;
+}
+
+/* 44px-tall hit areas (WCAG 2.5.5 / Apple HIG) even though the text is
+   small — these are the links people tap on a phone. */
+.site-footer__links a,
+.site-footer__link-button {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 10px;
+  color: var(--text);
+  font: inherit;
+  font-weight: 500;
+  background: none;
+  border: 0;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.site-footer__links a:hover,
+.site-footer__link-button:hover { color: var(--accent-strong); text-decoration: underline; }
+
+.site-footer__copy { margin: 0; width: 100%; color: var(--text-soft); }
+
+/* ---------- Cookie consent ---------- */
+.cookie-consent {
+  position: fixed;
+  z-index: 60;
+  left: 16px;
+  right: 16px;
+  bottom: 16px;
+  max-width: 720px;
+  margin: 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px 20px;
+  padding: 18px 20px;
+  background: var(--surface-raised);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  /* iPhone home-indicator clearance */
+  margin-bottom: env(safe-area-inset-bottom, 0);
+}
+
+.cookie-consent__text {
+  flex: 1 1 320px;
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+}
+.cookie-consent__text a { color: var(--accent-strong); text-decoration: underline; }
+
+.cookie-consent__actions { display: flex; gap: 10px; flex: 0 0 auto; }
+
+/* Same width for both choices: declining is never the harder option. */
+.cookie-consent__actions .btn { min-width: 112px; }
+
+@media (max-width: 520px) {
+  .cookie-consent { left: 8px; right: 8px; bottom: 8px; padding: 16px; }
+  .cookie-consent__actions { width: 100%; }
+  .cookie-consent__actions .btn { flex: 1; }
+}
+
+/* ---------- Legal pages (/privacy, /terms) ---------- */
+.legal {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 48px 0 24px;
+  color: var(--text);
+  font-size: 16px;
+  line-height: 1.7;
+}
+
+.legal__header h1 {
+  font-size: clamp(32px, 5vw, 44px);
+  line-height: 1.1;
+}
+
+.legal__updated {
+  margin: 10px 0 0;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--text-soft);
+}
+
+.legal__intro {
+  margin: 18px 0 0;
+  font-size: 18px;
+  color: var(--text-soft);
+}
+
+.legal__toc {
+  margin: 32px 0 8px;
+  padding: 18px 22px;
+  background: var(--surface-muted);
+  border-radius: var(--radius-md);
+  font-size: 14.5px;
+}
+.legal__toc ol { margin: 0; padding-left: 20px; columns: 2 240px; column-gap: 32px; }
+.legal__toc li { padding: 3px 0; break-inside: avoid; }
+.legal__toc a { color: var(--text); text-decoration: underline; text-decoration-color: var(--border); text-underline-offset: 3px; }
+.legal__toc a:hover { color: var(--accent-strong); text-decoration-color: currentColor; }
+
+.legal__section {
+  padding-top: 32px;
+  /* In-page #anchor jumps land below the sticky header, not under it. */
+  scroll-margin-top: 88px;
+}
+
+.legal__section h2 {
+  font-size: 22px;
+  margin-bottom: 10px;
+}
+
+.legal__section p { margin: 0 0 12px; }
+.legal__section ul { margin: 0 0 12px; padding-left: 22px; }
+.legal__section li { margin-bottom: 6px; }
+.legal__section a { color: var(--accent-strong); text-decoration: underline; text-underline-offset: 3px; }
+.legal__section code {
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+  padding: 1px 5px;
+  background: var(--surface-muted);
+  border-radius: 4px;
+}

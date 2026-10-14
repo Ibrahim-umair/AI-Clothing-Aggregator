@@ -3,6 +3,8 @@ purpose: all real logic lives in rag.py/query_helpers.py/taxonomy_tree.py/
 the routes/ modules, same separation as the Node version's index.js
 (routing only) vs search.js/queryHelpers.js/taxonomyTree.js (logic).
 """
+import asyncio
+import logging
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -16,7 +18,7 @@ if _env_path.exists():
     load_dotenv(_env_path)
 
 from db import close_pool, get_pool  # noqa: E402  (after dotenv load, same as Node's search.js)
-from db_conversations import init_db  # noqa: E402
+from db_conversations import init_db, purge_old_search_logs  # noqa: E402
 from routes import brands, health, products, search, taxonomy  # noqa: E402
 
 
@@ -24,12 +26,24 @@ from routes import brands, health, products, search, taxonomy  # noqa: E402
 async def lifespan(app: FastAPI):
     await get_pool()  # pre-warm the pool instead of paying for it on the first request
     await init_db()  # idempotent CREATE TABLE IF NOT EXISTS — see db_conversations.py
+    purge_task = asyncio.create_task(_purge_search_logs_daily())
     # Future OpenTelemetry hook point: FastAPI/asyncpg/OpenAI auto-
     # instrumentation would be wired up here (see MIGRATION_REPORT.md —
     # deliberately not built yet, Postgres+Grafana only for now).
     yield
+    purge_task.cancel()
     await close_pool()
 
+
+async def _purge_search_logs_daily() -> None:
+    while True:
+        try:
+            deleted = await purge_old_search_logs()
+            if deleted:
+                logging.getLogger("libas").info("purged %d search_logs rows past retention", deleted)
+        except Exception:  # a failed purge must never take the API down
+            logging.getLogger("libas").exception("search_logs retention purge failed")
+        await asyncio.sleep(86400)
 
 
 app = FastAPI(title="Libas API", lifespan=lifespan)

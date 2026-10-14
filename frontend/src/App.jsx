@@ -6,7 +6,11 @@ import AiSearch from "./pages/AiSearch.jsx";
 import ProductDetail from "./pages/ProductDetail.jsx";
 import Favourites from "./pages/Favourites.jsx";
 import Placeholder from "./pages/Placeholder.jsx";
+import Privacy from "./pages/Privacy.jsx";
+import Terms from "./pages/Terms.jsx";
 import ErrorBoundary from "./components/ErrorBoundary.jsx";
+import Footer from "./components/Footer.jsx";
+import CookieConsent from "./components/CookieConsent.jsx";
 
 export default function App() {
   const location = useLocation();
@@ -25,6 +29,8 @@ export default function App() {
               <Route path="/ai-search" element={<AiSearch />} />
               <Route path="/product/:id" element={<ProductDetail />} />
               <Route path="/favourites" element={<Favourites />} />
+              <Route path="/privacy" element={<Privacy />} />
+              <Route path="/terms" element={<Terms />} />
               <Route
                 path="/signup"
                 element={
@@ -38,6 +44,8 @@ export default function App() {
           </ErrorBoundary>
         </div>
       </main>
+      <Footer />
+      <CookieConsent />
     </div>
   );
 }
