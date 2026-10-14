@@ -6,6 +6,7 @@ import ProductCardSkeleton from "../components/ProductCardSkeleton.jsx";
 import { MAX_SHOP_QUERY_LENGTH, fetchProducts, fetchTaxonomy } from "../lib/api.js";
 import { ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, SearchIcon, SlidersIcon, CloseIcon } from "../components/icons.jsx";
 import { colorHex } from "../lib/colors.js";
+import { useDocumentMeta } from "../hooks/useDocumentMeta.js";
 
 const PAGE_SIZE = 24;
 const SORT_OPTIONS = [
@@ -224,6 +225,31 @@ export default function Shop() {
 
   const totalPages = Math.max(1, Math.ceil(result.total / PAGE_SIZE));
   const heading = selection.category || selection.sub || selection.branch || selection.gender || "All Products";
+
+  // Canonical keeps only the params that define WHICH listing this is
+  // (gender/category/brand); page, sort, price and size/color filters are
+  // views of the same listing and shouldn't each compete in search results.
+  const canonicalParams = new URLSearchParams(paramsFromSelection(selection));
+  if (onSale) canonicalParams.set("onSale", "true");
+  const canonicalQuery = canonicalParams.toString();
+  // "Men's clothing", "Boys' Shirts", "Kurta" (no gender picked).
+  const possessive = (g) => (g === "Unisex" ? g : g.endsWith("s") ? `${g}'` : `${g}'s`);
+  const listingNoun = heading === "All Products" || heading === selection.gender ? "clothing" : heading;
+  const metaSubject = selection.gender ? `${possessive(selection.gender)} ${listingNoun}` : listingNoun;
+  const metaTitle =
+    !selection.gender && !selection.store && listingNoun === "clothing"
+      ? "Shop all brands"
+      : `${metaSubject.charAt(0).toUpperCase()}${metaSubject.slice(1)}${selection.store ? ` from ${selection.store}` : ""}`;
+  useDocumentMeta({
+    title: `${onSale ? "On sale: " : ""}${metaTitle}`,
+    description: selection.store
+      ? `Browse ${onSale ? "discounted " : ""}${metaSubject} from ${selection.store}, with live prices and stock from ${selection.store}'s own store.`
+      : `Browse ${onSale ? "discounted " : ""}${metaSubject} across Pakistani clothing brands in one place, with live prices and stock from each brand's own store.`,
+    path: `/shop${canonicalQuery ? `?${canonicalQuery}` : ""}`,
+    // A free-text ?q= result is an arbitrary slice of the listing, not a
+    // page anyone should land on from Google.
+    noindex: Boolean(q),
+  });
   const brandFacets = taxonomy?.brandFacets || [];
   const sizeFacets = selection.category ? taxonomy?.sizeFacets || [] : [];
   const colorFacets = taxonomy?.colorFacets || [];

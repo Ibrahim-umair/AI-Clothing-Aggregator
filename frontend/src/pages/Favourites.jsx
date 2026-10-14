@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useWishlist } from "../hooks/useWishlist.js";
+import { useDocumentMeta } from "../hooks/useDocumentMeta.js";
 import { fetchProduct } from "../lib/api.js";
 import ProductCard from "../components/ProductCard.jsx";
 import ProductCardSkeleton from "../components/ProductCardSkeleton.jsx";
@@ -10,6 +11,8 @@ import ProductCardSkeleton from "../components/ProductCardSkeleton.jsx";
 // in localStorage against the real API rather than faking a server list.
 export default function Favourites() {
   const { ids } = useWishlist();
+  // Per-browser list (localStorage): nothing here for a search engine.
+  useDocumentMeta({ title: "Your favourites", noindex: true });
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [retryToken, setRetryToken] = useState(0);

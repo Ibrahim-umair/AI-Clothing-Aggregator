@@ -6,6 +6,7 @@ import { ArrowUpRightIcon, ExpandIcon, HeartIcon } from "../components/icons.jsx
 import { fetchProduct, fetchProducts } from "../lib/api.js";
 import { useWishlist } from "../hooks/useWishlist.js";
 import ProductCard from "../components/ProductCard.jsx";
+import { useDocumentMeta } from "../hooks/useDocumentMeta.js";
 
 export default function ProductDetail() {
   const { id } = useParams();
@@ -23,6 +24,26 @@ export default function ProductDetail() {
   const [related, setRelated] = useState([]);
   const [retryToken, setRetryToken] = useState(0);
   const { has, toggle } = useWishlist();
+
+  const ready = status === "ready" && product;
+  useDocumentMeta(
+    ready
+      ? {
+          title: `${displayTitle(product.title)} by ${product.store_display}`,
+          description: [
+            `${displayTitle(product.title)} from ${product.store_display}`,
+            product.price != null ? `${formatPrice(product.price, product.currency)}${product.available ? "" : " (currently out of stock)"}` : null,
+            product.description ? decodeHtmlEntities(product.description) : null,
+          ]
+            .filter(Boolean)
+            .join(". "),
+          image: product.image_url || undefined,
+          path: `/product/${product.id}`,
+          type: "product",
+        }
+      : // A missing product shouldn't be indexed as a thin "not found" page.
+        { title: status === "not_found" ? "Product not found" : undefined, path: `/product/${id}`, noindex: status === "not_found" }
+  );
 
   useEffect(() => {
     let cancelled = false;

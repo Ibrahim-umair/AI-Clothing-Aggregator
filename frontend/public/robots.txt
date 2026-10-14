@@ -1,0 +1,15 @@
+# Libas AI: public catalog pages are crawlable; private and costly ones aren't.
+User-agent: *
+Allow: /
+
+# Every /ai-search?q= crawl would run a paid AI search, and results are
+# personal to whoever typed them.
+Disallow: /ai-search
+# Per-browser saved list (localStorage) and a not-yet-built page.
+Disallow: /favourites
+Disallow: /signup
+# The API lives on its own host with its own robots.txt; listed here too in
+# case it's ever served from this origin.
+Disallow: /api/
+
+Sitemap: https://ai-clothing-aggregator.ibrahimumair900.workers.dev/sitemap.xml

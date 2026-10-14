@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { MAX_QUERY_LENGTH, cleanQuery, fetchBrands, fetchProducts } from "../lib/api.js";
 import { SparklesIcon, ArrowRightIcon } from "../components/icons.jsx";
 import ProductCard from "../components/ProductCard.jsx";
+import { useDocumentMeta } from "../hooks/useDocumentMeta.js";
 import ProductCardSkeleton from "../components/ProductCardSkeleton.jsx";
 
 // Home IS the AI search entry point: Libas is a shopping assistant with a
@@ -46,6 +47,7 @@ function buildQuery(text, budget) {
 export default function Home() {
   const navigate = useNavigate();
   const location = useLocation();
+  useDocumentMeta({ path: "/" });
   const [text, setText] = useState("");
   const [budget, setBudget] = useState("");
   const [gender, setGender] = useState("Men");

@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { LEGAL_LAST_UPDATED } from "../lib/site.js";
+import { useDocumentMeta } from "../hooks/useDocumentMeta.js";
 
 // Shared reading layout for /privacy and /terms: one narrow text column,
 // a table of contents, and in-page #anchors that actually scroll (react-
@@ -8,6 +9,7 @@ import { LEGAL_LAST_UPDATED } from "../lib/site.js";
 // straight to /privacy#cookies).
 export default function LegalPage({ title, intro, sections }) {
   const { hash } = useLocation();
+  useDocumentMeta({ title, description: intro });
 
   useEffect(() => {
     if (!hash) {

@@ -2,11 +2,38 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><path d='M50 14c-7 0-11 6-6 11l6 5' fill='none' stroke='%2333427a' stroke-width='7' stroke-linecap='round' stroke-linejoin='round'/><path d='M50 30 L12 58 L88 58 Z' fill='none' stroke='%2333427a' stroke-width='7' stroke-linejoin='round' stroke-linecap='round'/></svg>" />
+    <!-- Favicon package (generated, brand ink-on-paper hanger). The SVG
+         follows the browser's light/dark tab; .ico covers older browsers. -->
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta name="theme-color" content="#f7f7f5" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#121210" media="(prefers-color-scheme: dark)" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <script src="/theme-init.js"></script>
     <title>Libas AI — Ask once, every brand answers</title>
     <meta name="description" content="Describe what you want to wear and Libas AI searches the real stock of Pakistan's clothing brands for it." />
+    <!-- Static defaults. useDocumentMeta.js overwrites these per route for
+         Google (which runs JS); link-preview bots (WhatsApp, Facebook, X)
+         don't run JS and always read exactly these. Absolute URLs are
+         required for og:image / og:url — keep in sync with lib/site.js. -->
+    <link rel="canonical" href="https://ai-clothing-aggregator.ibrahimumair900.workers.dev/" />
+    <meta name="robots" content="index, follow" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Libas AI" />
+    <meta property="og:locale" content="en_PK" />
+    <meta property="og:title" content="Libas AI — Ask once, every brand answers" />
+    <meta property="og:description" content="Describe what you want to wear and Libas AI searches the real stock of Pakistan's clothing brands for it." />
+    <meta property="og:url" content="https://ai-clothing-aggregator.ibrahimumair900.workers.dev/" />
+    <meta property="og:image" content="https://ai-clothing-aggregator.ibrahimumair900.workers.dev/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Libas AI — Ask once. Every brand answers." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Libas AI — Ask once, every brand answers" />
+    <meta name="twitter:description" content="Describe what you want to wear and Libas AI searches the real stock of Pakistan's clothing brands for it." />
+    <meta name="twitter:image" content="https://ai-clothing-aggregator.ibrahimumair900.workers.dev/og-image.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link

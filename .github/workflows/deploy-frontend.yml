@@ -14,6 +14,12 @@ on:
       - "frontend/**"
       - ".github/workflows/deploy-frontend.yml"
   workflow_dispatch: {}
+  # Daily rebuild so dist/sitemap-products-*.xml (generated at build time
+  # from the live API, see frontend/scripts/generate-sitemap.mjs) tracks
+  # new and removed products even on days nobody pushes. 02:00 UTC is
+  # 07:00 in Pakistan.
+  schedule:
+    - cron: "0 2 * * *"
 
 jobs:
   deploy:

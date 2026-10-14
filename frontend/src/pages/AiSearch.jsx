@@ -15,6 +15,7 @@ import {
   SunglassesIcon,
 } from "../components/icons.jsx";
 import { MAX_QUERY_LENGTH, cleanQuery, searchProducts } from "../lib/api.js";
+import { useDocumentMeta } from "../hooks/useDocumentMeta.js";
 
 // Situation-led, not brand-led — a brand name in a suggestion chip only
 // ever helps the one shopper who already wanted that brand; an occasion
@@ -126,6 +127,16 @@ export default function AiSearch() {
   // parallel "mode" flag that could drift out of sync with it.
   const isKidsMode = genderFilter === "Boys" || genderFilter === "Girls";
   const examples = EXAMPLES_BY_GENDER[genderFilter] || EXAMPLES_BY_GENDER[DEFAULT_GENDER];
+
+  // noindex: every crawl of a ?q= URL would run a paid OpenAI search, and
+  // the results are personal to whoever typed them (robots.txt also
+  // disallows /ai-search for the same reason).
+  useDocumentMeta({
+    title: query ? `“${query.length > 60 ? `${query.slice(0, 57)}…` : query}”` : "AI search",
+    description: "Ask for clothes in your own words and Libas AI searches the real stock of Pakistani brands for it.",
+    path: "/ai-search",
+    noindex: true,
+  });
 
   // Deliberately NOT initialized from `query` — the composer always starts
   // empty (placeholder showing), whether that's the very first visit or a

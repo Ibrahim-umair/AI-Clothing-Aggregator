@@ -19,7 +19,7 @@ if _env_path.exists():
 
 from db import close_pool, get_pool  # noqa: E402  (after dotenv load, same as Node's search.js)
 from db_conversations import init_db, purge_old_search_logs  # noqa: E402
-from routes import brands, health, products, search, taxonomy  # noqa: E402
+from routes import brands, health, products, search, seo, taxonomy  # noqa: E402
 
 
 @asynccontextmanager
@@ -81,6 +81,9 @@ async def security_headers(request: Request, call_next):
     h.setdefault("X-Content-Type-Options", "nosniff")
     h.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
     h.setdefault("X-Frame-Options", "DENY")
+    # Belt and braces with /robots.txt: even if a crawler finds an API URL
+    # through a link, the JSON itself is never indexed.
+    h.setdefault("X-Robots-Tag", "noindex, nofollow")
     if not request.url.path.startswith(_DOCS_PATHS):
         h.setdefault("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'")
     return response
@@ -90,6 +93,7 @@ app.include_router(search.router)
 app.include_router(brands.router)
 app.include_router(taxonomy.router)
 app.include_router(health.router)
+app.include_router(seo.router)
 
 if __name__ == "__main__":
     import uvicorn
