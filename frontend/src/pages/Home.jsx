@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { fetchBrands, fetchProducts } from "../lib/api.js";
+import { MAX_QUERY_LENGTH, cleanQuery, fetchBrands, fetchProducts } from "../lib/api.js";
 import { SparklesIcon, ArrowRightIcon } from "../components/icons.jsx";
 import ProductCard from "../components/ProductCard.jsx";
 import ProductCardSkeleton from "../components/ProductCardSkeleton.jsx";
@@ -99,7 +99,7 @@ export default function Home() {
   }, [retryToken]);
 
   function ask(question, g = gender) {
-    const q = question.trim();
+    const q = cleanQuery(question);
     if (!q) return;
     navigate(`/ai-search?q=${encodeURIComponent(q)}&gender=${encodeURIComponent(g)}`);
   }
@@ -146,6 +146,7 @@ export default function Home() {
                 value={text}
                 onChange={(e) => setText(e.target.value)}
                 onKeyDown={onKeyDown}
+                maxLength={MAX_QUERY_LENGTH}
                 placeholder="Something smart for a mehndi, nothing too shiny"
               />
             </div>
@@ -157,6 +158,7 @@ export default function Home() {
                   <input
                     type="text"
                     inputMode="numeric"
+                    maxLength={9}
                     value={budget}
                     onChange={(e) => setBudget(e.target.value.replace(/[^\d,]/g, ""))}
                     placeholder="any"

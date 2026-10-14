@@ -9,18 +9,40 @@
 // to the old relative "/api" behavior unchanged.
 const API_BASE = import.meta.env.VITE_API_BASE || "/api";
 
+// Must match MAX_QUERY_LENGTH in server/models.py — the server rejects
+// anything longer with a 422, so inputs cap themselves here first.
+export const MAX_QUERY_LENGTH = 300;
+// Shop's title search — server/routes/products.py MAX_TITLE_QUERY_LENGTH.
+export const MAX_SHOP_QUERY_LENGTH = 100;
+
+// Same normalization the server applies (server/models.py clean_query):
+// control characters and runs of whitespace collapse to one space.
+export function cleanQuery(text) {
+  return String(text ?? "")
+    // eslint-disable-next-line no-control-regex
+    .replace(/[\u0000-\u001f\u007f]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, MAX_QUERY_LENGTH);
+}
+
+function apiError(path, res) {
+  // status is attached (not just embedded in the message string) so
+  // callers can tell "the thing you asked for doesn't exist" (404) apart
+  // from "the server/network is broken" (everything else) without
+  // parsing text — e.g. ProductDetail shows different copy for a
+  // genuinely deleted product vs. a real outage. retryAfter (seconds) is
+  // set on a 429 from the search rate limiter.
+  const err = new Error(`API ${path} failed: ${res.status}`);
+  err.status = res.status;
+  const retryAfter = Number(res.headers.get("Retry-After"));
+  if (retryAfter > 0) err.retryAfter = retryAfter;
+  return err;
+}
+
 async function getJSON(path) {
   const res = await fetch(`${API_BASE}${path}`);
-  if (!res.ok) {
-    // status is attached (not just embedded in the message string) so
-    // callers can tell "the thing you asked for doesn't exist" (404) apart
-    // from "the server/network is broken" (everything else) without
-    // parsing text — e.g. ProductDetail shows different copy for a
-    // genuinely deleted product vs. a real outage.
-    const err = new Error(`API ${path} failed: ${res.status}`);
-    err.status = res.status;
-    throw err;
-  }
+  if (!res.ok) throw apiError(path, res);
   return res.json();
 }
 
@@ -30,11 +52,7 @@ async function postJSON(path, body) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  if (!res.ok) {
-    const err = new Error(`API ${path} failed: ${res.status}`);
-    err.status = res.status;
-    throw err;
-  }
+  if (!res.ok) throw apiError(path, res);
   return res.json();
 }
 
@@ -60,7 +78,7 @@ export function fetchProducts(
   if (maxPrice) params.set("maxPrice", maxPrice);
   if (sizes?.length) params.set("size", sizes.join(","));
   if (colors?.length) params.set("color", colors.join(","));
-  if (q) params.set("q", q);
+  if (q) params.set("q", cleanQuery(q).slice(0, MAX_SHOP_QUERY_LENGTH));
   if (onSale) params.set("onSale", "true");
   if (includeOutOfStock) params.set("includeOutOfStock", "true");
   return getJSON(`/products?${params.toString()}`);
@@ -84,5 +102,5 @@ export function fetchBrands() {
 // (from an explicit UI toggle), overrides whatever the model would have
 // inferred from the query text — see runSearch()'s genderOverride.
 export function searchProducts(query, gender = null) {
-  return postJSON("/search", { query, gender });
+  return postJSON("/search", { query: cleanQuery(query), gender });
 }

@@ -1,0 +1,25 @@
+# Response headers for every static asset Cloudflare serves from dist/
+# (Workers static assets read this file; Vite copies public/ into dist/).
+#
+# HTTPS itself: *.workers.dev is HTTPS-only at Cloudflare's edge. HSTS
+# below makes browsers skip any plain-HTTP attempt on later visits. On a
+# future custom domain, also turn on SSL/TLS -> "Always Use HTTPS" for the
+# zone in the Cloudflare dashboard (a zone setting, not something this
+# file can do).
+#
+# CSP notes:
+#  - connect-src must include the API origin baked in as VITE_API_BASE
+#    (.github/workflows/deploy-frontend.yml). Change both together.
+#  - img-src allows any https: host — product photos come from
+#    cdn.shopify.com plus several brands' own domains, and new brands add
+#    new hosts.
+#  - style-src needs 'unsafe-inline' for React style={{...}} attributes.
+#  - script-src has no 'unsafe-inline': the theme bootstrap lives in
+#    /theme-init.js for exactly this reason.
+/*
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://3-235-254-9.nip.io; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests

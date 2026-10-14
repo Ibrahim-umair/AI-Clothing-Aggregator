@@ -14,7 +14,7 @@ import {
   TrouserIcon,
   SunglassesIcon,
 } from "../components/icons.jsx";
-import { searchProducts } from "../lib/api.js";
+import { MAX_QUERY_LENGTH, cleanQuery, searchProducts } from "../lib/api.js";
 
 // Situation-led, not brand-led — a brand name in a suggestion chip only
 // ever helps the one shopper who already wanted that brand; an occasion
@@ -134,6 +134,8 @@ export default function AiSearch() {
   // input just makes "type something new" harder, not easier.
   const [draft, setDraft] = useState("");
   const [loading, setLoading] = useState(false);
+  // false, or the Error thrown by searchProducts (its .status tells a
+  // rate-limit 429 apart from a real outage).
   const [error, setError] = useState(false);
   const [result, setResult] = useState(() => (query ? readCache(query, genderFilter) : null));
   // Once a search has been made, the gender/kids toggle moves off the page
@@ -175,7 +177,7 @@ export default function AiSearch() {
         setResult(data);
         writeCache(query, genderFilter, data);
       })
-      .catch(() => !cancelled && setError(true))
+      .catch((err) => !cancelled && setError(err))
       .finally(() => !cancelled && setLoading(false));
     return () => {
       cancelled = true;
@@ -197,7 +199,7 @@ export default function AiSearch() {
   }, [filtersOpen]);
 
   function submitQuery(q, gender) {
-    const trimmed = q.trim();
+    const trimmed = cleanQuery(q);
     if (!trimmed) return;
     const next = { q: trimmed };
     if (gender !== DEFAULT_GENDER) next.gender = gender || GENDER_ANY;
@@ -272,7 +274,7 @@ export default function AiSearch() {
         setResult(data);
         writeCache(query, genderFilter, data);
       })
-      .catch(() => setError(true))
+      .catch((err) => setError(err))
       .finally(() => setLoading(false));
   }
 
@@ -351,6 +353,8 @@ export default function AiSearch() {
               autoFocus
               className="ai-search__composer-input"
               placeholder="Ask anything. Describe your style, occasion or need…"
+              aria-label="Describe what you're looking for"
+              maxLength={MAX_QUERY_LENGTH}
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
             />
@@ -390,6 +394,20 @@ export default function AiSearch() {
                 ))}
               </div>
             </>
+          ) : error?.status === 429 ? (
+            <div className="empty-state">
+              <h3>Too many searches in a row</h3>
+              <p>
+                You&rsquo;ve hit the search limit for now. Please wait
+                {error.retryAfter && error.retryAfter < 3600
+                  ? ` about ${Math.ceil(error.retryAfter / 60)} minute${error.retryAfter > 60 ? "s" : ""}`
+                  : " a little while"}{" "}
+                and try again, or browse the Shop page in the meantime.
+              </p>
+              <button type="button" className="btn btn--primary" onClick={retry}>
+                Try again
+              </button>
+            </div>
           ) : error ? (
             <div className="empty-state">
               <h3>AI mode is taking a short break</h3>
@@ -498,6 +516,8 @@ export default function AiSearch() {
             <input
               className="ai-search__composer-input ai-search__composer-input--sticky"
               placeholder="Explore further, or ask something else…"
+              aria-label="Refine your search"
+              maxLength={MAX_QUERY_LENGTH}
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
             />

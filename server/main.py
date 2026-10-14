@@ -8,7 +8,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 _env_path = Path(__file__).parent / ".env"
@@ -31,13 +31,45 @@ async def lifespan(app: FastAPI):
     await close_pool()
 
 
+
 app = FastAPI(title="Libas API", lifespan=lifespan)
+
+# Only the real frontend may call the API from a browser — "*" let any site
+# embed our (paid-per-call) search in its own page. Overridable via
+# ALLOWED_ORIGINS (comma-separated) for a custom domain or a preview URL.
+_DEFAULT_ORIGINS = (
+    "https://ai-clothing-aggregator.ibrahimumair900.workers.dev,"
+    "http://localhost:5173,http://127.0.0.1:5173,http://localhost:4173"
+)
+ALLOWED_ORIGINS = [o.strip() for o in os.environ.get("ALLOWED_ORIGINS", _DEFAULT_ORIGINS).split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=ALLOWED_ORIGINS,
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type"],
+    expose_headers=["Retry-After"],
 )
+
+# FastAPI's interactive docs load their JS/CSS from a CDN, so they get the
+# standard headers but not the lock-everything-down CSP the JSON routes do.
+_DOCS_PATHS = ("/docs", "/redoc", "/openapi.json")
+
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+    h = response.headers
+    # HTTP->HTTPS redirection itself is Caddy's job in production (it does
+    # it automatically for any site with a certificate); HSTS makes browsers
+    # skip the plain-HTTP hop entirely on every later visit.
+    h.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+    h.setdefault("X-Content-Type-Options", "nosniff")
+    h.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    h.setdefault("X-Frame-Options", "DENY")
+    if not request.url.path.startswith(_DOCS_PATHS):
+        h.setdefault("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'")
+    return response
 
 app.include_router(products.router)
 app.include_router(search.router)

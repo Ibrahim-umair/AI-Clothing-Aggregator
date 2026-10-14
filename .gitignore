@@ -2,7 +2,7 @@
 .env
 *.env
 .env.*
-!db/.env.example
+!.env.example
 local-notes/
 
 # Dependencies

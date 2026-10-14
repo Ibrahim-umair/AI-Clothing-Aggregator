@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import Breadcrumb from "../components/Breadcrumb.jsx";
 import ProductCard from "../components/ProductCard.jsx";
 import ProductCardSkeleton from "../components/ProductCardSkeleton.jsx";
-import { fetchProducts, fetchTaxonomy } from "../lib/api.js";
+import { MAX_SHOP_QUERY_LENGTH, fetchProducts, fetchTaxonomy } from "../lib/api.js";
 import { ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, SearchIcon, SlidersIcon, CloseIcon } from "../components/icons.jsx";
 import { colorHex } from "../lib/colors.js";
 
@@ -458,6 +458,8 @@ export default function Shop() {
           <SearchIcon size={15} />
           <input
             placeholder={`Search within ${heading}`}
+            aria-label={`Search within ${heading}`}
+            maxLength={MAX_SHOP_QUERY_LENGTH}
             value={searchDraft}
             onChange={(e) => setSearchDraft(e.target.value)}
           />

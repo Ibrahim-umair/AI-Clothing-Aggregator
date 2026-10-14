@@ -21,6 +21,10 @@ from taxonomy_tree import get_tree
 
 router = APIRouter()
 
+# Caps on client-supplied filter input (see list_products).
+MAX_TITLE_QUERY_LENGTH = 100
+MAX_FILTER_VALUES = 20
+
 SORTS = {
     "price_asc": "v.price ASC NULLS LAST",
     "price_desc": "v.price DESC NULLS LAST",
@@ -120,14 +124,20 @@ async def list_products(request: Request):
     if brand_id is not None:
         params.append(brand_id)
         where.append(f"p.brand_id = ${len(params)}")
-    if q.get("q"):
-        params.append(f"%{q['q']}%")
+    # Bounded server-side regardless of what the client enforces: a
+    # multi-KB ILIKE pattern is a cheap way to make Postgres do real work.
+    title_q = (q.get("q") or "").strip()[:MAX_TITLE_QUERY_LENGTH]
+    if title_q:
+        # Escaped so a literal "%" or "_" a shopper types matches itself
+        # instead of acting as a wildcard.
+        escaped = title_q.replace("\\", "\\\\").replace("%", r"\%").replace("_", r"\_")
+        params.append(f"%{escaped}%")
         where.append(f"p.title ILIKE ${len(params)}")
     if q.get("onSale") == "true":
         where.append(
             "EXISTS (SELECT 1 FROM variants vo WHERE vo.product_id = p.id AND vo.current_compare_at IS NOT NULL AND vo.current_compare_at > vo.current_price)"
         )
-    colors = [c.strip() for c in (q.get("color") or "").split(",") if c.strip()]
+    colors = [c.strip() for c in (q.get("color") or "").split(",") if c.strip()][:MAX_FILTER_VALUES]
     if colors:
         params.append(colors)
         where.append(
@@ -150,7 +160,7 @@ async def list_products(request: Request):
             where.append(f"(SELECT MIN(vp.current_price) FROM variants vp WHERE vp.product_id = p.id) <= ${len(params)}")
         except ValueError:
             pass
-    sizes = [s.strip() for s in (q.get("size") or "").split(",") if s.strip()]
+    sizes = [s.strip() for s in (q.get("size") or "").split(",") if s.strip()][:MAX_FILTER_VALUES]
     if sizes:
         params.append(expand_size_aliases_for_query(sizes))
         where.append(
