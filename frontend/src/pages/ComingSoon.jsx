@@ -3,10 +3,12 @@ import { LogoMark } from "../components/icons.jsx";
 import { submitSignupEmail } from "../lib/api.js";
 
 // Pre-launch placeholder for the whole site. No one outside this project
-// has heard of Libas AI yet, so the copy leads with the problem it solves
-// ("one search box, every brand's catalog") rather than "we're back" —
-// there's no "back" to reference. See App.jsx for why this fully replaces
-// routing instead of living behind one.
+// has heard of Libas AI yet, so the copy leads with what it does
+// ("describe what you want, Libas AI finds it") rather than "we're back" -
+// there's no "back" to reference, and it's natural-language search, not
+// keyword search, so the copy says that rather than implying a plain
+// search box. See App.jsx for why this fully replaces routing instead of
+// living behind one.
 export default function ComingSoon() {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState("idle"); // idle | submitting | done | error
@@ -28,12 +30,14 @@ export default function ComingSoon() {
       <div className="coming-soon__card">
         <LogoMark className="coming-soon__logo" size={56} />
 
+        <p className="eyebrow coming-soon__eyebrow">AI-powered shopping</p>
+
         <h1 className="coming-soon__headline">
           Something's <em>coming</em> for how Pakistan shops online.
         </h1>
 
         <p className="coming-soon__subtext">
-          One search box. Every brand's catalog.
+          Describe what you want. Libas AI finds it across every brand.
         </p>
 
         {status === "done" ? (

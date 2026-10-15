@@ -19,31 +19,31 @@ FROM_ADDRESS = "Libas AI <team@libasai.com>"
 SUBJECT = "You're on the Libas AI list"
 
 # Hosted from the frontend's own static assets (frontend/public/email-
-# logo-white.png - a white render of the same hanger mark used everywhere
-# else, needed here because it sits on a solid olive band). Gmail's
-# colored-letter SENDER AVATAR (the circle next to "Libas AI" in the inbox
-# list, not anything inside this template) is a separate thing entirely:
-# either the sender's actual Google Account profile photo (if team@ is a
-# real Google Workspace mailbox - just set a photo on that account, free,
-# no DNS) or, for non-Gmail recipients, BIMI (a verified-logo DNS record
-# that requires DMARC enforcement first). Not done here, deliberately -
-# enforcing DMARC on a brand-new sending domain before its reputation is
-# established risks legitimate mail getting rejected.
-LOGO_WHITE_URL = "https://libasai.com/email-logo-white.png"
+# logo-badge.png - the hanger mark on a white circular badge, swapped in
+# for the earlier flat-white-icon-on-olive version, which read as plain).
+# Gmail's colored-letter SENDER AVATAR (the circle next to "Libas AI" in
+# the inbox list, not anything inside this template) is a separate thing
+# entirely: either the sender's actual Google Account profile photo (if
+# team@ is a real Google Workspace mailbox - just set a photo on that
+# account, free, no DNS) or, for non-Gmail recipients, BIMI (a verified-
+# logo DNS record that requires DMARC enforcement first). Not done here,
+# deliberately - enforcing DMARC on a brand-new sending domain before its
+# reputation is established risks legitimate mail getting rejected.
+LOGO_BADGE_URL = "https://libasai.com/email-logo-badge.png"
 
-# No one on this list has used Libas AI yet, so "we're rebuilding it"
-# raises a question this email never answers - same mistake already
-# caught and fixed on the coming-soon page itself, repeated here by
-# accident. Led with what the product actually does instead. Table-based
-# layout (not div/flexbox) for Outlook's Word rendering engine, a hidden
-# preheader so the inbox preview line isn't blank/random, and a forced
-# "light only" color-scheme so Gmail/Apple Mail dark mode never re-colors
-# the olive brand band into something unreadable.
+# "One search box" undersold this as keyword search - it's natural-
+# language search (describe what you want in plain English, no filters to
+# click through), so the copy now says that explicitly and leads with the
+# one line specifically asked for: "Describe what you want and Libas AI
+# will find it for you." Table-based layout (not div/flexbox) for
+# Outlook's Word rendering engine, a hidden preheader so the inbox preview
+# line isn't blank/random, and a forced "light only" color-scheme so
+# Gmail/Apple Mail dark mode never re-colors the olive brand band.
 _TEXT_BODY = (
     "You're on the Libas AI list.\n\n"
-    "We're building one search box for every Pakistani clothing brand's "
-    "catalog. Describe what you want in your own words, and Libas finds "
-    "it across all of them.\n\n"
+    "Libas AI is natural-language search across every Pakistani clothing "
+    "brand's catalog. Describe what you want and Libas AI will find it "
+    "for you.\n\n"
     "We'll email you once, when it goes live. Nothing else.\n\n"
     "Questions, or a brand you want us to include? Just reply to this email.\n\n"
     "The Libas AI team\n\n"
@@ -72,8 +72,8 @@ _HTML_BODY = f"""\
 
         <!-- Brand band -->
         <tr>
-          <td align="center" bgcolor="#4E5836" style="background:#4E5836;padding:36px 32px 32px 32px;">
-            <img src="{LOGO_WHITE_URL}" width="40" height="40" alt="Libas AI" style="display:block;border:0;margin:0 auto 12px auto;">
+          <td align="center" bgcolor="#4E5836" style="background:#4E5836;padding:40px 32px 36px 32px;">
+            <img src="{LOGO_BADGE_URL}" width="64" height="64" alt="Libas AI" style="display:block;border:0;margin:0 auto 14px auto;">
             <div style="font-family:Arial,Helvetica,sans-serif;font-size:20px;font-weight:bold;color:#FFFFFF;letter-spacing:0.2px;">
               Libas AI
             </div>
@@ -87,7 +87,8 @@ _HTML_BODY = f"""\
               You're on the list.
             </h1>
             <p style="margin:0 0 24px 0;font-size:16px;line-height:1.6;color:#3D3D3D;">
-              We're building one search box for every Pakistani clothing brand's catalog. Describe what you want in your own words, and Libas finds it across all of them.
+              Libas AI is natural-language search across every Pakistani clothing brand's catalog.
+              <strong>Describe what you want and Libas AI will find it for you.</strong>
             </p>
           </td>
         </tr>

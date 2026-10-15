@@ -2431,6 +2431,10 @@ ul { margin: 0; padding: 0; list-style: none; }
   color: var(--accent-strong);
 }
 
+.coming-soon__eyebrow {
+  margin: -6px 0 0;
+}
+
 .coming-soon__headline {
   font-size: clamp(26px, 5vw, 38px);
   line-height: 1.2;
