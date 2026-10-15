@@ -31,19 +31,15 @@ SUBJECT = "You're on the Libas AI list"
 # reputation is established risks legitimate mail getting rejected.
 LOGO_BADGE_URL = "https://libasai.com/email-logo-badge.png"
 
-# "One search box" undersold this as keyword search - it's natural-
-# language search (describe what you want in plain English, no filters to
-# click through), so the copy now says that explicitly and leads with the
-# one line specifically asked for: "Describe what you want and Libas AI
-# will find it for you." Table-based layout (not div/flexbox) for
-# Outlook's Word rendering engine, a hidden preheader so the inbox preview
-# line isn't blank/random, and a forced "light only" color-scheme so
-# Gmail/Apple Mail dark mode never re-colors the olive brand band.
+# Table-based layout (not div/flexbox) for Outlook's Word rendering
+# engine, a hidden preheader so the inbox preview line isn't blank/random,
+# and a forced "light only" color-scheme so Gmail/Apple Mail dark mode
+# never re-colors the olive brand band.
 _TEXT_BODY = (
     "You're on the Libas AI list.\n\n"
-    "Libas AI is natural-language search across every Pakistani clothing "
-    "brand's catalog. Describe what you want and Libas AI will find it "
-    "for you.\n\n"
+    "We're building one search box for every Pakistani clothing brand's "
+    "catalog. Describe what you want, and Libas AI will find it for "
+    "you.\n\n"
     "We'll email you once, when it goes live. Nothing else.\n\n"
     "Questions, or a brand you want us to include? Just reply to this email.\n\n"
     "The Libas AI team\n\n"
@@ -87,8 +83,7 @@ _HTML_BODY = f"""\
               You're on the list.
             </h1>
             <p style="margin:0 0 24px 0;font-size:16px;line-height:1.6;color:#3D3D3D;">
-              Libas AI is natural-language search across every Pakistani clothing brand's catalog.
-              <strong>Describe what you want and Libas AI will find it for you.</strong>
+              We're building one search box for every Pakistani clothing brand's catalog. Describe what you want, and Libas AI will find it for you.
             </p>
           </td>
         </tr>
