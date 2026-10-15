@@ -1,43 +1,17 @@
-import { Routes, Route, useLocation } from "react-router-dom";
-import Header from "./components/Header.jsx";
-import Home from "./pages/Home.jsx";
-import Shop from "./pages/Shop.jsx";
-import AiSearch from "./pages/AiSearch.jsx";
-import ProductDetail from "./pages/ProductDetail.jsx";
-import Favourites from "./pages/Favourites.jsx";
-import Placeholder from "./pages/Placeholder.jsx";
 import ErrorBoundary from "./components/ErrorBoundary.jsx";
+import ComingSoon from "./pages/ComingSoon.jsx";
 
+// The whole app is parked on this one screen for every URL while a
+// ground-up rebuild happens elsewhere — see coming-soon branch notes.
+// Intentionally no Header/Routes: there is nothing else on the site to
+// navigate to right now, and re-adding them later is a one-line revert
+// (git log for the commit before this one has the real app back).
 export default function App() {
-  const location = useLocation();
   return (
-    <div className="app-shell">
-      <Header />
-      <main>
-        <div className="container">
-          {/* Keyed on the route so navigating away from a page that just
-              crashed resets the boundary instead of staying stuck on the
-              "Something broke" screen forever. */}
-          <ErrorBoundary key={location.pathname + location.search}>
-            <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/shop" element={<Shop />} />
-              <Route path="/ai-search" element={<AiSearch />} />
-              <Route path="/product/:id" element={<ProductDetail />} />
-              <Route path="/favourites" element={<Favourites />} />
-              <Route
-                path="/signup"
-                element={
-                  <Placeholder
-                    title="Accounts are coming soon"
-                    body="Sign-up isn't wired up yet, but the whole catalog below is already real and browsable."
-                  />
-                }
-              />
-            </Routes>
-          </ErrorBoundary>
-        </div>
-      </main>
+    <div className="app-shell app-shell--coming-soon">
+      <ErrorBoundary>
+        <ComingSoon />
+      </ErrorBoundary>
     </div>
   );
 }

@@ -2399,3 +2399,125 @@ ul { margin: 0; padding: 0; list-style: none; }
    — an outlined variant was tried and read as dated; the density alone
    was what actually needed fixing, and borderless keeps this consistent
    with the Shop/Home card treatment. */
+
+/* ---------- Coming-soon placeholder (2026-10) ----------
+   The whole site is parked on this one screen while a ground-up rebuild
+   happens on a separate branch (see App.jsx). Deliberately light-only —
+   no data-theme toggle exists on this screen, so it just uses the site's
+   light "Ink on Paper" tokens directly rather than also wiring up the
+   dark-mode tokens, which are mid-fix on another branch (real user
+   feedback: blue dark mode and red sale pricing both wrong for this
+   brand) and not worth touching for a placeholder. */
+.coming-soon {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: var(--bg);
+}
+
+.coming-soon__card {
+  max-width: 480px;
+  width: 100%;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+}
+
+.coming-soon__logo {
+  color: var(--accent-strong);
+}
+
+.coming-soon__headline {
+  font-size: clamp(26px, 5vw, 38px);
+  line-height: 1.2;
+  text-wrap: balance;
+  margin: 0;
+}
+.coming-soon__headline em {
+  font-family: "Fraunces", var(--font-display);
+  font-style: italic;
+  font-weight: 500;
+  color: var(--accent-strong);
+}
+
+.coming-soon__subtext {
+  margin: 0;
+  color: var(--text-soft);
+  font-size: 15px;
+}
+
+.coming-soon__form {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  max-width: 380px;
+  margin-top: 4px;
+}
+
+.coming-soon__input {
+  flex: 1;
+  padding: 11px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 14px;
+}
+.coming-soon__input:focus {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+
+.coming-soon__submit {
+  padding: 11px 18px;
+  border-radius: var(--radius-md);
+  border: none;
+  background: var(--accent-strong);
+  color: var(--accent-contrast);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s ease;
+}
+.coming-soon__submit:hover {
+  background: var(--accent);
+}
+.coming-soon__submit:disabled {
+  opacity: 0.65;
+  cursor: default;
+}
+
+.coming-soon__confirm {
+  margin: 0;
+  color: var(--success);
+  font-weight: 600;
+  font-size: 14.5px;
+}
+
+.coming-soon__error {
+  margin: 0;
+  color: var(--sale);
+  font-size: 13px;
+}
+
+.coming-soon__footnote {
+  margin: 0;
+  color: var(--text-faint);
+  font-size: 12.5px;
+}
+
+.coming-soon__contact {
+  margin-top: 6px;
+  color: var(--text-faint);
+  font-size: 12.5px;
+  text-decoration: none;
+}
+.coming-soon__contact:hover {
+  color: var(--accent-strong);
+  text-decoration: underline;
+}

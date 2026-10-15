@@ -86,3 +86,11 @@ export function fetchBrands() {
 export function searchProducts(query, gender = null) {
   return postJSON("/search", { query, gender });
 }
+
+// POST /api/signups — the coming-soon page's email capture (server/routes/
+// signups.py). Resolves even on a duplicate email (the backend treats a
+// repeat signup as a no-op success, not an error) so the UI never has to
+// explain "you already signed up" as a failure state.
+export function submitSignupEmail(email) {
+  return postJSON("/signups", { email });
+}

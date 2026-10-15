@@ -9,3 +9,7 @@ from pydantic import BaseModel
 class SearchRequest(BaseModel):
     query: str
     gender: str | None = None
+
+
+class SignupRequest(BaseModel):
+    email: str
