@@ -108,6 +108,48 @@ aws ssm send-command --instance-ids i-03771ac3d2f76e37d --document-name AWS-RunS
    covert lateral movement once they have IAM credentials — see
    [Palo Alto Networks: Living Off the Cloud](https://www.paloaltonetworks.com/blog/security-operations/aws-systems-manager-attack-vectors/)
    and [100 Days of Red Team: Ghost in the Cloud](https://www.100daysofredteam.com/p/ghost-in-the-cloud-abusing-aws-ssm).
+
+## Deploying a backend code change to production
+
+There is no CI/CD for the backend — unlike the frontend (GitHub Actions
+auto-deploys on every push to `master`), a `server/*.py` change sits in
+git with zero effect on prod until it's manually pushed onto the EC2
+instance. The instance's IAM role can read/write one dedicated S3 bucket
+used purely as a local-machine-to-instance handoff (it has no other
+purpose): `s3://libas-deploy-1788198971/hotfix/`.
+
+**Single-file change** (no new cross-file imports) — `uvicorn --reload`
+picks it up live, no restart needed:
+
+```powershell
+aws s3 cp server/whatever.py s3://libas-deploy-1788198971/hotfix/whatever.py
+aws ssm send-command --instance-ids i-03771ac3d2f76e37d --document-name AWS-RunShellScript --parameters commands='["aws s3 cp s3://libas-deploy-1788198971/hotfix/whatever.py /home/ec2-user/app/server/whatever.py","sleep 3","curl -s --max-time 5 -o /dev/null -w \"health: %{http_code}\n\" http://localhost:4000/api/health","docker logs libas-api --tail 10 2>&1"]'
+# then: aws ssm get-command-invocation --command-id <id> --instance-id i-03771ac3d2f76e37d --query "[Status,StandardOutputContent,StandardErrorContent]" --output text
+```
+
+**Multi-file change that adds a new import** (e.g. a new module another
+file now imports) — copying files one at a time while the old process is
+still live risks `--reload` firing mid-copy, importing the new line
+before the new file has landed, and crashing into a state that does not
+self-heal (this happened once, during the coming-soon email-signup
+deploy). Stop the container first, copy everything, then bring it back up
+clean:
+
+```powershell
+cd /home/ec2-user/app/db && docker compose -f docker-compose.yml -f docker-compose.prod.yml stop api
+# ...all the aws s3 cp commands...
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d api
+```
+
+Use `--parameters file://local-notes/some-name.json` instead of inline
+`commands='[...]'` when the commands contain quotes PowerShell would
+otherwise mangle — see any `local-notes/ssm-deploy-*.json` for the shape.
+
+**A secret environment variable change** (like adding `RESEND_API_KEY`)
+needs `docker-compose.prod.yml` (prod-only, not tracked in this repo —
+pull a fresh copy via `docker exec`/`cat` over SSM before editing, same as
+any other secret in this file) updated and the `up -d api` command above
+run — `restart` alone does not pick up new env vars, only `up -d` does.
    This isn't a reason not to use it here, but it means the *only* thing
    standing between "convenient admin access" and "silent backdoor" is
    how well the IAM credentials are protected.
