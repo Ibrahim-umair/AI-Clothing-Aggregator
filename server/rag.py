@@ -193,7 +193,8 @@ def diversify(entries: list[dict]) -> list[dict]:
     return result
 
 
-async def run_search(query: str, debug: bool = False, gender_override: str | None = None) -> dict:
+async def run_search(query: str, debug: bool = False, gender_override: str | None = None,
+                     brand_scope: list[str] | None = None) -> dict:
     """genderOverride comes from an explicit UI control (the AI Search
     page's Men/Women/Boys/Girls toggle) — when set, it REPLACES whatever
     the LLM extracted from the text, rather than just being a hint the
@@ -243,6 +244,10 @@ async def run_search(query: str, debug: bool = False, gender_override: str | Non
     if brand_id is not None:
         params.append(brand_id)
         where.append(f"p.brand_id = ${len(params)}")
+    if brand_scope:
+        # Only for side-by-side tests against search v2 on a subset of brands.
+        params.append(brand_scope)
+        where.append(f"p.brand_id IN (SELECT id FROM brands WHERE slug = ANY(${len(params)}::text[]))")
     if _is_number(filters.get("minPrice")):
         params.append(filters["minPrice"])
         where.append(f"(SELECT MIN(vp.current_price) FROM variants vp WHERE vp.product_id = p.id) >= ${len(params)}")

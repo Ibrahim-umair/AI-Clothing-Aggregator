@@ -9,3 +9,5 @@ from pydantic import BaseModel
 class SearchRequest(BaseModel):
     query: str
     gender: str | None = None
+    # "v1" or "v2"; None = the server default (SEARCH_ENGINE env var).
+    engine: str | None = None
