@@ -227,9 +227,14 @@ def save_result(cur, pid, result, meta):
 
 
 def select_ids(cur, brands, redo=False):
+    # Fully sold-out products are skipped (agreed 2026-10-27): search never
+    # shows them, and stores keep thousands listed (83% of Charcoal, 64% of
+    # Zellbury on 2026-10-27). One comes back in stock -> the next run
+    # picks it up.
     cur.execute(
         f"""SELECT p.id FROM products p JOIN brands b ON b.id = p.brand_id
             WHERE b.slug = ANY(%s) AND p.is_active {'' if redo else 'AND p.ai_description IS NULL'}
+              AND EXISTS (SELECT 1 FROM variants v WHERE v.product_id = p.id AND v.current_available)
             ORDER BY p.id""",
         (brands,),
     )
@@ -284,7 +289,18 @@ def run_sync(args, conn, ids):
 
     def work(pid):
         product = products[pid]
-        photos = [d for d in (download(u) for u in pick_photos(product)) if d]
+        picked = pick_photos(product)
+        photos = []
+        for attempt in range(3):
+            photos = [d for d in (download(u) for u in picked) if d]
+            if photos or not picked:
+                break
+            time.sleep(2 * (attempt + 1))
+        if picked and not photos:
+            # The product has photos but none came through (usually too many
+            # parallel downloads timing out). Never fall back to text-only
+            # for these: count it as failed so a later run retries it.
+            raise RuntimeError(f"{pid}: photos wouldn't download")
         result, usage = enrich(client, product, photos)
         return pid, product, len(photos), result, usage
 
