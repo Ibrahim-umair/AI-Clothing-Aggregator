@@ -397,6 +397,11 @@ def batch_run(args, conn):
                     for line in f}
 
     while not all(ch["collected"] for ch in state["chunks"]):
+        if args.submit_only and all(ch["batch_id"] for ch in state["chunks"]):
+            # Everything is with OpenAI now; nothing local needs to keep
+            # running. Re-run without --submit-only later to collect.
+            print("all batches submitted; re-run without --submit-only to collect", flush=True)
+            return set()
         for ch in state["chunks"]:
             if ch["collected"]:
                 continue
@@ -491,6 +496,8 @@ def main():
     ap.add_argument("--redo", action="store_true", help="include products already enriched")
     ap.add_argument("--workers", type=int, default=8)
     ap.add_argument("--batch-dir", help="use the Batch API (half price); run folder for state + results")
+    ap.add_argument("--submit-only", action="store_true",
+                    help="batch mode: upload and submit, then exit (collect later by re-running without it)")
     ap.add_argument("--retry-failed", action="store_true",
                     help="after a batch run, redo its failures with the normal API (photos sent inline)")
     ap.add_argument("--json-out", help="also write all results to this JSON file")
