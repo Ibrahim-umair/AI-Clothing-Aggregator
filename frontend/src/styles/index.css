@@ -2379,6 +2379,47 @@ ul { margin: 0; padding: 0; list-style: none; }
   margin-bottom: 24px;
 }
 
+/* Search v2 groups: one per sub-search (an occasion can return kurtas,
+   waistcoats and shawls as separate rows). */
+.ai-search__group + .ai-search__group {
+  margin-top: 40px;
+  padding-top: 28px;
+  border-top: 1px solid var(--border);
+}
+.ai-search__group-head { margin-bottom: 14px; }
+.ai-search__group-title {
+  margin: 0 0 4px;
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+/* The rewritten query the group actually searched for: what the AI
+   understood, shown quietly so a shopper can tell why these results. */
+.ai-search__group-query {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-faint);
+}
+.ai-search__alt-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 28px 0 14px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.ai-search__alt-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
 /* Now next-query suggestions (see suggested_refinements), not a readout
    of applied filters — real buttons, styled like the hero's example
    chips so the two read as the same kind of thing: something to click to

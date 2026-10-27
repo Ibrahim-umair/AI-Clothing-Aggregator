@@ -72,6 +72,52 @@ function sortProducts(products, sort) {
   return products;
 }
 
+// Search v2 (server/search_v2.py) can answer one query with several
+// searches, e.g. an occasion becomes kurtas + waistcoats + shawls, each
+// returned as its own group. v1 has no groups, so it reads as one untitled
+// group and renders exactly as before.
+function resultGroups(result) {
+  return result.groups?.length ? result.groups : [{ label: null, query: null, products: result.products }];
+}
+
+// One group: its title (only when there are several), the rewritten query
+// it actually searched for, its matches, then any "close alternatives"
+// (products that don't state what was asked for, e.g. a fit) after a
+// divider instead of mixed in with the real matches.
+function ResultGroup({ group, showTitle, sort }) {
+  const matches = group.products.filter((p) => !p.alternative);
+  const alternatives = group.products.filter((p) => p.alternative);
+  return (
+    <section className="ai-search__group">
+      {(showTitle || group.query) && (
+        <div className="ai-search__group-head">
+          {showTitle && <h2 className="ai-search__group-title">{group.label}</h2>}
+          {group.query && <p className="ai-search__group-query">Searched for “{group.query}”</p>}
+        </div>
+      )}
+      {matches.length > 0 && (
+        <div className="product-grid product-grid--5">
+          {sortProducts(matches, sort).map((p) => (
+            <ProductCard key={p.id} product={p} />
+          ))}
+        </div>
+      )}
+      {alternatives.length > 0 && (
+        <>
+          <p className="ai-search__alt-divider">
+            {matches.length ? "Close alternatives" : "No exact matches. Closest alternatives"}
+          </p>
+          <div className="product-grid product-grid--5">
+            {sortProducts(alternatives, sort).map((p) => (
+              <ProductCard key={p.id} product={p} />
+            ))}
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
 const DEFAULT_GENDER = "Men";
 // Sentinel for "explicitly cleared" in the URL. Needed because an absent
 // ?gender= means "untouched, use the default", which is NOT the same as
@@ -405,7 +451,7 @@ export default function AiSearch() {
                   <SparklesIcon size={15} />
                   <span>{result.response_text}</span>
                 </div>
-                {result.products.length > 1 && (
+                {resultGroups(result).reduce((n, g) => n + g.products.length, 0) > 1 && (
                   <label className="select-control">
                     <span className="select-control__label">Sort by</span>
                     <span className="select-control__field">
@@ -445,17 +491,15 @@ export default function AiSearch() {
                 </div>
               )}
 
-              {result.products.length === 0 ? (
+              {resultGroups(result).every((g) => g.products.length === 0) ? (
                 <div className="empty-state">
                   <h3>Nothing matched that</h3>
                   <p>Try describing it a little differently, or broaden the budget/brand.</p>
                 </div>
               ) : (
-                <div className="product-grid product-grid--5">
-                  {sortProducts(result.products, sort).map((p) => (
-                    <ProductCard key={p.id} product={p} />
-                  ))}
-                </div>
+                resultGroups(result).map((g, gi, all) => (
+                  <ResultGroup key={gi} group={g} showTitle={all.length > 1} sort={sort} />
+                ))
               )}
             </>
           ) : null}
