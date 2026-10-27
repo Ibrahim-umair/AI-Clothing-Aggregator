@@ -28,3 +28,5 @@ scraped_data/
 
 # Video renders and stills (regenerable from videos/template)
 videos/template/out/
+review-exports/
+db/enrich_runs/
