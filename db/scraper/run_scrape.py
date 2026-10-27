@@ -64,6 +64,12 @@ PER_STORE_DELAY_SECONDS = float(os.environ.get("SCRAPE_PER_STORE_DELAY", "3"))
 MAX_RETRIES = int(os.environ.get("SCRAPE_MAX_RETRIES", "5"))
 CANARY_DROP_THRESHOLD = float(os.environ.get("SCRAPE_CANARY_DROP_THRESHOLD", "0.30"))  # 30%
 COUGAR_STOREFRONT_TOKEN = os.environ.get("COUGAR_STOREFRONT_TOKEN")
+# Where Cougar's GraphQL API is fetched from. cougar.com.pk's own front door
+# started returning 403 "Access denied" to AWS and many proxy IPs (Oct 2026),
+# while Shopify's direct domain for the same store serves the same token
+# fine. base_url stays cougar.com.pk because shopper-facing product links
+# are built from it (server/routes/products.py).
+COUGAR_API_BASE_URL = os.environ.get("COUGAR_API_BASE_URL", "https://cougar-online.myshopify.com")
 ALERT_WEBHOOK_URL = os.environ.get("ALERT_WEBHOOK_URL")
 ALERTS_LOG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "alerts.log")
 
@@ -82,7 +88,7 @@ def write_alert(message):
 
 def fetch_iterator(slug, base_url, platform, pacer):
     if platform == "hydrogen_graphql":
-        return fetch_graphql_store(base_url, requests.Session(), pacer, slug, COUGAR_STOREFRONT_TOKEN, MAX_RETRIES)
+        return fetch_graphql_store(COUGAR_API_BASE_URL, requests.Session(), pacer, slug, COUGAR_STOREFRONT_TOKEN, MAX_RETRIES)
     return fetch_rest_store(base_url, requests.Session(), pacer, slug, MAX_RETRIES)
 
 
