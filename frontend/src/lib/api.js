@@ -33,6 +33,8 @@ async function postJSON(path, body) {
   if (!res.ok) {
     const err = new Error(`API ${path} failed: ${res.status}`);
     err.status = res.status;
+    // 429 carries a readable reason from server/rate_limit.py.
+    if (res.status === 429) err.userMessage = (await res.json().catch(() => ({}))).message;
     throw err;
   }
   return res.json();

@@ -17,6 +17,7 @@ if _env_path.exists():
 
 from db import close_pool, get_pool  # noqa: E402  (after dotenv load, same as Node's search.js)
 from db_conversations import init_db  # noqa: E402
+from rate_limit import rate_limit_middleware  # noqa: E402
 from routes import brands, health, products, search, taxonomy  # noqa: E402
 
 
@@ -32,6 +33,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Libas API", lifespan=lifespan)
+app.middleware("http")(rate_limit_middleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],

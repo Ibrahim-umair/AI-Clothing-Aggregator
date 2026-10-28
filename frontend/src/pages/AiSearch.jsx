@@ -284,8 +284,8 @@ function Turn({ turn, onRetry, turnRef }) {
 
       {status === "error" && (
         <div className="empty-state">
-          <h3>AI mode is taking a short break</h3>
-          <p>We've hit a snag on our end. Try again in a moment.</p>
+          <h3>{turn.limited ? "Slow down a little" : "AI mode is taking a short break"}</h3>
+          <p>{turn.errorText || "We've hit a snag on our end. Try again in a moment."}</p>
           <button type="button" className="btn btn--primary" onClick={onRetry}>
             Try again
           </button>
@@ -373,7 +373,11 @@ export default function AiSearch() {
         writeCache(query, gender, context, data);
         setTurns((ts) => ts.map((t) => (t.id === id ? { ...t, result: data, status: "done" } : t)));
       })
-      .catch(() => setTurns((ts) => ts.map((t) => (t.id === id ? { ...t, status: "error" } : t))))
+      .catch((err) =>
+        setTurns((ts) =>
+          ts.map((t) => (t.id === id ? { ...t, status: "error", limited: err.status === 429, errorText: err.userMessage } : t))
+        )
+      )
       // Ready for the next question as soon as this one is answered.
       .finally(() => inputRef.current?.focus());
   }
