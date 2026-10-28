@@ -278,7 +278,42 @@ CATEGORY_TREE = {
     },
 }
 
-FABRICS = ["Lawn","Khaddar","Cambric","Cotton","Silk","Chiffon","Denim","Polyester","Linen","Wool","Blended","Organza","Velvet"]
+
+# Added 2026-10-28 from the manual category review (docs/NEXT_RUN_SPEC.md,
+# review-exports/new-categories/): types that had no leaf, so they were filed
+# under the nearest wrong one (blazers under Jacket, slides under Shoes,
+# lapel pins under Jacket/Tie, dupattas under Scarf...). Kept as a separate
+# block so the review's additions are easy to see. A new sub-group is created
+# when it doesn't exist yet (Sleepwear, Swimwear).
+def _add_leaves(gender, path, leaves):
+    node = CATEGORY_TREE[gender]
+    for key in path[:-1]:
+        node = node.setdefault(key, {})
+    last = path[-1]
+    if isinstance(node, dict) and last not in node:
+        node[last] = []
+    existing = {name for name, _ in node[last]}
+    for name in leaves:
+        if name not in existing:
+            slug = re.sub(r"[^a-z0-9]+", "-", name.lower().replace("&", "")).strip("-")
+            node[last].append((name, slug))
+
+
+for _g in ("Men", "Women", "Boys", "Girls"):
+    _add_leaves(_g, ("Western", "Upperwear"), ["Blazer"])
+    _add_leaves(_g, ("Western", "Footwear"), ["Sandals"])
+    _add_leaves(_g, ("Western", "Sleepwear"), ["Nightwear & Loungewear"])
+    _add_leaves(_g, ("Western", "Swimwear"), ["Swimwear"])
+    _add_leaves(_g, ("Eastern", "Stitched"), ["Shalwar & Pajama"])
+    _add_leaves(_g, ("Accessories",), ["Gloves"])
+_add_leaves("Unisex", ("Western", "Footwear"), ["Sandals"])
+_add_leaves("Men", ("Accessories",), ["Pins & Clips", "Gift Set", "Suspenders"])
+_add_leaves("Women", ("Accessories",), ["Pins & Clips", "Hair Accessories"])
+_add_leaves("Girls", ("Accessories",), ["Hair Accessories"])
+_add_leaves("Women", ("Eastern", "Stitched"), ["Abaya", "Lehenga", "Dupatta"])
+_add_leaves("Girls", ("Eastern", "Stitched"), ["Lehenga", "Dupatta"])
+
+FABRICS =["Lawn","Khaddar","Cambric","Cotton","Silk","Chiffon","Denim","Polyester","Linen","Wool","Blended","Organza","Velvet"]
 
 # minimal seed; loader adds any new canonical color it meets
 COLORS = [

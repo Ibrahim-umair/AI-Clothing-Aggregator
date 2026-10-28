@@ -20,6 +20,10 @@ KNOWN_CATEGORIES = [
     "Sherwani", "Shirt", "Shoes", "Shorts", "Skirt", "Socks", "Suit", "Sunglasses", "Sweater",
     "Sweatshirt", "Tank Top", "Tie", "Tights", "Top", "Tracksuit", "Trouser", "T-Shirt",
     "Underwear", "Vest", "Waistcoat", "Wallet", "Watch",
+    # Added 2026-10-28 from the category review (db/load_data.py _add_leaves).
+    "Abaya", "Blazer", "Dupatta", "Gift Set", "Gloves", "Hair Accessories", "Lehenga",
+    "Nightwear & Loungewear", "Pins & Clips", "Shalwar & Pajama", "Suspenders", "Swimwear",
+    "Sleepwear",
     "Upperwear", "Bottomwear", "Footwear", "Suits & Sets", "Formalwear", "Stitched", "Unstitched",
     "Western", "Eastern", "Accessories", "Fragrance & Beauty",
 ]
