@@ -475,6 +475,13 @@ def batch_run(args, conn):
             ch["collected"] = True
             save_state()
             print("  " + stats.line(), flush=True)
+        if args.no_wait:
+            # One pass only: save whatever batches are finished, leave the
+            # rest with OpenAI. Re-run later to collect them.
+            pending = [ch["file"] for ch in state["chunks"] if not ch["collected"]]
+            if pending:
+                print(f"not finished yet, left for a later run: {pending}", flush=True)
+            break
         if not all(ch["collected"] for ch in state["chunks"]):
             time.sleep(POLL_SECONDS)
 
@@ -496,6 +503,8 @@ def main():
     ap.add_argument("--redo", action="store_true", help="include products already enriched")
     ap.add_argument("--workers", type=int, default=8)
     ap.add_argument("--batch-dir", help="use the Batch API (half price); run folder for state + results")
+    ap.add_argument("--no-wait", action="store_true",
+                    help="batch mode: collect the batches that are finished and exit without waiting for the rest")
     ap.add_argument("--submit-only", action="store_true",
                     help="batch mode: upload and submit, then exit (collect later by re-running without it)")
     ap.add_argument("--retry-failed", action="store_true",
