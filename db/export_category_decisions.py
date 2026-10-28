@@ -9,6 +9,7 @@ per product:  id|case|target category path|note
 
     python export_category_decisions.py
 """
+import argparse
 import json
 import re
 import time
@@ -76,12 +77,19 @@ def cause_of(note):
 
 
 def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--only", help="JSON file with a list of product ids to include (a follow-up round)")
+    ap.add_argument("--out", default=str(OUT), help="output folder")
+    args = ap.parse_args()
+    only = set(json.loads(Path(args.only).read_text())) if args.only else None
+    out_dir = Path(args.out)
     rows = []
     for line in DECISIONS.read_text(encoding="utf-8").splitlines():
         if not line.strip() or line.startswith("#"):
             continue
         pid, case, target, note = line.split("|", 3)
-        rows.append((int(pid), case, target.strip(), note.strip()))
+        if only is None or int(pid) in only:
+            rows.append((int(pid), case, target.strip(), note.strip()))
 
     conn = psycopg2.connect(DSN)
     cur = conn.cursor()
@@ -114,7 +122,7 @@ def main():
             "proposal": group if case == "C" else None,
         })
 
-    OUT.mkdir(parents=True, exist_ok=True)
+    out_dir.mkdir(parents=True, exist_ok=True)
     meta = {
         "generated": time.strftime("%Y-%m-%d %H:%M"),
         "in_stock": sum(brand_totals.values()),
@@ -122,11 +130,11 @@ def main():
         "causes": {k: label for k, label, _ in CAUSES} | {"other": "Other"},
         "proposals": {k: {"action": a, "where": w, "why": y} for k, (a, w, y) in PROPOSALS.items()},
     }
-    (OUT / "data.js").write_text(
+    (out_dir / "data.js").write_text(
         "window.CATDEC = " + json.dumps({"meta": meta, "products": products}, ensure_ascii=False) + ";\n",
         encoding="utf-8")
     from collections import Counter
-    print(f"wrote {len(products)} decisions to {OUT / 'data.js'}")
+    print(f"wrote {len(products)} decisions to {out_dir / 'data.js'}")
     print(Counter(p["case"] for p in products))
     print(Counter(p["cause"] for p in products))
     missing = {p["proposal"] for p in products if p["proposal"]} - set(PROPOSALS)
