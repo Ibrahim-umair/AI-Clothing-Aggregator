@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useNavigationType, useSearchParams } from "react-router-dom";
 import ProductCard from "../components/ProductCard.jsx";
 import ProductCardSkeleton from "../components/ProductCardSkeleton.jsx";
 import {
@@ -379,6 +379,25 @@ export default function AiSearch() {
     setTurns((ts) => ts.map((t) => (t.id === turn.id ? { ...t, status: "loading" } : t)));
     run(turn.id, turn.query, turn.gender);
   }
+
+  // Opening this page fresh (the header's "Ask", the home composer, any
+  // link) starts a new chat: the landing hero, or a new thread with the
+  // linked ?q as its first question. Back/forward and reload are POP
+  // navigations and keep the thread, so returning from a product lands
+  // where you were. REPLACE is ignored too: the gender toggle and the ?q
+  // clean-up below use it.
+  // The header's Ask link also sends state.newChat, because a link to the
+  // page you're already on is a REPLACE; the flag is cleared straight away
+  // so going back to this entry later doesn't wipe the thread again.
+  const location = useLocation();
+  const navigationType = useNavigationType();
+  const navigate = useNavigate();
+  useEffect(() => {
+    const askedFresh = location.state?.newChat;
+    if (navigationType === "PUSH" || askedFresh) newChat();
+    if (askedFresh) navigate(location.pathname + location.search, { replace: true, state: null });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.key]);
 
   // A query arriving through the URL becomes a turn once, then leaves the
   // URL. The ref stops StrictMode's double effect run asking it twice.

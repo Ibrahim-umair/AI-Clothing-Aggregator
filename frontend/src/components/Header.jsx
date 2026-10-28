@@ -11,7 +11,9 @@ import { SunIcon, MoonIcon, HeartIcon, LogoMark, MenuIcon, CloseIcon } from "./i
 // tree lives on /shop's own filters. Keeping one place to search avoids
 // three competing search boxes on one screen.
 const NAV_LINKS = [
-  { to: "/", label: "Ask", end: true },
+  // `newChat` makes Ask open a fresh chat even when already on /ai-search
+  // (a link to the current page is a replace, not a new visit).
+  { to: "/ai-search", label: "Ask", end: true, state: { newChat: true } },
   { to: "/shop", label: "Browse" },
   { to: "/#occasions", label: "Occasions", hash: true },
   { to: "/shop?onSale=true", label: "On sale" },
@@ -50,7 +52,7 @@ export default function Header() {
     if (link.hash) return false;
     if (link.to === "/shop?onSale=true") return location.pathname === "/shop" && location.search.includes("onSale=true");
     if (link.to === "/shop") return location.pathname === "/shop" && !location.search.includes("onSale=true");
-    if (link.to === "/") return location.pathname === "/" || location.pathname === "/ai-search";
+    if (link.to === "/ai-search") return location.pathname === "/" || location.pathname === "/ai-search";
     return location.pathname === link.to;
   };
 
@@ -69,6 +71,7 @@ export default function Header() {
             <Link
               key={link.label}
               to={link.to}
+              state={link.state}
               className="top-nav__link"
               aria-current={isActive(link) ? "page" : undefined}
               data-active={isActive(link)}
@@ -132,6 +135,7 @@ function MobileNav({ open, onClose, isActive }) {
             <Link
               key={link.label}
               to={link.to}
+              state={link.state}
               className="mobile-nav__flat-link"
               data-active={isActive(link)}
               onClick={onClose}
