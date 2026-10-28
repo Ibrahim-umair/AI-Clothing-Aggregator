@@ -181,7 +181,7 @@ the new message doesn't change and apply the change; a follow-up like
 message is a different topic, plan it on its own and ignore the earlier
 ones."""
 
-HISTORY_TURNS = 3  # earlier turns of the same thread sent to the planner
+HISTORY_TURNS = 25  # earlier turns of the same thread sent to the planner
 _PLAN_KEYS = ("gender", "minPrice", "maxPrice", "brand", "sizes", "colors", "onSale")
 _SEARCH_KEYS = ("label", "query", "categories", "must_have", "must_not")
 

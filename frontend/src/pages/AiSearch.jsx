@@ -185,7 +185,7 @@ function writeThread(turns) {
 // was asked plus how the AI read it (not the products). Sent with the next
 // question so "now in blue" refines the previous search; a new chat has
 // none, and other tabs/people have their own threads.
-const CONTEXT_TURNS = 3;
+const CONTEXT_TURNS = 25;
 function contextFrom(turns) {
   return turns
     .filter((t) => t.status === "done" && t.result)
@@ -617,6 +617,19 @@ export default function AiSearch() {
           gender/kids toggle sits behind the sliders icon. */}
       {turns.length > 0 && (
         <div className="ai-search__sticky-bar">
+          {/* Past CONTEXT_TURNS answers the oldest questions drop out of
+              what Libas remembers; say so instead of letting it look forgetful. */}
+          {turns.filter((t) => t.status === "done").length >= CONTEXT_TURNS && (
+            <div className="ai-search__context-note" role="status">
+              <span>
+                This chat is getting long. Libas now remembers only your last {CONTEXT_TURNS} questions, so
+                earlier details may be forgotten.
+              </span>
+              <button type="button" onClick={newChat}>
+                Start a new chat
+              </button>
+            </div>
+          )}
           {filtersOpen && (
             <div className="ai-search__sticky-filters" ref={filtersRef}>
               {renderModeRow()}
