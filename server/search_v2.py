@@ -170,15 +170,48 @@ Examples:
   "Shawls": "warm formal shawl to wear over an outfit", ["Shawl"];
   "Footwear": "dressy heels or sandals", ["Footwear"]; no must_have.
 "maroon cardigan in large" -> colors ["maroon"], sizes ["L"], 1 search:
-  "cardigan sweater", ["Sweater"]"""
+  "cardigan sweater", ["Sweater"]
+
+Conversation: earlier messages in this chat may come first, each followed
+by how you planned it. If the new message refines the last search ("in
+blue", "cheaper", "under 3000", "in medium", "more relaxed", "show women's
+instead", "what about shoes for it"), keep everything from that plan that
+the new message doesn't change and apply the change; a follow-up like
+"shoes to go with it" plans the new item for the same occasion. If the new
+message is a different topic, plan it on its own and ignore the earlier
+ones."""
+
+HISTORY_TURNS = 3  # earlier turns of the same thread sent to the planner
+_PLAN_KEYS = ("gender", "minPrice", "maxPrice", "brand", "sizes", "colors", "onSale")
+_SEARCH_KEYS = ("label", "query", "categories", "must_have", "must_not")
 
 
-async def plan_search(query: str) -> tuple[dict, LLMCallRecord]:
+def _history_messages(history: list[dict] | None) -> list[dict]:
+    """Earlier turns of this chat as user/assistant message pairs. The
+    browser sends them (the server keeps no session); only known fields
+    are kept and everything is capped, so a client can't stuff the prompt."""
+    messages = []
+    for turn in (history or [])[-HISTORY_TURNS:]:
+        if not isinstance(turn, dict) or not isinstance(turn.get("query"), str):
+            continue
+        plan = turn.get("plan") if isinstance(turn.get("plan"), dict) else {}
+        compact = {k: plan.get(k) for k in _PLAN_KEYS if plan.get(k) not in (None, [], False)}
+        compact["searches"] = [
+            {k: s.get(k) for k in _SEARCH_KEYS if s.get(k) not in (None, [])}
+            for s in (plan.get("searches") or [])[:MAX_SEARCHES] if isinstance(s, dict)
+        ]
+        messages.append({"role": "user", "content": turn["query"][:300]})
+        messages.append({"role": "assistant", "content": "Planned: " + json.dumps(compact, ensure_ascii=False)[:1500]})
+    return messages
+
+
+async def plan_search(query: str, history: list[dict] | None = None) -> tuple[dict, LLMCallRecord]:
     with Timer() as t:
         completion = await openai.chat.completions.create(
             model=SEARCH_MODEL,
             **({"reasoning_effort": "none"} if re.match(r"^gpt-[56]", SEARCH_MODEL) else {}),
-            messages=[{"role": "system", "content": PLAN_PROMPT}, {"role": "user", "content": query}],
+            messages=[{"role": "system", "content": PLAN_PROMPT}, *_history_messages(history),
+                      {"role": "user", "content": query}],
             tools=[PLAN_TOOL],
             tool_choice={"type": "function", "function": {"name": "plan_search"}},
         )
@@ -443,7 +476,7 @@ async def _run_one(pool, plan, s, vector, base_where, base_params, colors, debug
 
 
 async def run_search_v2(query: str, debug: bool = False, gender_override: str | None = None,
-                        brand_scope: list[str] | None = None) -> dict:
+                        brand_scope: list[str] | None = None, history: list[dict] | None = None) -> dict:
     if openai is None:
         raise RuntimeError("OPENAI_API_KEY not configured")
     query = (query or "").strip()
@@ -451,7 +484,7 @@ async def run_search_v2(query: str, debug: bool = False, gender_override: str | 
         raise ValueError("empty query")
     t0 = time.perf_counter()
 
-    plan, plan_metrics = await plan_search(query)
+    plan, plan_metrics = await plan_search(query, history)
     if gender_override and gender_override in VALID_GENDER_OVERRIDES:
         plan["gender"] = gender_override
     searches = [s for s in plan.get("searches") or [] if s.get("query", "").strip()][:MAX_SEARCHES]

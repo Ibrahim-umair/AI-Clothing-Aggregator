@@ -27,7 +27,7 @@ async def search(body: SearchRequest, background_tasks: BackgroundTasks):
     engine = body.engine if body.engine in ("v1", "v2") else DEFAULT_ENGINE
     try:
         if engine == "v2":
-            result = await run_search_v2(body.query, gender_override=body.gender)
+            result = await run_search_v2(body.query, gender_override=body.gender, history=body.history)
         else:
             result = await run_search(body.query, gender_override=body.gender)
     except RuntimeError as err:

@@ -11,3 +11,8 @@ class SearchRequest(BaseModel):
     gender: str | None = None
     # "v1" or "v2"; None = the server default (SEARCH_ENGINE env var).
     engine: str | None = None
+    # Earlier turns of THIS chat thread, sent by the browser (the server
+    # keeps no session): [{"query": ..., "plan": {...how it was read...}}],
+    # oldest first. Lets "now in blue" refine the previous search. Only
+    # search v2 uses it; capped server-side.
+    history: list[dict] | None = None

@@ -126,26 +126,29 @@ const DEFAULT_GENDER = "Men";
 // snap back to Men on reload or back-navigation.
 const GENDER_ANY = "any";
 
-// Results are cached per (query, gender) so asking the same thing again,
-// or restoring the thread, costs no second LLM call. sessionStorage (not
+// Results are cached per (query, gender, earlier turns) so asking the same
+// thing again, or restoring the thread, costs no second LLM call. The
+// earlier turns are part of the key because "in blue" means something
+// different after "polo shirts" than after "kurtas". sessionStorage (not
 // localStorage) because a stale price/stock snapshot shouldn't outlive the
 // tab. Every read and write is guarded: storage throws outright in some
 // contexts (private windows, blocked site data, quota), and a failed cache
 // must degrade to "just fetch it again", never to a crash.
-function cacheKey(query, gender) {
-  return `libas-ai-search:${gender || GENDER_ANY}:${query}`;
+function cacheKey(query, gender, context = []) {
+  const before = context.map((c) => c.query).join(" > ");
+  return `libas-ai-search:${gender || GENDER_ANY}:${before ? `${before} > ` : ""}${query}`;
 }
-function readCache(query, gender) {
+function readCache(query, gender, context) {
   try {
-    const raw = sessionStorage.getItem(cacheKey(query, gender));
+    const raw = sessionStorage.getItem(cacheKey(query, gender, context));
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
   }
 }
-function writeCache(query, gender, data) {
+function writeCache(query, gender, context, data) {
   try {
-    sessionStorage.setItem(cacheKey(query, gender), JSON.stringify(data));
+    sessionStorage.setItem(cacheKey(query, gender, context), JSON.stringify(data));
   } catch {
     /* quota or blocked storage — the search still works, it just won't restore for free */
   }
@@ -167,11 +170,27 @@ function readThread() {
 }
 function writeThread(turns) {
   try {
-    // Results live in the per-query cache; the thread only stores what was asked.
-    sessionStorage.setItem(THREAD_KEY, JSON.stringify(turns.map(({ id, query, gender }) => ({ id, query, gender }))));
+    // Results live in the per-query cache; the thread only stores what was
+    // asked and the earlier turns it was asked after.
+    sessionStorage.setItem(
+      THREAD_KEY,
+      JSON.stringify(turns.map(({ id, query, gender, context }) => ({ id, query, gender, context })))
+    );
   } catch {
     /* see writeCache */
   }
+}
+
+// Follow-up context: the last few answered turns of THIS thread, as what
+// was asked plus how the AI read it (not the products). Sent with the next
+// question so "now in blue" refines the previous search; a new chat has
+// none, and other tabs/people have their own threads.
+const CONTEXT_TURNS = 3;
+function contextFrom(turns) {
+  return turns
+    .filter((t) => t.status === "done" && t.result)
+    .slice(-CONTEXT_TURNS)
+    .map((t) => ({ query: t.query, plan: t.result.filters || {} }));
 }
 
 // What the AI made of the query: the rewritten search(es), the product
@@ -328,7 +347,7 @@ export default function AiSearch() {
 
   const [turns, setTurns] = useState(() =>
     readThread().map((t) => {
-      const cached = readCache(t.query, t.gender);
+      const cached = readCache(t.query, t.gender, t.context);
       return { ...t, result: cached, status: cached ? "done" : "error" };
     })
   );
@@ -343,15 +362,15 @@ export default function AiSearch() {
 
   useEffect(() => writeThread(turns), [turns]);
 
-  function run(id, query, gender) {
-    const cached = readCache(query, gender);
+  function run(id, query, gender, context) {
+    const cached = readCache(query, gender, context);
     if (cached) {
       setTurns((ts) => ts.map((t) => (t.id === id ? { ...t, result: cached, status: "done" } : t)));
       return;
     }
-    searchProducts(query, gender)
+    searchProducts(query, gender, context)
       .then((data) => {
-        writeCache(query, gender, data);
+        writeCache(query, gender, context, data);
         setTurns((ts) => ts.map((t) => (t.id === id ? { ...t, result: data, status: "done" } : t)));
       })
       .catch(() => setTurns((ts) => ts.map((t) => (t.id === id ? { ...t, status: "error" } : t))))
@@ -359,25 +378,27 @@ export default function AiSearch() {
       .finally(() => inputRef.current?.focus());
   }
 
-  function ask(text, gender = genderFilter) {
+  // `context` defaults to this thread's earlier turns; a brand-new chat
+  // passes [] explicitly (its `turns` may still be the old thread here).
+  function ask(text, gender = genderFilter, context = contextFrom(turns)) {
     const query = text.trim();
     if (!query) return;
     const id = Date.now();
     scrollToId.current = id;
-    setTurns((ts) => [...ts, { id, query, gender, status: "loading", result: null }]);
+    setTurns((ts) => [...ts, { id, query, gender, context, status: "loading", result: null }]);
     setDraft("");
     setFiltersOpen(false);
-    run(id, query, gender);
+    run(id, query, gender, context);
   }
 
   function retry(turn) {
     try {
-      sessionStorage.removeItem(cacheKey(turn.query, turn.gender));
+      sessionStorage.removeItem(cacheKey(turn.query, turn.gender, turn.context));
     } catch {
       /* nothing cached to clear */
     }
     setTurns((ts) => ts.map((t) => (t.id === turn.id ? { ...t, status: "loading" } : t)));
-    run(turn.id, turn.query, turn.gender);
+    run(turn.id, turn.query, turn.gender, turn.context);
   }
 
   // Opening this page fresh (the header's "Ask", the home composer, any
@@ -405,7 +426,7 @@ export default function AiSearch() {
   useEffect(() => {
     if (!urlQuery || handledUrlQuery.current === urlQuery) return;
     handledUrlQuery.current = urlQuery;
-    ask(urlQuery);
+    ask(urlQuery, genderFilter, []);
     const params = {};
     if (genderParam) params.gender = genderParam;
     setSearchParams(params, { replace: true });

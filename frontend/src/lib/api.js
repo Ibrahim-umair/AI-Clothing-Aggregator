@@ -83,6 +83,9 @@ export function fetchBrands() {
 // server/SEARCH.md for the full pipeline design. `gender`, if passed
 // (from an explicit UI toggle), overrides whatever the model would have
 // inferred from the query text — see runSearch()'s genderOverride.
-export function searchProducts(query, gender = null) {
-  return postJSON("/search", { query, gender });
+// `history`: earlier turns of the same chat thread ([{query, plan}], oldest
+// first), so a follow-up like "now in blue" refines the last search. The
+// server keeps no session; each thread sends only its own turns.
+export function searchProducts(query, gender = null, history = []) {
+  return postJSON("/search", { query, gender, history });
 }
