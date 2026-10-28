@@ -4,6 +4,7 @@ behind each filter (price on the cheapest variant, size means "available
 in this size", out-of-stock excluded by default, etc.).
 """
 import asyncio
+import json
 
 from fastapi import APIRouter, HTTPException, Request
 
@@ -313,8 +314,16 @@ async def list_products(request: Request):
 async def get_product(product_id: int):
     pool = await get_pool()
     product = await pool.fetchrow(
+        # AI enrichment fields (db/enrich_products.py) read through to_jsonb
+        # so this still works on a database without those columns yet:
+        # missing keys just come back NULL.
         """SELECT p.id, p.title, p.handle, p.description, p.category_id,
-                  b.name AS store_display, b.slug AS store, b.base_url
+                  b.name AS store_display, b.slug AS store, b.base_url,
+                  to_jsonb(p) -> 'ai_description' #>> '{}' AS ai_description,
+                  to_jsonb(p) -> 'ai_tags' AS ai_tags,
+                  to_jsonb(p) -> 'ai_looks_like' #>> '{}' AS ai_looks_like,
+                  to_jsonb(p) -> 'ai_category_ok' AS ai_category_ok,
+                  to_jsonb(p) -> 'ai_meta' AS ai_meta
            FROM products p JOIN brands b ON b.id = p.brand_id
            WHERE p.id = $1 AND p.is_active = true AND p.is_browsable = true""",
         product_id,
@@ -414,4 +423,22 @@ async def get_product(product_id: int):
         "variant_count": len(variants),
         "category_path": category_path,
         "product_url": f"{product['base_url']}/products/{product['handle']}" if product["handle"] else product["base_url"],
+        "ai": _ai_fields(product),
+    }
+
+
+def _ai_fields(product) -> dict | None:
+    """What the enrichment model wrote about this product, for checking its
+    output on the product page. None when the product isn't enriched."""
+    if not product["ai_description"]:
+        return None
+    meta = json.loads(product["ai_meta"]) if product["ai_meta"] else {}
+    return {
+        "description": product["ai_description"],
+        "tags": json.loads(product["ai_tags"]) if product["ai_tags"] else [],
+        "looks_like": product["ai_looks_like"],
+        "category_ok": json.loads(product["ai_category_ok"]) if product["ai_category_ok"] else None,
+        "photos_seen": meta.get("photos"),
+        "model": meta.get("model"),
+        "enriched_at": meta.get("enriched_at"),
     }

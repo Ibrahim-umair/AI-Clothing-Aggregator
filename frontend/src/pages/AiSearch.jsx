@@ -126,13 +126,12 @@ const DEFAULT_GENDER = "Men";
 // snap back to Men on reload or back-navigation.
 const GENDER_ANY = "any";
 
-// Results are cached per (query, gender) so returning from a product page
-// restores the previous search instantly — no second LLM call, no repaid
-// latency or cost. sessionStorage (not localStorage) because a stale
-// price/stock snapshot shouldn't outlive the tab; every fresh visit
-// re-queries. Both reads and writes are guarded: storage throws outright
-// in some contexts (private windows, blocked site data, quota), and a
-// failed cache must degrade to "just fetch it again", never to a crash.
+// Results are cached per (query, gender) so asking the same thing again,
+// or restoring the thread, costs no second LLM call. sessionStorage (not
+// localStorage) because a stale price/stock snapshot shouldn't outlive the
+// tab. Every read and write is guarded: storage throws outright in some
+// contexts (private windows, blocked site data, quota), and a failed cache
+// must degrade to "just fetch it again", never to a crash.
 function cacheKey(query, gender) {
   return `libas-ai-search:${gender || GENDER_ANY}:${query}`;
 }
@@ -152,85 +151,290 @@ function writeCache(query, gender, data) {
   }
 }
 
+// The conversation itself: every query asked in this tab, in order, each
+// with its own results. Kept in sessionStorage so opening a product and
+// coming back restores the whole thread (and the scroll position) instead
+// of just the last search.
+const THREAD_KEY = "libas-ai-thread";
+const SCROLL_KEY = "libas-ai-thread-scroll";
+function readThread() {
+  try {
+    const turns = JSON.parse(sessionStorage.getItem(THREAD_KEY) || "[]");
+    return Array.isArray(turns) ? turns : [];
+  } catch {
+    return [];
+  }
+}
+function writeThread(turns) {
+  try {
+    // Results live in the per-query cache; the thread only stores what was asked.
+    sessionStorage.setItem(THREAD_KEY, JSON.stringify(turns.map(({ id, query, gender }) => ({ id, query, gender }))));
+  } catch {
+    /* see writeCache */
+  }
+}
+
+// What the AI made of the query: the rewritten search(es), the product
+// types it filtered to, the words a product must (and must not) state, and
+// the hard filters. Shown under each answer so a wrong reading is visible
+// instead of just producing odd results.
+function Understanding({ result }) {
+  const f = result.filters || {};
+  const hard = [
+    f.gender && `For: ${f.gender}`,
+    f.colors?.length > 0 && `Color: ${f.colors.join(", ")}`,
+    f.sizes?.length > 0 && `Size: ${f.sizes.join(", ")}`,
+    f.minPrice != null && `From Rs ${f.minPrice}`,
+    f.maxPrice != null && `Under Rs ${f.maxPrice}`,
+    f.brand && `Brand: ${f.brand}`,
+    f.onSale && "On sale",
+  ].filter(Boolean);
+  const groups = result.groups?.length ? result.groups : null;
+
+  return (
+    <details className="ai-understood" open>
+      <summary>How Libas read this</summary>
+      {hard.length > 0 && (
+        <div className="ai-understood__row">
+          {hard.map((h) => (
+            <span key={h} className="ai-understood__chip">{h}</span>
+          ))}
+        </div>
+      )}
+      {groups ? (
+        groups.map((g, i) => (
+          <div key={i} className="ai-understood__search">
+            <div className="ai-understood__query">
+              {groups.length > 1 && <b>{g.label}: </b>}“{g.query}”
+            </div>
+            <div className="ai-understood__row">
+              {(g.categories || []).map((c) => (
+                <span key={c} className="ai-understood__chip">{c}</span>
+              ))}
+              {(g.must_have || []).map((w) => (
+                <span key={`+${w}`} className="ai-understood__chip ai-understood__chip--have">+ {w}</span>
+              ))}
+              {(g.must_not || []).map((w) => (
+                <span key={`-${w}`} className="ai-understood__chip ai-understood__chip--not">− {w}</span>
+              ))}
+            </div>
+            {(g.notes || []).map((n) => (
+              <p key={n} className="ai-understood__note">{n}</p>
+            ))}
+          </div>
+        ))
+      ) : (
+        <div className="ai-understood__row">
+          {(f.categories || []).map((c) => (
+            <span key={c} className="ai-understood__chip">{c}</span>
+          ))}
+          {f.semantic_query && <span className="ai-understood__chip">keywords: {f.semantic_query}</span>}
+        </div>
+      )}
+    </details>
+  );
+}
+
+// One question + answer in the thread.
+function Turn({ turn, onRetry, turnRef }) {
+  const [sort, setSort] = useState("relevance");
+  const { result, status } = turn;
+  const groups = result ? resultGroups(result) : [];
+  const count = groups.reduce((n, g) => n + g.products.length, 0);
+
+  return (
+    <article className="ai-turn" ref={turnRef}>
+      <div className="ai-turn__question">
+        <span>{turn.query}</span>
+        {turn.gender && <span className="ai-turn__for">{turn.gender}</span>}
+      </div>
+
+      {status === "loading" && (
+        <>
+          <div className="ai-search__answer ai-search__answer--loading">
+            <SparklesIcon size={15} />
+            <span className="skeleton-line" />
+          </div>
+          <div className="product-grid product-grid--5">
+            {Array.from({ length: 5 }, (_, i) => (
+              <ProductCardSkeleton key={i} />
+            ))}
+          </div>
+        </>
+      )}
+
+      {status === "error" && (
+        <div className="empty-state">
+          <h3>AI mode is taking a short break</h3>
+          <p>We've hit a snag on our end. Try again in a moment.</p>
+          <button type="button" className="btn btn--primary" onClick={onRetry}>
+            Try again
+          </button>
+        </div>
+      )}
+
+      {status === "done" && result && (
+        <>
+          <div className="ai-search__results-header">
+            <div className="ai-search__answer">
+              <SparklesIcon size={15} />
+              <span>{result.response_text}</span>
+            </div>
+            {count > 1 && (
+              <label className="select-control">
+                <span className="select-control__label">Sort by</span>
+                <span className="select-control__field">
+                  <select value={sort} onChange={(e) => setSort(e.target.value)}>
+                    {SORT_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                </span>
+              </label>
+            )}
+          </div>
+
+          <Understanding result={result} />
+
+          {count === 0 ? (
+            <div className="empty-state">
+              <h3>Nothing matched that</h3>
+              <p>Try describing it a little differently, or broaden the budget/brand.</p>
+            </div>
+          ) : (
+            groups.map((g, gi) => <ResultGroup key={gi} group={g} showTitle={groups.length > 1} sort={sort} />)
+          )}
+        </>
+      )}
+    </article>
+  );
+}
 
 export default function AiSearch() {
-  // The query and gender live in the URL, not component state, so browser
-  // back/forward and reload all restore the search exactly — this page is
-  // a real destination people navigate away from (into a product) and
-  // come back to.
+  // Only the gender choice lives in the URL now (so reload keeps it); a
+  // ?q= in the URL (example chip, shared link) is asked once as a new turn
+  // and then dropped from the URL, since the thread holds the history.
   const [searchParams, setSearchParams] = useSearchParams();
-  const query = searchParams.get("q") || "";
+  const urlQuery = searchParams.get("q") || "";
   const genderParam = searchParams.get("gender");
   const genderFilter = genderParam === GENDER_ANY ? null : genderParam || DEFAULT_GENDER;
-  const sort = searchParams.get("sort") || "relevance";
   // Boys/Girls are real, separately-selectable genders (never merged into a
-  // combined "Kids" value — the search backend has no such concept, and
-  // introducing one client-side would just reintroduce that ambiguity).
-  // "Kids mode" is derived purely from which gender is active, not a
-  // separate piece of state — see toggleKidsMode below, which moves this
-  // by actually changing the selected gender rather than tracking a
-  // parallel "mode" flag that could drift out of sync with it.
+  // combined "Kids" value — the search backend has no such concept).
+  // "Kids mode" is derived purely from which gender is active.
   const isKidsMode = genderFilter === "Boys" || genderFilter === "Girls";
   const examples = EXAMPLES_BY_GENDER[genderFilter] || EXAMPLES_BY_GENDER[DEFAULT_GENDER];
 
-  // Deliberately NOT initialized from `query` — the composer always starts
-  // empty (placeholder showing), whether that's the very first visit or a
-  // refinement after results are already on screen. What was searched is
-  // already visible in the answer/results above; echoing it back into the
-  // input just makes "type something new" harder, not easier.
+  const [turns, setTurns] = useState(() =>
+    readThread().map((t) => {
+      const cached = readCache(t.query, t.gender);
+      return { ...t, result: cached, status: cached ? "done" : "error" };
+    })
+  );
   const [draft, setDraft] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(false);
-  const [result, setResult] = useState(() => (query ? readCache(query, genderFilter) : null));
-  // Once a search has been made, the gender/kids toggle moves off the page
-  // and behind this icon next to the sticky composer — filtersOpen controls
-  // whether that small panel is showing.
   const [filtersOpen, setFiltersOpen] = useState(false);
   const filtersRef = useRef(null);
   const filtersToggleRef = useRef(null);
+  const inputRef = useRef(null);
+  const turnRefs = useRef({});
+  const scrollToId = useRef(null);
+  const busy = turns.some((t) => t.status === "loading");
 
-  // Clears the composer back to empty every time the searched query
-  // changes — covers a fresh submission, a suggestion-chip refinement, and
-  // back/forward navigation landing on a different query, all the same
-  // way: whatever was searched is already shown above, so the input is
-  // always ready for the NEXT thing rather than echoing the last one.
-  useEffect(() => {
-    setDraft("");
-  }, [query]);
+  useEffect(() => writeThread(turns), [turns]);
 
-  useEffect(() => {
-    if (!query) {
-      setResult(null);
-      setError(false);
-      return;
-    }
-    const cached = readCache(query, genderFilter);
+  function run(id, query, gender) {
+    const cached = readCache(query, gender);
     if (cached) {
-      setResult(cached);
-      setError(false);
-      setLoading(false);
+      setTurns((ts) => ts.map((t) => (t.id === id ? { ...t, result: cached, status: "done" } : t)));
       return;
     }
-    let cancelled = false;
-    setLoading(true);
-    setError(false);
-    setResult(null);
-    searchProducts(query, genderFilter)
+    searchProducts(query, gender)
       .then((data) => {
-        if (cancelled) return;
-        setResult(data);
-        writeCache(query, genderFilter, data);
+        writeCache(query, gender, data);
+        setTurns((ts) => ts.map((t) => (t.id === id ? { ...t, result: data, status: "done" } : t)));
       })
-      .catch(() => !cancelled && setError(true))
-      .finally(() => !cancelled && setLoading(false));
-    return () => {
-      cancelled = true;
-    };
-  }, [query, genderFilter]);
+      .catch(() => setTurns((ts) => ts.map((t) => (t.id === id ? { ...t, status: "error" } : t))))
+      // Ready for the next question as soon as this one is answered.
+      .finally(() => inputRef.current?.focus());
+  }
 
-  // Closes the sticky filter panel on an outside click, same pattern as
-  // the header's mega-menu — without this it stays open across an
-  // unrelated click anywhere else on the page.
+  function ask(text, gender = genderFilter) {
+    const query = text.trim();
+    if (!query) return;
+    const id = Date.now();
+    scrollToId.current = id;
+    setTurns((ts) => [...ts, { id, query, gender, status: "loading", result: null }]);
+    setDraft("");
+    setFiltersOpen(false);
+    run(id, query, gender);
+  }
+
+  function retry(turn) {
+    try {
+      sessionStorage.removeItem(cacheKey(turn.query, turn.gender));
+    } catch {
+      /* nothing cached to clear */
+    }
+    setTurns((ts) => ts.map((t) => (t.id === turn.id ? { ...t, status: "loading" } : t)));
+    run(turn.id, turn.query, turn.gender);
+  }
+
+  // A query arriving through the URL becomes a turn once, then leaves the
+  // URL. The ref stops StrictMode's double effect run asking it twice.
+  const handledUrlQuery = useRef(null);
+  useEffect(() => {
+    if (!urlQuery || handledUrlQuery.current === urlQuery) return;
+    handledUrlQuery.current = urlQuery;
+    ask(urlQuery);
+    const params = {};
+    if (genderParam) params.gender = genderParam;
+    setSearchParams(params, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlQuery]);
+
+  // New question: bring it to the top of the screen, like a chat.
+  useEffect(() => {
+    const id = scrollToId.current;
+    if (id && turnRefs.current[id]) {
+      turnRefs.current[id].scrollIntoView({ behavior: "smooth", block: "start" });
+      scrollToId.current = null;
+    }
+  }, [turns]);
+
+  // Coming back from a product page lands where you were in the thread.
+  useEffect(() => {
+    let saved = 0;
+    try {
+      saved = Number(sessionStorage.getItem(SCROLL_KEY) || 0);
+    } catch {
+      /* no saved position */
+    }
+    if (saved && turns.length) requestAnimationFrame(() => window.scrollTo(0, saved));
+    function onScroll() {
+      try {
+        sessionStorage.setItem(SCROLL_KEY, String(window.scrollY));
+      } catch {
+        /* see writeCache */
+      }
+    }
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // "/" jumps to the composer from anywhere on the page.
+  useEffect(() => {
+    function onKey(e) {
+      if (e.key !== "/" || e.target.closest?.("input, textarea, select")) return;
+      e.preventDefault();
+      inputRef.current?.focus();
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
+
+  // Closes the sticky filter panel on an outside click.
   useEffect(() => {
     if (!filtersOpen) return;
     function onPointerDown(e) {
@@ -242,84 +446,42 @@ export default function AiSearch() {
     return () => document.removeEventListener("mousedown", onPointerDown);
   }, [filtersOpen]);
 
-  function submitQuery(q, gender) {
-    const trimmed = q.trim();
-    if (!trimmed) return;
-    const next = { q: trimmed };
-    if (gender !== DEFAULT_GENDER) next.gender = gender || GENDER_ANY;
-    setSearchParams(next);
-    setFiltersOpen(false);
-  }
-
   function onSubmit(e) {
     e.preventDefault();
-    submitQuery(draft, genderFilter);
+    if (!busy) ask(draft);
   }
 
+  // Changes who the NEXT question is for; earlier turns keep their own.
   function setGender(g) {
     const params = {};
-    if (query) params.q = query;
     if (g !== DEFAULT_GENDER) params.gender = g || GENDER_ANY;
-    if (sort !== "relevance") params.sort = sort;
-    // replace, not push — flipping a filter shouldn't stack history
-    // entries the back button then has to walk through one at a time.
-    setSearchParams(params, { replace: true });
-  }
-
-  function setSort(nextSort) {
-    const params = { q: query };
-    if (genderFilter !== DEFAULT_GENDER) params.gender = genderFilter || GENDER_ANY;
-    if (nextSort !== "relevance") params.sort = nextSort;
     setSearchParams(params, { replace: true });
   }
 
   function toggleGender(g) {
     if (isKidsMode) {
-      // There's no way to express "kids, unspecified" to the backend (see
-      // the "kids" gender gap this whole toggle exists to work around) —
-      // so unlike Men/Women, Boys/Girls never has a cleared third state.
-      // Exactly one of the two is always active while in kids mode.
       setGender(g);
       return;
     }
     setGender(genderFilter === g ? null : g);
   }
 
-  // The button that actually swaps the toggle's contents between
-  // Men/Women and Boys/Girls — moves the real gender selection (to a
-  // sensible default for whichever side it's entering) rather than
-  // tracking a separate "mode" flag, so isKidsMode never has a chance to
-  // drift out of sync with what's actually selected.
   function toggleKidsMode() {
     setGender(isKidsMode ? DEFAULT_GENDER : "Boys");
   }
 
-  // Ends the current search and returns to the hero landing state — a
-  // real "start over," not just clearing the input. Keeps whichever
-  // gender/kids selection was active (that's a shopping preference, not
-  // part of the conversation being ended) and drops only the query itself.
+  // Ends the thread and returns to the hero landing state. Keeps the
+  // gender selection (a shopping preference, not part of the conversation).
   function newChat() {
-    const params = {};
-    if (genderFilter !== DEFAULT_GENDER) params.gender = genderFilter || GENDER_ANY;
-    setSearchParams(params);
+    setTurns([]);
     setFiltersOpen(false);
-  }
-
-  function retry() {
+    setDraft("");
     try {
-      sessionStorage.removeItem(cacheKey(query, genderFilter));
+      sessionStorage.removeItem(SCROLL_KEY);
     } catch {
-      /* nothing cached to clear */
+      /* nothing saved */
     }
-    setError(false);
-    setLoading(true);
-    searchProducts(query, genderFilter)
-      .then((data) => {
-        setResult(data);
-        writeCache(query, genderFilter, data);
-      })
-      .catch(() => setError(true))
-      .finally(() => setLoading(false));
+    window.scrollTo(0, 0);
   }
 
   function renderModeRow() {
@@ -330,41 +492,16 @@ export default function AiSearch() {
           role="group"
           aria-label="Shop for"
         >
-          {isKidsMode ? (
-            <>
-              <button
-                type="button"
-                className={`ai-search__gender-btn${genderFilter === "Boys" ? " ai-search__gender-btn--active" : ""}`}
-                onClick={() => toggleGender("Boys")}
-              >
-                Boys
-              </button>
-              <button
-                type="button"
-                className={`ai-search__gender-btn${genderFilter === "Girls" ? " ai-search__gender-btn--active" : ""}`}
-                onClick={() => toggleGender("Girls")}
-              >
-                Girls
-              </button>
-            </>
-          ) : (
-            <>
-              <button
-                type="button"
-                className={`ai-search__gender-btn${genderFilter === "Men" ? " ai-search__gender-btn--active" : ""}`}
-                onClick={() => toggleGender("Men")}
-              >
-                Men
-              </button>
-              <button
-                type="button"
-                className={`ai-search__gender-btn${genderFilter === "Women" ? " ai-search__gender-btn--active" : ""}`}
-                onClick={() => toggleGender("Women")}
-              >
-                Women
-              </button>
-            </>
-          )}
+          {(isKidsMode ? ["Boys", "Girls"] : ["Men", "Women"]).map((g) => (
+            <button
+              key={g}
+              type="button"
+              className={`ai-search__gender-btn${genderFilter === g ? " ai-search__gender-btn--active" : ""}`}
+              onClick={() => toggleGender(g)}
+            >
+              {g}
+            </button>
+          ))}
         </div>
         <button
           type="button"
@@ -380,7 +517,7 @@ export default function AiSearch() {
 
   return (
     <div className={`ai-search${isKidsMode ? " ai-search--kids" : ""}`}>
-      {!query && (
+      {turns.length === 0 && (
         <div className="ai-search__hero">
           <h1 className="ai-search__headline">
             Shop across Pakistan's best brands with one <em>intelligent search</em>.
@@ -395,6 +532,7 @@ export default function AiSearch() {
           <form className="ai-search__composer" onSubmit={onSubmit}>
             <input
               autoFocus
+              ref={inputRef}
               className="ai-search__composer-input"
               placeholder="Ask anything. Describe your style, occasion or need…"
               value={draft}
@@ -405,7 +543,7 @@ export default function AiSearch() {
                 <SparklesIcon size={15} />
                 Powered by Libas AI
               </span>
-              <button type="submit" className="ai-search__submit" disabled={loading || !draft.trim()} aria-label="Search">
+              <button type="submit" className="ai-search__submit" disabled={!draft.trim()} aria-label="Search">
                 <ArrowUpIcon size={17} />
               </button>
             </div>
@@ -413,7 +551,7 @@ export default function AiSearch() {
 
           <div className="ai-search__examples">
             {examples.map(({ icon: Icon, text }) => (
-              <button type="button" key={text} className="ai-search__example-chip" onClick={() => submitQuery(text, genderFilter)}>
+              <button type="button" key={text} className="ai-search__example-chip" onClick={() => ask(text)}>
                 <Icon size={15} />
                 {text}
               </button>
@@ -422,97 +560,18 @@ export default function AiSearch() {
         </div>
       )}
 
-      {query && (
+      {turns.length > 0 && (
         <div className="ai-search__results ai-search__results--chat">
-          {loading ? (
-            <>
-              <div className="ai-search__answer ai-search__answer--loading">
-                <SparklesIcon size={15} />
-                <span className="skeleton-line" />
-              </div>
-              <div className="product-grid product-grid--5">
-                {Array.from({ length: 10 }, (_, i) => (
-                  <ProductCardSkeleton key={i} />
-                ))}
-              </div>
-            </>
-          ) : error ? (
-            <div className="empty-state">
-              <h3>AI mode is taking a short break</h3>
-              <p>We've hit a snag on our end and the team's already on it. Please check back shortly — or browse the regular Shop page in the meantime.</p>
-              <button type="button" className="btn btn--primary" onClick={retry}>
-                Try again
-              </button>
-            </div>
-          ) : result ? (
-            <>
-              <div className="ai-search__results-header">
-                <div className="ai-search__answer">
-                  <SparklesIcon size={15} />
-                  <span>{result.response_text}</span>
-                </div>
-                {resultGroups(result).reduce((n, g) => n + g.products.length, 0) > 1 && (
-                  <label className="select-control">
-                    <span className="select-control__label">Sort by</span>
-                    <span className="select-control__field">
-                      <select value={sort} onChange={(e) => setSort(e.target.value)}>
-                        {SORT_OPTIONS.map((o) => (
-                          <option key={o.value} value={o.value}>
-                            {o.label}
-                          </option>
-                        ))}
-                      </select>
-                    </span>
-                  </label>
-                )}
-              </div>
-
-              {/* Next-query suggestions, not a readout of the filters just
-                  applied — each chip is a real subtype/fit/style word for
-                  THIS result set (see suggested_refinements in search.js),
-                  and clicking one submits a brand-new search combining it
-                  with the current query. There's no actual multi-turn
-                  memory behind this (each search is independent — see
-                  runSearch), so the refinement is folded into the query
-                  TEXT itself rather than relying on the backend to
-                  remember anything from this turn. */}
-              {result.filters.suggested_refinements?.length > 0 && (
-                <div className="ai-search__chips">
-                  {result.filters.suggested_refinements.map((r, i) => (
-                    <button
-                      type="button"
-                      className="ai-search__chip--action"
-                      key={i}
-                      onClick={() => submitQuery(`${query}, ${r}`, genderFilter)}
-                    >
-                      {r}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {resultGroups(result).every((g) => g.products.length === 0) ? (
-                <div className="empty-state">
-                  <h3>Nothing matched that</h3>
-                  <p>Try describing it a little differently, or broaden the budget/brand.</p>
-                </div>
-              ) : (
-                resultGroups(result).map((g, gi, all) => (
-                  <ResultGroup key={gi} group={g} showTitle={all.length > 1} sort={sort} />
-                ))
-              )}
-            </>
-          ) : null}
+          {turns.map((t) => (
+            <Turn key={t.id} turn={t} onRetry={() => retry(t)} turnRef={(el) => (turnRefs.current[t.id] = el)} />
+          ))}
         </div>
       )}
 
-      {/* Replaces the hero composer once a search is underway — this is
-          the "new chat session" moment: the pitch/headline/examples are
-          gone, and searching from here on reads as continuing a
-          conversation rather than starting over on a landing page. The
-          gender/kids toggle moves behind the sliders icon so the bar
-          stays a single slim line instead of growing back into the hero. */}
-      {query && (
+      {/* Once a thread exists the composer stays docked at the bottom, so
+          the next question is always one click (or "/") away. The
+          gender/kids toggle sits behind the sliders icon. */}
+      {turns.length > 0 && (
         <div className="ai-search__sticky-bar">
           {filtersOpen && (
             <div className="ai-search__sticky-filters" ref={filtersRef}>
@@ -536,16 +595,23 @@ export default function AiSearch() {
               onClick={() => setFiltersOpen((v) => !v)}
               aria-label="Change who you're shopping for"
               aria-expanded={filtersOpen}
+              title={`Shopping for: ${genderFilter || "anyone"}`}
             >
               <SlidersIcon size={16} />
             </button>
             <input
+              ref={inputRef}
               className="ai-search__composer-input ai-search__composer-input--sticky"
-              placeholder="Explore further, or ask something else…"
+              placeholder={busy ? "Searching…" : `Ask a follow-up or something new${genderFilter ? ` (${genderFilter})` : ""}…  Press / to focus`}
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
             />
-            <button type="submit" className="ai-search__submit ai-search__submit--sticky" disabled={loading || !draft.trim()} aria-label="Search">
+            <button
+              type="submit"
+              className="ai-search__submit ai-search__submit--sticky"
+              disabled={busy || !draft.trim()}
+              aria-label="Search"
+            >
               <ArrowUpIcon size={16} />
             </button>
           </form>

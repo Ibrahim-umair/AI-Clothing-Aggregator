@@ -259,6 +259,8 @@ export default function ProductDetail() {
         </div>
       </div>
 
+      {product.ai && <AiReview ai={product.ai} categoryPath={product.category_path} />}
+
       {related.length > 0 && (
         <section className="related-section">
           <div className="section-heading">
@@ -275,6 +277,48 @@ export default function ProductDetail() {
         </section>
       )}
     </>
+  );
+}
+
+// What the enrichment model wrote about this product (server: products
+// route's `ai` field), shown so its output can be checked against the
+// photos above. This is the text search v2 matches fit and details against.
+function AiReview({ ai, categoryPath }) {
+  const storeCategory = (categoryPath || []).join(" › ");
+  return (
+    <section className="ai-review">
+      <div className="ai-review__head">
+        <span className="eyebrow">What Libas AI sees</span>
+        <span className="ai-review__meta">
+          {ai.photos_seen != null && `${ai.photos_seen} photo${ai.photos_seen === 1 ? "" : "s"} seen`}
+          {ai.enriched_at && ` · ${new Date(ai.enriched_at).toLocaleDateString()}`}
+        </span>
+      </div>
+      <p className="ai-review__description">{ai.description}</p>
+      {ai.tags?.length > 0 && (
+        <div className="ai-review__tags">
+          {ai.tags.map((t) => (
+            <span key={t} className="ai-review__tag">{t}</span>
+          ))}
+        </div>
+      )}
+      <dl className="ai-review__facts">
+        <div>
+          <dt>Looks like</dt>
+          <dd>{ai.looks_like || "–"}</dd>
+        </div>
+        <div>
+          <dt>Store category</dt>
+          <dd>{storeCategory || "–"}</dd>
+        </div>
+        <div>
+          <dt>Category check</dt>
+          <dd className={ai.category_ok === false ? "ai-review__flag" : undefined}>
+            {ai.category_ok === false ? "AI thinks this category is wrong" : "Matches"}
+          </dd>
+        </div>
+      </dl>
+    </section>
   );
 }
 
