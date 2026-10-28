@@ -54,6 +54,11 @@ MUST_HAVE_BONUS = 0.004
 # to the brands enriched so far. Empty = all brands.
 BRAND_SCOPE = [s.strip() for s in os.environ.get("SEARCH_V2_BRAND_SCOPE", "").split(",") if s.strip()]
 
+# Products the enrichment model judged to be in the wrong category (it saw
+# the photos; the category came from title keyword rules) are left out
+# until their category is fixed. Set to "0" to include them again.
+HIDE_MISCATEGORIZED = os.environ.get("SEARCH_V2_HIDE_MISCATEGORIZED", "1") != "0"
+
 # Same list as db/map_color_families.py (hues + shades).
 COLOR_FAMILIES = ["black", "white", "grey", "blue", "green", "yellow", "orange", "red",
                   "pink", "purple", "brown", "beige", "gold", "silver", "multicolor",
@@ -288,7 +293,8 @@ _ROW_JOIN = """
 def _base_where(plan: dict, brand_id, scope_ids, params: list) -> list[str]:
     """Hard filters shared by every sub-search (everything except category)."""
     where = [
-        "p.is_active AND p.is_browsable AND p.embedding_v2 IS NOT NULL",
+        "p.is_active AND p.is_browsable AND p.embedding_v2 IS NOT NULL"
+        + (" AND p.ai_category_ok IS NOT FALSE" if HIDE_MISCATEGORIZED else ""),
         "EXISTS (SELECT 1 FROM variants va WHERE va.product_id = p.id AND va.current_available)",
     ]
     if brand_id is not None:
