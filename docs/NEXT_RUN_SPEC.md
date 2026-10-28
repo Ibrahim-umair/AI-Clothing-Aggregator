@@ -97,6 +97,29 @@ Every review round has two outputs:
 This section collects (2). Lessons from review-exports/new-categories/
 ("Download problems & lessons") are added here.
 
+**Keeping the prompt small:**
+- Only general rules go in, never lists of products or brands. The
+  keyword rules handle brand vocabulary ("Upper", "W/C", "5 Pocket",
+  typos).
+- The rules below are ~350 tokens and sit in the cached prefix with the
+  category tree, so they cost almost nothing per product.
+- The keyword-rule category goes in as a one-line hint: "Rules say: X
+  (keyword match)", or "Rules: Uncategorised". It is never stated as the
+  answer.
+- New lessons replace or merge with existing lines; the list should not
+  just grow.
+
+**Already in the keyword rules (2026-10-28, db/load_data.py, measured by
+db/eval_classify.py):**
+- 77% of the 2,464 reviewed products now come out right, up from 0%.
+- Unknown products go to "Uncategorised" (not shown in menus), not Shirt.
+- The AI call decides those, plus everything the keyword rules can't see:
+  - length (tunic vs. dress)
+  - "Upper"/"Zipper" (jacket, sweatshirt or hoodie)
+  - heels vs. sandals
+  - blazer vs. long coat
+  - gender from the photo
+
 **How to decide:**
 - Decide category and gender from the **photos** first. The store's text
   and our current category are hints that are often wrong, never the

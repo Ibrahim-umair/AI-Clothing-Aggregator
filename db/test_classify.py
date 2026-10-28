@@ -261,8 +261,8 @@ check("tie dye t-shirt is not a Tie accessory", "TIE DYE T-SHIRT FOR MEN", vendo
       expect_gender="Men", expect_branch="Western", expect_leaf="T-Shirt")
 check("tie dye joggers is not a Tie accessory", "TIE DYE JOGGER PANT FOR MEN", vendor="Men",
       expect_gender="Men", expect_branch="Western", expect_sub="Bottomwear", expect_leaf="Joggers")
-check("front tie top is not a Tie accessory", "Front Tie Top", vendor="COUGAR GIRL (S-V3-2026)",
-      expect_gender="Girls", expect_branch="Western", expect_leaf="Shirt")
+check("front tie top is not a Tie accessory (a Top since 2026-10-28)", "Front Tie Top", vendor="COUGAR GIRL (S-V3-2026)",
+      expect_gender="Girls", expect_branch="Western", expect_leaf="Top")
 check("real necktie still Tie", "Poly Silk Tie", vendor="Men",
       expect_gender="Men", expect_branch="Accessories", expect_leaf="Tie")
 check("real bow tie still Tie", "Bow Tie", vendor="Men",
@@ -346,8 +346,8 @@ check("tie-waist playsuit is not a Tie accessory", "Tie-Waist Playsuit",
       vendor="COUGAR GIRL (S-V1-2026)", expect_gender="Girls", expect_branch="Western")
 check("tie-up jumpsuit is not a Tie accessory", "Tie-Up Jumpsuit White/Blue",
       product_type="Jump Suits", vendor="Girls", expect_gender="Girls", expect_branch="Western")
-check("hair tie -> Jewelry not Tie", "Pack of 3 Bow Hair Tie", product_type="JEWELLERY",
-      vendor="Women", expect_gender="Women", expect_branch="Accessories", expect_leaf="Jewelry")
+check("hair tie -> Hair Accessories (own leaf since 2026-10-28), not Tie", "Pack of 3 Bow Hair Tie", product_type="JEWELLERY",
+      vendor="Women", expect_gender="Women", expect_branch="Accessories", expect_leaf="Hair Accessories")
 check("'tie up' with a space is not a Tie accessory", "Tie Up Jumpsuit White/Blue",
       product_type="Jump Suits", vendor="Girls", expect_gender="Girls",
       expect_branch="Western", expect_sub="Upperwear", expect_leaf="Jumpsuit")
@@ -477,8 +477,8 @@ check("'casual short for women' stays Shorts", "CASUAL SHORT FOR WOMEN",
 # convention — "Shorts" here is a literal product-line prefix, never the
 # garment; vendor/tags confirm these are real winter blazers/jackets, no
 # field anywhere says "short" in the length sense.
-check("Engine 'Women Shorts Body Blazer' is a Jacket, not Shorts", "Women Shorts Body Blazer",
-      vendor="ENGINE", product_type="Women", expect_branch="Western", expect_leaf="Jacket")
+check("Engine 'Women Shorts Body Blazer' is a Blazer (own leaf since 2026-10-28), not Shorts", "Women Shorts Body Blazer",
+      vendor="ENGINE", product_type="Women", expect_branch="Western", expect_leaf="Blazer")
 check("Engine 'Women Shorts Body Jacket' is a Jacket, not Shorts", "Women Shorts Body Jacket",
       vendor="ENGINE", product_type="Women", expect_branch="Western", expect_leaf="Jacket")
 # (d) store's own product_type mislabeled "Shorts" on a real pair of
@@ -553,9 +553,9 @@ check_leaf_exists("Women", "Eastern", "Stitched", "Kurta")
 # (Breakout, Women) — CATEGORY_TREE has no Tie leaf for Women at all
 # (only Men/Unisex), so this was stranding on the bare Accessories branch
 # node.
-check("'waist tie top' is a Shirt, not a Tie accessory", "TEXTURED WAIST TIE TOP",
+check("'waist tie top' is a Top, not a Tie accessory", "TEXTURED WAIST TIE TOP",
       vendor="BREAKOUT", product_type="WOVEN", tags="WOMEN,WOVEN,WOVEN SHIRT",
-      expect_gender="Women", expect_branch="Western", expect_leaf="Shirt")
+      expect_gender="Women", expect_branch="Western", expect_leaf="Top")
 check("real necktie still resolves Tie, unaffected by the waist exclusion", "Poly Silk Tie",
       vendor="Men", expect_gender="Men", expect_branch="Accessories", expect_leaf="Tie")
 
@@ -866,8 +866,10 @@ check("'Pocket Square' is an accessory, not a Shirt", "100% Silk Pocket Square",
 # Tops" and still resolved to Shirt.
 check("Furor's own product_type 'Men Tank Tops' resolves Tank Top", "All-Over Print Tank Top - FMTT18-002",
       product_type="Men Tank Tops", vendor="Furor", expect_branch="Western", expect_leaf="Tank Top")
-check("bare 'sando' (a real undergarment word, distinct from a Tank Top) is NOT pulled into Tank Top", "Navy Sando",
-      vendor="Men", expect_branch="Western", expect_leaf="Shirt")
+check("bare 'sando' (a real undergarment word, distinct from a Tank Top) is Underwear, not Tank Top", "Navy Sando",
+      vendor="Men", expect_branch="Accessories", expect_leaf="Underwear")
+check("'Sando Top' is a tank top, not underwear", "Printed Sando Top",
+      vendor="Boys", expect_branch="Western", expect_leaf="Tank Top")
 
 # 69. Scarf/Muffler/Stole had no leaf/keyword at all — ~731 real products,
 # mostly Men/Women. A standalone Dupatta/Duppatta was falling even further
@@ -877,10 +879,14 @@ check("'Scarf' is an accessory, not a Shirt", "Aqua Wool Scarf",
       product_type="SCARVES", vendor="Men", expect_branch="Accessories", expect_leaf="Scarf")
 check("'Muffler' folds into the same Scarf leaf", "Men Muffler",
       product_type="Men Mufflers", vendor="Men", expect_branch="Accessories", expect_leaf="Scarf")
-check("standalone 'Dupatta' is a Scarf, not Shalwar Kameez", "Printed Dupatta",
-      product_type="Stoles/Dupatta", vendor="Diners", expect_branch="Accessories", expect_leaf="Scarf")
-check("'Duppatta' misspelling still resolves Scarf", "Dyed Duppatta",
-      product_type="Stoles/Dupatta", vendor="Diners", expect_branch="Accessories", expect_leaf="Scarf")
+check("standalone 'Dupatta' is a Dupatta (own leaf since 2026-10-28), not Shalwar Kameez", "Printed Dupatta",
+      product_type="Stoles/Dupatta", vendor="Diners", expect_branch="Eastern", expect_leaf="Dupatta")
+check("'Duppatta' misspelling still resolves Dupatta", "Dyed Duppatta",
+      product_type="Stoles/Dupatta", vendor="Diners", expect_branch="Eastern", expect_leaf="Dupatta")
+check("'Shirt Dupatta' is a two-piece suit, not a standalone dupatta", "Block Print Cambric Shirt Dupatta",
+      vendor="Girls", expect_branch="Eastern")
+check("a stole stays a Scarf", "Printed Stole", product_type="Stoles/Dupatta", vendor="Women",
+      expect_branch="Accessories", expect_leaf="Scarf")
 check("a dupatta bundled into a real kurta ensemble still resolves Eastern", "Kurta With Dupatta",
       vendor="Women", expect_branch="Eastern", expect_leaf="Kurta")
 
@@ -931,8 +937,8 @@ check("bare '2PC' resolves Co-ord Set", "Printed 2PC",
       product_type="2 Piece Stitched", vendor="Diners", expect_branch="Western", expect_sub="Suits & Sets", expect_leaf="Co-ord Set")
 check("'Boys Combo' resolves Co-ord Set", "Graphic Printed Boys Combos",
       product_type="Boys Combo", vendor="Diners", expect_branch="Western", expect_sub="Suits & Sets", expect_leaf="Co-ord Set")
-check("bare '3-Piece...Set' resolves Co-ord Set even with a T-Shirt-mislabeled product_type", "Boys 3-Piece Suiting Set in Fawn",
-      product_type="Boys T-Shirts", vendor="Diners", expect_branch="Western", expect_sub="Suits & Sets", expect_leaf="Co-ord Set")
+check("boys' 'Suiting' set is a Formal Suit (2026-10-28), even with a T-Shirt-mislabeled product_type", "Boys 3-Piece Suiting Set in Fawn",
+      product_type="Boys T-Shirts", vendor="Diners", expect_branch="Western", expect_sub="Formalwear", expect_leaf="Formal Suit")
 check("'Combo' immediately before a garment noun is a COLOR combo, not a set", "Green & Black Combo Hoodie",
       vendor="Unisex", expect_branch="Western", expect_leaf="Hoodie")
 check("a real jacket SKU suffix ('-2P', no C) is NOT mistaken for a piece-count", "Varsity Jacket - EBTJP5-001-2P",
@@ -1028,14 +1034,16 @@ check("tracksuit is its own leaf, not Co-ord Set", "Men Tracksuit", vendor="Men"
       expect_branch="Western", expect_sub="Suits & Sets", expect_leaf="Tracksuit")
 check("pantsuit is still Co-ord Set (defensive, no real catalog matches)", "Women Pantsuit",
       vendor="Women", expect_branch="Western", expect_sub="Suits & Sets", expect_leaf="Co-ord Set")
-check("nightsuit is still Co-ord Set", "Tee Pajama Nightsuit", vendor="Women",
-      expect_branch="Western", expect_sub="Suits & Sets", expect_leaf="Co-ord Set")
+check("nightsuit is Nightwear & Loungewear (own group since 2026-10-28)", "Tee Pajama Nightsuit", vendor="Women",
+      expect_branch="Western", expect_sub="Sleepwear", expect_leaf="Nightwear & Loungewear")
+check("'date night shirt' is a shirt, not nightwear", "BOXY DATE NIGHT SHIRT", vendor="Women",
+      expect_branch="Western", expect_leaf="Shirt")
 
 # Cougar's own `productType: "2PC"` bucket wrongly pulled single tops (no
 # matching bottom at all) into Co-ord Set purely because product_type said
 # "2PC" — the title never does. Piece-count is now title-only.
 check("product_type-only '2PC' (Cougar) no longer forces Co-ord Set on a plain top", "Ribbed Knit Top",
-      product_type="2PC", vendor="Women", expect_branch="Western", expect_sub="Upperwear", expect_leaf="Shirt")
+      product_type="2PC", vendor="Women", expect_branch="Western", expect_sub="Upperwear", expect_leaf="Top")
 check("a real title-stated piece count still resolves Co-ord Set (Diners)", "Printed 2PC",
       product_type="Girls 2 Piece", vendor="Girls",
       expect_branch="Western", expect_sub="Suits & Sets", expect_leaf="Co-ord Set")
@@ -1186,8 +1194,10 @@ check("a plain Eastern koti waistcoat with no Western signal at all stays Easter
       product_type="Woman Waist Coat", vendor="Women",
       description="Fabric: Lawn stylized printed koti with pockets and accent lining",
       expect_branch="Eastern", expect_sub="Stitched", expect_leaf="Waistcoat")
-check("a Boys waistcoat paired with Kameez Shalwar stays Eastern despite generic wording", "Boys Kameez Shalwar with waistcoat",
-      vendor="Boys", expect_gender="Boys", expect_branch="Eastern", expect_sub="Stitched", expect_leaf="Waistcoat")
+check("'Kameez Shalwar with waistcoat' is the suit (2026-10-28 review), Eastern", "Boys Kameez Shalwar with waistcoat",
+      vendor="Boys", expect_gender="Boys", expect_branch="Eastern", expect_sub="Stitched", expect_leaf="Shalwar Kameez")
+check("a waistcoat sold alone stays Waistcoat even with a shalwar-kameez product type", "Boys Royal Blue Waistcoat",
+      product_type="Kameez Shalwar", vendor="Boys", expect_branch="Eastern", expect_leaf="Waistcoat")
 
 # --- Bandana.pk onboarding audit (2026-08-31) ---------------------------
 # "bra"/"camisole" had no keyword anywhere — 40 real products across
@@ -1465,7 +1475,7 @@ check("'Sharp 3 Piece Suit' + the chest-fit boilerplate resolves Formal Suit", "
 check("the same chest-fit boilerplate on a real pajama set (no 'suit' word) is unaffected, not Formal Suit",
       "Knit & Pajama", store="cambridge", vendor="Cambridge",
       description="Stripes pajama and knitted tees combine in this soft cotton pyjama set. Model is 6'2\" with a 40\" chest, and is wearing a size 40.",
-      expect_gender="Men", expect_branch="Western", expect_leaf="Shirt")
+      expect_gender="Men", expect_branch="Western", expect_leaf="Nightwear & Loungewear")
 
 print(f"{PASSED} passed, {len(FAILURES)} failed")
 if FAILURES:

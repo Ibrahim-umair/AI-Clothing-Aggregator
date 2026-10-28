@@ -155,6 +155,10 @@ def build_menus(tree: Tree, counts_by_category_id: dict[int, int]) -> dict:
         branch_nodes = [tree.by_id[i] for i in tree.children_of.get(g_node.id, [])]
         columns = []
         for b_node in branch_nodes:
+            # Products the keyword rules couldn't place wait here for the AI
+            # categorizer; searchable, but not a menu column.
+            if b_node.name == "Uncategorised":
+                continue
             b_count = count_for(b_node.id)
             if b_count == 0:
                 continue

@@ -47,8 +47,9 @@ NEWCAT_PATH = {
     "eastbottoms": "Eastern > Stitched > Shalwar & Pajama",
     "night": "Western > Sleepwear > Nightwear & Loungewear",
     "sandals": "Western > Footwear > Sandals",
-    "blazer": "Western > Upperwear > Blazer",
+    "blazer": "Western > Upperwear > Blazer",  # Men/Boys: see BLAZER_FORMAL
 }
+BLAZER_FORMAL = {"Men", "Boys"}
 HIDE = {"towels", "candles", "shoecare", "skincare", "buttons"}
 # The Unisex tree only has a few of the new leaves; products filed Unisex
 # today are mostly "gender unknown", so they go to the usual buyer instead.
@@ -112,9 +113,10 @@ def build():
         gender = p["current"].split(" > ")[0]
         if p["source"] == "review" and pid in decisions:
             gender = decisions[pid][1].split(" > ")[0]  # the review also fixed wrong genders
-        target = gender + " > " + NEWCAT_PATH[key]
-        if target not in path_ids and gender == "Unisex":
-            target = UNISEX_FALLBACK[key] + " > " + NEWCAT_PATH[key]
+        if gender == "Unisex" and gender + " > " + NEWCAT_PATH[key] not in path_ids:
+            gender = UNISEX_FALLBACK[key]
+        path = "Western > Formalwear > Blazer" if key == "blazer" and gender in BLAZER_FORMAL else NEWCAT_PATH[key]
+        target = gender + " > " + path
         if target not in path_ids:
             unresolved[target] += 1
             continue
