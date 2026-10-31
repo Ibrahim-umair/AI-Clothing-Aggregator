@@ -1,0 +1,31 @@
+// Real Libas AI search results (the LibasPremium launch video's data,
+// videos/template/src/premium/data.ts). Their photos, resized to 360x480,
+// are the tiles of the coming-soon page's Urdu mosaic; tapping a tile shows
+// the piece it came from, so each photo stays paired with its own brand and
+// price.
+export const MOSAIC_PRODUCTS = [
+  { brand: "Cambridge", title: "Drop Shoulder Acid Wash Hoodie", price: 5316, image: "/coming-soon/s0-0.jpg" },
+  { brand: "Engine", title: "Men Basic Hoodie", price: 3250, image: "/coming-soon/s0-1.jpg" },
+  { brand: "Outfitters", title: "Slogan Print Hoodie", price: 5990, image: "/coming-soon/s0-2.jpg" },
+  { brand: "Uniworth", title: "Brown Texture Pullover Hoodie", price: 4871, image: "/coming-soon/s0-3.jpg" },
+  { brand: "Breakout", title: "Graphic Hoodie", price: 2999, image: "/coming-soon/s0-4.jpg" },
+  { brand: "ONE (Be-One)", title: "Graphic Pullover Hoodie", price: 4193, image: "/coming-soon/s0-5.jpg" },
+  { brand: "Breakout", title: "Wide Leg Fit Denim", price: 2499, image: "/coming-soon/s1-0.jpg" },
+  { brand: "Engine", title: "Men Wide Leg Denim", price: 3000, image: "/coming-soon/s1-1.jpg" },
+  { brand: "Cougar", title: "Wide Leg Jeans", price: 3249, image: "/coming-soon/s1-2.jpg" },
+  { brand: "Cambridge", title: "Denim Jeans", price: 5895, image: "/coming-soon/s1-3.jpg" },
+  { brand: "Furor", title: "Relaxed Fit Cut & Sew Jeans", price: 1700, image: "/coming-soon/s1-4.jpg" },
+  { brand: "Royal Tag", title: "Blue Jeans", price: 2625, image: "/coming-soon/s1-5.jpg" },
+  { brand: "Charcoal", title: "Oversized Graphic T-Shirt", price: 1948, image: "/coming-soon/s2-0.jpg" },
+  { brand: "Cougar", title: "Basic Oversized T-Shirt", price: 1649, image: "/coming-soon/s2-1.jpg" },
+  { brand: "Zellbury", title: "Oversized Graphic T-Shirt", price: 1390, image: "/coming-soon/s2-2.jpg" },
+  { brand: "Outfitters", title: "Cropped Graphic T-Shirt", price: 1790, image: "/coming-soon/s2-3.jpg" },
+  { brand: "Cambridge", title: "Acid Wash Black T-Shirt", price: 2376, image: "/coming-soon/s2-4.jpg" },
+  { brand: "ONE (Be-One)", title: "Boxy Graphic Tee", price: 1300, image: "/coming-soon/s2-5.jpg" },
+  { brand: "Outfitters", title: "Basic Knitted Sweater", price: 3490, image: "/coming-soon/s3-0.jpg" },
+  { brand: "Charcoal", title: "Textured Crew Neck Sweater", price: 4348, image: "/coming-soon/s3-1.jpg" },
+  { brand: "Breakout", title: "Relaxed Fit Mock Neck Sweater", price: 2999, image: "/coming-soon/s3-2.jpg" },
+  { brand: "Furor", title: "Crew Neck Knitted Sweater", price: 3995, image: "/coming-soon/s3-3.jpg" },
+  { brand: "Cambridge", title: "Designer Sweater", price: 7206, image: "/coming-soon/s3-4.jpg" },
+  { brand: "Edenrobe", title: "Drop Needle Zipper Sweater", price: 7000, image: "/coming-soon/s3-5.jpg" },
+];

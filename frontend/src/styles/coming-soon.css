@@ -1,0 +1,104 @@
+/* ---------- Coming-soon page: the Libas mosaic ----------
+   Self-contained, all classes prefixed cs-, so nothing here reaches the
+   rest of the app's styles (index.css is untouched). A full red ground
+   (#a8342c, the red already in the brand palette as --sale) with the Urdu
+   word libas (clothing) built from real product photos, and an editorial
+   dictionary-entry layout in the launch videos' type: Geist, Geist Mono
+   and Instrument Serif. Fonts are loaded by ComingSoon.jsx. */
+.cs {
+  --cs-ground: #a8342c;
+  --cs-ink: #f7f7f5;
+  --cs-soft: #f0d6cf;
+  --cs-line: rgba(247, 247, 245, 0.24);
+  --cs-gold: #eab86a;
+  --cs-dark: #14161a;
+  --cs-dark-soft: #63665f;
+  --cs-shadow: 0 22px 48px rgba(20, 23, 20, 0.22);
+  --cs-ui: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --cs-mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --cs-serif: "Instrument Serif", Georgia, "Times New Roman", serif;
+  --cs-urdu: "Noto Nastaliq Urdu", "Jameel Noori Nastaleeq", "Urdu Typesetting", serif;
+
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--cs-ground);
+  color: var(--cs-ink);
+  font-family: var(--cs-ui);
+  font-size: 15px;
+  line-height: 1.5;
+  color-scheme: light;
+}
+.cs :focus-visible { outline: 2px solid var(--cs-gold); outline-offset: 2px; }
+.cs h1, .cs p { margin: 0; }
+.cs button { font: inherit; cursor: pointer; border: none; }
+
+.cs__wrap {
+  flex: 1;
+  width: 100%;
+  max-width: 1240px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-bottom: max(32px, env(safe-area-inset-bottom, 0px));
+}
+
+.cs__bar { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-block: 18px; }
+.cs__brand { display: inline-flex; align-items: center; gap: 10px; font: 600 19px/1 var(--cs-ui); letter-spacing: -0.03em; }
+.cs__brand em { font-style: normal; color: var(--cs-gold); }
+.cs__brand svg { width: 28px; height: 28px; flex-shrink: 0; }
+.cs__soon { display: inline-flex; align-items: center; gap: 8px; font: 500 11.5px/1 var(--cs-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--cs-soft); }
+.cs__soon i { width: 7px; height: 7px; border-radius: 50%; background: var(--cs-gold); }
+
+.cs__grid { flex: 1; display: grid; gap: 22px; align-content: center; }
+@media (min-width: 900px) {
+  .cs__grid { grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr); align-items: center; gap: 56px; }
+}
+
+.cs__art { min-width: 0; }
+.cs__mosaic { position: relative; width: 100%; aspect-ratio: 1.3; touch-action: none; cursor: crosshair; user-select: none; -webkit-user-select: none; }
+@media (min-width: 900px) {
+  .cs__mosaic { aspect-ratio: 1.2; max-height: max(360px, calc(100vh - 180px)); }
+}
+.cs__mosaic canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.cs__hint { margin-top: 8px; text-align: center; font: 400 12px/1.4 var(--cs-mono); color: var(--cs-soft); }
+
+.cs__tag {
+  position: absolute; z-index: 2; left: 0; top: 0;
+  display: flex; align-items: center; gap: 10px; max-width: 250px;
+  padding: 7px 12px 7px 7px; border-radius: 12px;
+  background: var(--cs-ink); color: var(--cs-dark); box-shadow: var(--cs-shadow);
+  pointer-events: none;
+}
+.cs__tag[hidden] { display: none; }
+.cs__tag img { width: 38px; height: 50px; flex-shrink: 0; border-radius: 6px; object-fit: cover; object-position: center 20%; }
+.cs__tag span { display: flex; flex-direction: column; min-width: 0; }
+.cs__tag b { font: 600 13px/1.25 var(--cs-ui); }
+.cs__tag i { font: normal 400 12px/1.3 var(--cs-ui); color: var(--cs-dark-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cs__tag em { font: normal 500 12px/1.3 var(--cs-mono); font-variant-numeric: tabular-nums; }
+
+.cs__copy { min-width: 0; display: flex; flex-direction: column; }
+.cs__entry { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; }
+.cs__word { font: italic 400 clamp(46px, 6vw, 62px)/1 var(--cs-serif); }
+.cs__meta { display: inline-flex; align-items: baseline; gap: 7px; font: 400 12.5px/1 var(--cs-mono); color: var(--cs-soft); }
+.cs__urdu { display: inline-block; font-family: var(--cs-urdu); font-size: 15px; line-height: 1; }
+.cs__def { margin-top: 10px; font: 400 23px/1.25 var(--cs-serif); color: var(--cs-soft); }
+.cs__rule { margin: 26px 0; height: 1px; border: 0; background: var(--cs-line); }
+.cs__title { font: 400 clamp(38px, 5.4vw, 62px)/1.02 var(--cs-serif); letter-spacing: -0.01em; text-wrap: balance; }
+.cs__title em { font-style: italic; color: var(--cs-gold); }
+.cs__sub { margin-top: 16px; max-width: 40ch; font-size: 16.5px; line-height: 1.5; color: var(--cs-soft); }
+
+.cs__form { margin-top: 26px; display: flex; gap: 8px; width: 100%; max-width: 420px; }
+.cs__input { flex: 1; min-width: 0; height: 50px; padding: 0 16px; border-radius: 14px; border: 1px solid transparent; background: var(--cs-ink); color: var(--cs-dark); font: 400 15px var(--cs-ui); }
+.cs__input:focus { outline: 2px solid var(--cs-gold); outline-offset: 1px; }
+.cs__submit { height: 50px; padding: 0 22px; border-radius: 14px; background: var(--cs-gold); color: var(--cs-dark); font: 600 15px var(--cs-ui); white-space: nowrap; transition: background 0.15s ease; }
+.cs__submit:hover { background: var(--cs-ink); }
+.cs__submit:disabled { opacity: 0.7; cursor: default; }
+.cs__confirm { margin-top: 26px; font: italic 400 26px/1.2 var(--cs-serif); color: var(--cs-ink); }
+.cs__error { margin-top: 10px; font: 500 13.5px/1.4 var(--cs-ui); color: var(--cs-ink); }
+.cs__fine { margin-top: 14px; font: 400 12px/1.6 var(--cs-mono); color: var(--cs-soft); }
+.cs__contact { display: block; width: fit-content; color: var(--cs-soft); text-decoration: none; }
+.cs__contact:hover { color: var(--cs-ink); text-decoration: underline; }
