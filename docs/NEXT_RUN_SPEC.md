@@ -109,9 +109,23 @@ This section collects (2). Lessons from review-exports/new-categories/
 - New lessons replace or merge with existing lines; the list should not
   just grow.
 
-**Already in the keyword rules (2026-10-28, db/load_data.py, measured by
-db/eval_classify.py):**
-- 77% of the 2,464 reviewed products now come out right, up from 0%.
+**Already in the keyword rules (db/load_data.py):**
+- 2026-10-28: 77% of the 2,464 reviewed products came out right, up from 0%.
+- 2026-11-01, six rounds checked against the AI's photo label for all 45,693
+  in-stock products (db/check_rules_vs_photos.py, no LLM calls):
+  - Agree with the photo: 96.5% → 98.4% (rule-writing stores).
+  - Held-back stores (Bandana, Furor, Royal Tag): 93.0% → 98.6%. The
+    Furor jump came from the "Co-Ord Set Shirt" rule, which Zellbury and
+    Cambridge also needed, so Furor is no longer a blind test.
+  - Reviewed products right: 77.2% → 91.2%. Uncategorised: 295 → 71.
+  - Rules are general naming habits, never store names. Examples: the last
+    garment word decides ("Tunic Dress"); a top and a bottom named together
+    are a set; women's "2PC/3PC" is an Eastern suit; a store type naming a
+    kurti beats a title that only says "Shirt"; "Upper"/"Zipper" is read
+    from the description (hood, knit, else jacket); a men's bare "Coat" is
+    a blazer; "Co-Ord Set Shirt" is one piece sold on its own.
+  - New stores: run the check after the first scrape. The groups it lists
+    are the next rule round.
 - Unknown products go to "Uncategorised" (not shown in menus), not Shirt.
 - The AI call decides those, plus everything the keyword rules can't see:
   - length (tunic vs. dress)

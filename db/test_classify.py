@@ -95,8 +95,9 @@ check("shawl collar sweater is not an accessory", "Shawl Collar Color-Block Swea
 # 11. Sherwani / Waistcoat
 check("sherwani -> Eastern", "Sherwani Suit - ECBTSS5-008", vendor="Boys",
       expect_branch="Eastern", expect_leaf="Sherwani")
-check("waistcoat suit -> Eastern", "Embroidered Silk Waistcoat Suit - ECBTWCS6-106",
-      vendor="Boys", expect_branch="Eastern", expect_leaf="Waistcoat")
+# 2026-11-01: a "Waistcoat Suit" is a kurta outfit with a waistcoat (photos: "kurta waistcoat set").
+check("waistcoat suit -> Eastern Kurta Set", "Embroidered Silk Waistcoat Suit - ECBTWCS6-106",
+      vendor="Boys", expect_branch="Eastern", expect_leaf="Kurta Set")
 
 # 13/14. Unstitched piece-count fallback
 check("SKU -3P suffix counted", "Embroidered Lawn Suit - EWU5V1-31244-3P",
@@ -933,8 +934,9 @@ check("a 'Sports Vest' resolves Tank Top too", "Boys Panel Sports Vest",
 # body_html confirms these are genuine "ready-to-wear 2-piece set"/"Top
 # Bottom Set" listings, not Eastern ensembles. ~970 real products across
 # Women/Girls/Boys/Teens/Infant sub-lines were falling to Shirt.
-check("bare '2PC' resolves Co-ord Set", "Printed 2PC",
-      product_type="2 Piece Stitched", vendor="Diners", expect_branch="Western", expect_sub="Suits & Sets", expect_leaf="Co-ord Set")
+# 2026-11-01: women's "2PC" is an Eastern stitched suit (review + photos: "tunic set").
+check("women's bare '2PC' resolves Eastern Kurta Set", "Printed 2PC",
+      product_type="2 Piece Stitched", vendor="Diners", expect_branch="Eastern", expect_sub="Stitched", expect_leaf="Kurta Set")
 check("'Boys Combo' resolves Co-ord Set", "Graphic Printed Boys Combos",
       product_type="Boys Combo", vendor="Diners", expect_branch="Western", expect_sub="Suits & Sets", expect_leaf="Co-ord Set")
 check("boys' 'Suiting' set is a Formal Suit (2026-10-28), even with a T-Shirt-mislabeled product_type", "Boys 3-Piece Suiting Set in Fawn",
@@ -1044,9 +1046,9 @@ check("'date night shirt' is a shirt, not nightwear", "BOXY DATE NIGHT SHIRT", v
 # "2PC" — the title never does. Piece-count is now title-only.
 check("product_type-only '2PC' (Cougar) no longer forces Co-ord Set on a plain top", "Ribbed Knit Top",
       product_type="2PC", vendor="Women", expect_branch="Western", expect_sub="Upperwear", expect_leaf="Top")
-check("a real title-stated piece count still resolves Co-ord Set (Diners)", "Printed 2PC",
+check("a girls' title-stated piece count resolves Eastern Kurta Set (Diners)", "Printed 2PC",
       product_type="Girls 2 Piece", vendor="Girls",
-      expect_branch="Western", expect_sub="Suits & Sets", expect_leaf="Co-ord Set")
+      expect_branch="Eastern", expect_sub="Stitched", expect_leaf="Kurta Set")
 
 # Cambridge: tags alone reveal a "Suit"-titled item is really a Shalwar
 # Kameez — classify() never used to read tags/description at all.
@@ -1105,8 +1107,9 @@ check("a Gharara Suit with the structured convention still resolves via its own 
 # signal is a separate, out-of-scope case, deliberately left as Jacket).
 check("'Boys Prince Suit' resolves Eastern Sherwani, not Western Co-ord Set", "Grey Boys Prince Suit",
       vendor="Boys", expect_gender="Boys", expect_branch="Eastern", expect_sub="Stitched", expect_leaf="Sherwani")
-check("a standalone 'Prince Coat' (no set signal) is untouched, stays Jacket", "Embroidered Karandi Prince Coat",
-      product_type="Jacket", vendor="Men", expect_branch="Western", expect_leaf="Jacket")
+# 2026-11-01: a prince coat is the Eastern formal coat, filed with Sherwani.
+check("a standalone 'Prince Coat' resolves Eastern Sherwani", "Embroidered Karandi Prince Coat",
+      product_type="Jacket", vendor="Men", expect_branch="Eastern", expect_leaf="Sherwani")
 
 # Regression guards: the broadened tags/description signal must NOT
 # reclassify genuine WESTERN suits/sets just because of an incidental word.
@@ -1128,12 +1131,15 @@ check("the identical formal-suit description does NOT apply to Women — stays C
                    "single-breasted jacket, notch lapels, two-button fastening. The straight trousers have "
                    "classic loops for the belt, finished with a shawl lapel waistcoat featuring four-button detail.",
       expect_branch="Western", expect_sub="Suits & Sets", expect_leaf="Co-ord Set")
-check("Furor's Western resort Co-ord Set Shirt stays Co-ord Set despite 2 loose 'fabric' mentions", "Crochet Resort Co-Ord Set Shirt - FMTCS6-105",
+# 2026-11-01: "Co-ord Set Shirt" is one piece of a co-ord, sold on its own
+# ("Best Worn with Its Matching Trousers"); Zellbury sells "Co-Ord Set Shirt -
+# 1030" and "Co-Ord Set Trouser - 1030" as two products. It stays Western.
+check("Furor's Western resort Co-ord Set Shirt is a Shirt, still Western despite 2 loose 'fabric' mentions", "Crochet Resort Co-Ord Set Shirt - FMTCS6-105",
       tags="Co-Ord_Set,Men,Men_Tops,Shirt_Set", vendor="Men",
       description="Men's Co-ord Set Shirt Relaxed Fit Crochet Fabric. Relaxed Fit Co-ord Set Shirt Crafted "
                    "from Soft, Breathable Crochet Fabric. Best Worn with Its Matching Trousers for a Complete "
                    "Resort Look.",
-      expect_branch="Western", expect_sub="Suits & Sets", expect_leaf="Co-ord Set")
+      expect_branch="Western", expect_sub="Upperwear", expect_leaf="Shirt")
 
 # Formal Suit / Tracksuit split (2026-08-30) — a tailored Western 2/3-piece
 # business suit and an athletic tracksuit are both a different product
@@ -1189,7 +1195,7 @@ check("a 'blazer collar' detail on a real kurta pajama waistcoat stays Eastern",
       product_type="Men Waist Coat Suit", vendor="Men",
       description="Men's Waistcoat Suit Blazer Suiting Fabric Cotton Satin Kurta Pajama Contrast Blazer "
                    "Collar Fancy Buttons Decorative Chain & Brooch.",
-      expect_branch="Eastern", expect_sub="Stitched", expect_leaf="Waistcoat")
+      expect_branch="Eastern", expect_sub="Stitched", expect_leaf="Kurta Set")  # 2026-11-01: waistcoat suit = kurta outfit
 check("a plain Eastern koti waistcoat with no Western signal at all stays Eastern", "Waistcoat - ELTWC19-66953",
       product_type="Woman Waist Coat", vendor="Women",
       description="Fabric: Lawn stylized printed koti with pockets and accent lining",
@@ -1333,7 +1339,7 @@ check("a real Women's vest resolves its own Vest leaf, not Jacket", "Women's Bru
 check("a coat whose description mentions 'vests' only as a likely 'vents' typo stays Jacket",
       "Summar Coat Slim Fit 2 Button Down Charcoal Black", vendor="Men",
       description="Window Check Fabric Notch Lapel Two Buttons Two Flap Pockets Two Back Side Vests Contrast Elbow Patches",
-      expect_gender="Men", expect_branch="Western", expect_leaf="Jacket")
+      expect_gender="Men", expect_branch="Western", expect_leaf="Blazer")  # 2026-11-01: a men's two-button coat is a blazer
 # User-reported: browsing Hoodie turned up real hooded jackets. Read all
 # 99 real Hoodie-filed products with an outerwear-sounding title word
 # before deciding what to do — "hooded" is an ADJECTIVE describing a
