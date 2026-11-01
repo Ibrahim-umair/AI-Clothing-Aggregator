@@ -964,6 +964,8 @@ GENDER_PATTERNS = [
     (re.compile(r"\bman\b", re.I), "Men"),
     (re.compile(r"\bunisex\b", re.I), "Unisex"),
 ]
+BOTH_WOMEN_RE = re.compile(r"\bwom[ae]n\b", re.I)
+BOTH_MEN_RE = re.compile(r"\bm[ae]n\b", re.I)
 
 # Anchored to the START of the title only — see guess_gender()'s own use of
 # this for why an anchored check is needed in addition to GENDER_PATTERNS
@@ -1065,6 +1067,12 @@ def guess_gender(store, title, product_type, tags, vendor, p=None, is_graphql=Fa
         if pattern.match(title_start):
             return g
 
+    # A single tag naming BOTH genders is a bucket label, not evidence
+    # (Lama tags its men's items "collection-man-woman-overall"; Bandana's
+    # "B-Fit Men Women"). With women checked before men, such a tag filed
+    # 683 Lama men's products under Women (2026-11-02). Drop those tags.
+    tags = ",".join(t for t in (tags or "").split(",")
+                    if not (BOTH_WOMEN_RE.search(t) and BOTH_MEN_RE.search(t)))
     blob = f"{vendor or ''} {tags or ''} {product_type or ''} {title or ''}".lower()
     for pattern, g in GENDER_PATTERNS:
         if pattern.search(blob):
