@@ -49,7 +49,7 @@ BRANDS_ALL = [
     ("furor", "Furor", "https://furorjeans.com", "liquid_rest"),
     ("edenrobe", "Edenrobe", "https://edenrobe.com", "liquid_rest"),
     ("one_be-one", "ONE (Be-One)", "https://beoneshopone.com", "liquid_rest"),
-    ("equator", "Equator", "https://equatorstores.com", "liquid_rest"),
+    ("equator", "Equator", "https://equatorstores.com", "shopify_ucp"),  # headless since Nov 2026
     ("meme", "Meme", "https://shopatmeme.com", "liquid_rest"),
     ("breakout", "Breakout", "https://breakout.com.pk", "liquid_rest"),
     ("monark", "Monark", "https://monark.com.pk", "liquid_rest"),

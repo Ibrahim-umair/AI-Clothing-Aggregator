@@ -30,6 +30,7 @@ from category_lookup import build_category_lookup, resolve_category_id
 
 from pacing import Pacer
 from fetchers import fetch_rest_store, fetch_graphql_store, StoreFetchError
+from fetch_ucp import fetch_ucp_store
 from writer import ConnHolder, with_reconnect_retry, upsert_product_full, upsert_variant_availability_only, mark_stale_inactive
 
 
@@ -86,10 +87,24 @@ def write_alert(message):
             pass  # alerting must never itself take down a run
 
 
-def fetch_iterator(slug, base_url, platform, pacer):
+def fetch_iterator(slug, base_url, platform, pacer, bid=None, name=None):
     if platform == "hydrogen_graphql":
         return fetch_graphql_store(COUGAR_API_BASE_URL, requests.Session(), pacer, slug, COUGAR_STOREFRONT_TOKEN, MAX_RETRIES)
+    if platform == "shopify_ucp":
+        return fetch_ucp_store(base_url, requests.Session(), pacer, slug, previous_raw(bid), name, MAX_RETRIES)
     return fetch_rest_store(base_url, requests.Session(), pacer, slug, MAX_RETRIES)
+
+
+def previous_raw(bid):
+    """Last raw record per product (id -> product type, vendor) for stores
+    fetched through the Shopify Catalog, which doesn't return those fields."""
+    conn = psycopg2.connect(DSN)
+    cur = conn.cursor()
+    cur.execute("SELECT native_product_id, raw_source->>'product_type', raw_source->>'vendor' "
+                "FROM products WHERE brand_id=%s", (bid,))
+    out = {pid: {"product_type": pt, "vendor": vendor} for pid, pt, vendor in cur.fetchall()}
+    cur.close(); conn.close()
+    return out
 
 
 def last_known_count(cur, bid):
@@ -114,7 +129,7 @@ def run_store_daily(slug, name, base_url, platform, bid, category_id, leaf_looku
               "variants": 0, "snapshots": 0, "errors": 0}
     error_message = None
     try:
-        for p in fetch_iterator(slug, base_url, platform, pacer):
+        for p in fetch_iterator(slug, base_url, platform, pacer, bid, name):
             counts["fetched"] += 1
             title = p.get("title") or ""
             nf = normalize_product_fields(p, is_graphql)
@@ -190,7 +205,7 @@ def run_store_hourly(slug, name, base_url, platform, bid, dry_run):
     counts = {"fetched": 0, "found": 0, "not_found": 0, "updated": 0, "snapshots": 0, "errors": 0}
     error_message = None
     try:
-        for p in fetch_iterator(slug, base_url, platform, pacer):
+        for p in fetch_iterator(slug, base_url, platform, pacer, bid, name):
             counts["fetched"] += 1
             nf = normalize_product_fields(p, is_graphql)
             if dry_run:

@@ -9,7 +9,7 @@
 CREATE EXTENSION IF NOT EXISTS vector;
 
 -- ============ ENUMS ============
-CREATE TYPE platform_type_enum       AS ENUM ('liquid_rest', 'hydrogen_graphql');
+CREATE TYPE platform_type_enum       AS ENUM ('liquid_rest', 'hydrogen_graphql', 'shopify_ucp');
 CREATE TYPE style_family_enum        AS ENUM ('western', 'eastern', 'unisex_basic', 'unknown', 'not_applicable');
 CREATE TYPE construction_status_enum AS ENUM ('ready_to_wear', 'unstitched_fabric', 'semi_stitched', 'not_applicable');
 CREATE TYPE age_group_enum           AS ENUM ('adult', 'teen', 'junior', 'toddler', 'infant');
