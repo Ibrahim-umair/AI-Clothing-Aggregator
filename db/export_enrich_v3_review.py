@@ -8,6 +8,8 @@ as libas-enrich-v3-review.json.
     python export_enrich_v3_review.py
 """
 import argparse
+
+from export_model_compare import color_text
 import html
 import json
 from pathlib import Path
@@ -176,8 +178,7 @@ def card(r):
                  + '<div class="kv"><b>Comfort:</b> ' + tags(d["comfort"]) + '</div>'
                  + '<div class="kv"><b>Care:</b> ' + tags(d["care"]) + '</div>')
     versions = "".join(
-        kv(f"Version {i}", f'{v["main_color"]}' + (f' + {", ".join(v["accents"])}' if v["accents"] else "")
-           + f' · {v["pattern"]} · photos {", ".join(map(str, v["photos"]))}')
+        kv(f"Version {i}", color_text(v) + f' · photos {", ".join(map(str, v["photos"]))}')
         for i, v in enumerate(res["versions"]))
     store_colors = ", ".join(f'{c["name"]}{"" if c["in_stock"] else " (sold out)"}' for c in p["colors"]) or "none given"
     mapping = ", ".join(f'{m["store_color"]} → {"?" if m["version"] < 0 else "version " + str(m["version"])}'

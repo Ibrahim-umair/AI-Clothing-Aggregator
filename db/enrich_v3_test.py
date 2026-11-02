@@ -90,12 +90,13 @@ GENERAL
 - Never name a colour in description or tags (colours go only in "versions").
 - No marketing language. Use the words a Pakistani shopper would use.
 
-description: 2-4 plain sentences. Start with the garment type and its fit, then
+description: 2-3 plain sentences. Start with the garment type and its fit, then
 length, sleeves, neckline/collar, prints/embroidery and where they sit, fabric look,
 notable details.
-tags: 8-12 short lowercase shopper phrases (type, design elements, style). Don't
+tags: 8-10 short lowercase shopper phrases (type, design elements, style). Don't
 repeat what the descriptors already say (fit, fabric, sleeves, closure).
-looks_like: the garment type in 1-3 shopper words.
+looks_like: the garment type only, in 1-3 shopper words: no gender, age or piece
+count, and it must agree with your category.
 
 CATEGORY
 Pick the most specific category from the CATEGORY TREE at the end. Each line is
@@ -129,9 +130,16 @@ not_apparel: true for towels, bedding, candles, shoe care, skincare, makeup and
 other non-wearables (perfume and accessories ARE apparel for us: false).
 
 VERSIONS (colours)
-- versions: one entry per distinct colour version the photos show: main_color and
-  accents from the allowed colour list; pattern: e.g. "solid", "check", "stripes",
-  "floral print"; photos: the photo numbers showing that version.
+- versions: one entry per distinct colour version the photos show.
+  main_color: the colour covering most of the piece. secondary: colours that
+  also cover a large part, each with share "equal" (about as much as the main
+  colour: half-and-half, two-tone, equal colour-block or stripes) or "part" (big
+  but clearly less: contrast sleeves, wide bands, panels); [] for a one-colour
+  piece. details: small touches only, each with
+  where it is (piping, buttons, trim, lining, logo, small print, embroidery,
+  patch); they never make the piece "that colour". All colours from the allowed
+  list. pattern: e.g. "solid", "stripes", "colour-block", "floral print".
+  photos: the photo numbers showing that version.
 - color_map: for every store colour name given, the index (0-based) of the version
   it matches, or -1 if you can't tell. Store colour names are often wrong; trust
   the photos.
@@ -141,24 +149,29 @@ Use "n/a", "" or [] for anything that doesn't apply. Underwear, socks, fragrance
 and non-apparel have no dress level, embellishment or coverage. Nightwear and
 loungewear are casual. Footwear and accessories DO get a dress level: they are
 worn to occasions too (a tie, oxfords, a plain wool shawl or a leather belt can
-be office or formal; slides, sneakers and caps are casual; an embellished clutch
-can be formal or festive).
+be office or party; slides, sneakers and caps are casual; an embellished clutch
+can be party or wedding).
 The allowed values of the ladders (dress level, warmth, embellishment level,
 sheerness) are fixed in the output format; this is what they mean:
 - fit: slim, regular, relaxed, oversized, skinny, straight, wide leg, tapered,
   flared, bodycon, A-line, "not clear", or "n/a" (accessories, socks, perfume).
-- dress_level: how dressed-up the piece is. Use a range when it sits between two
-  levels (from = the more casual end, to = the dressier end); from = to when it
-  is clear. Judge from the piece itself:
+- dress_level: the occasions the piece suits, most casual to dressiest:
+  casual (home, errands, outings), smart casual (dinner out, Jummah, casual
+  office), office (work, meetings, presentations), party (evening events,
+  dinners, mehndi/dholki guest), wedding (Eid, baraat, walima, festive).
+  Use a range only when the piece really fits both ends (from = the more casual
+  end); when unsure, from = to. Judge from the piece itself:
     Men: tee/hoodie/cargo/graphic = casual. Button-down collar, chest logo or
-    embroidery, patch or flap pockets, bold or all-over prints, polo, chinos =
-    smart casual. Plain or very fine pattern (fine stripe, small check), point or
-    spread collar, no logo = office. Suit, blazer with trousers, tie, tuxedo =
-    formal. Sherwani, embroidered kurta, prince coat, wedding waistcoat = festive.
-    Women (Pakistani meaning): printed lawn, basic kurti, jeans tops = casual. Neat
-    pret with light embroidery = smart casual. Simple elegant office pret = office.
-    "Formal" in Pakistan means party wear: chiffon, organza, silk, heavy
-    embroidery or embellishment = formal. Wedding and bridal wear = festive.
+    embroidery, patch or flap pockets, bold or all-over prints, polo, chinos,
+    plain or lightly embroidered kurta = smart casual. Plain or very fine
+    pattern, point or spread collar, no logo, business suit = office. Dinner
+    suit, tuxedo, statement blazer, embroidered kurta in a rich fabric = party.
+    Sherwani, prince coat, heavily worked kurta or kurta-waistcoat set = wedding.
+    Women: printed lawn, basic kurti, jeans tops = casual. Neat pret with light
+    embroidery = smart casual. Simple elegant office pret = office. What
+    Pakistani stores call "formal" (chiffon, organza, silk, rich embroidery) =
+    party. Heavy formals, bridal and festive wear = wedding.
+    Printed lawn or cotton and light embroidery never go above smart casual.
 - warmth applies to all clothing and footwear; "n/a" only for perfume and
   non-apparel. From fabric weight: lawn, cambric, voile, linen, chiffon = light;
   cotton, denim, jersey = medium; khaddar, karandi, wool, fleece, velvet, quilted,
@@ -190,7 +203,7 @@ CATEGORY TREE
 
 SCHEMA_PROPS = {
     "description": {"type": "string"},
-    "tags": {"type": "array", "items": {"type": "string"}},
+    "tags": {"type": "array", "items": {"type": "string"}, "maxItems": 10},
     "looks_like": {"type": "string"},
     "category": {
         "type": "object",
@@ -220,11 +233,23 @@ SCHEMA_PROPS = {
             "type": "object",
             "properties": {
                 "main_color": {"$ref": "#/$defs/color"},
-                "accents": {"type": "array", "items": {"$ref": "#/$defs/color"}},
+                # Big areas: these count when someone searches by colour.
+                # "equal" ranks like the main colour in search, "part" lower.
+                "secondary": {"type": "array", "items": {
+                    "type": "object",
+                    "properties": {"color": {"$ref": "#/$defs/color"},
+                                   "share": {"type": "string", "enum": ["equal", "part"]}},
+                    "required": ["color", "share"], "additionalProperties": False}},
+                # Small touches (piping, logo, embroidery...): never count as the
+                # piece's colour, only searchable when asked for by name.
+                "details": {"type": "array", "items": {
+                    "type": "object",
+                    "properties": {"color": {"$ref": "#/$defs/color"}, "where": {"type": "string"}},
+                    "required": ["color", "where"], "additionalProperties": False}},
                 "pattern": {"type": "string"},
                 "photos": {"type": "array", "items": {"type": "integer"}},
             },
-            "required": ["main_color", "accents", "pattern", "photos"],
+            "required": ["main_color", "secondary", "details", "pattern", "photos"],
             "additionalProperties": False,
         },
     },
@@ -244,8 +269,8 @@ SCHEMA_PROPS = {
             "dress_level": {
                 "type": "object",
                 "properties": {
-                    "from": {"type": "string", "enum": ["casual", "smart casual", "office", "formal", "festive", "n/a"]},
-                    "to": {"type": "string", "enum": ["casual", "smart casual", "office", "formal", "festive", "n/a"]},
+                    "from": {"type": "string", "enum": ["casual", "smart casual", "office", "party", "wedding", "n/a"]},
+                    "to": {"type": "string", "enum": ["casual", "smart casual", "office", "party", "wedding", "n/a"]},
                 },
                 "required": ["from", "to"],
                 "additionalProperties": False,

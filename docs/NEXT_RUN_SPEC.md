@@ -1,7 +1,7 @@
-# Next enrichment run: spec (draft, collecting requirements)
+# Next enrichment run: spec
 
-Status: requirements agreed with Ibrahim so far (2026-10-28). Nothing here is
-built yet. No paid run starts until this spec covers every known problem.
+Status: final, agreed with Ibrahim 2026-11-02 after test rounds r2-r9. Section 6
+is the build plan. No paid run starts until the pilot (step 5) is checked.
 
 ## 1. Closures: quarter-zip, half-zip, full-zip
 
@@ -73,9 +73,11 @@ pages, with a small "Unisex" badge.
   women's results.
 
 **What to build:**
-1. **Separate "unknown" from "unisex"** (keyword rules, before the run). An
-   unknown gender goes to the store's default gender. Unisex only when the
-   store's own text says unisex.
+1. **Separate "unknown" from "unisex"** (keyword rules, before the run). If
+   the rules can't tell the gender, it is stored as **Unknown** (agreed
+   2026-11-01), not Unisex. Unisex only when the store's own text says
+   unisex. The run decides the gender for every in-stock product anyway, so
+   Unknown is left only on sold-out products the run skips.
 2. **The run decides who it's for:** in the same enrichment call, the model
    returns `audience` = Men / Women / Unisex (Boys / Girls / Kids for kids'
    stores), with a confidence level and a one-line reason. It uses the
@@ -185,6 +187,12 @@ This section collects (2). Lessons from review-exports/new-categories/
 - **Not apparel:** towels, candles, shoe care, skincare and makeup. Mark
   them as not apparel; they are hidden.
 
+**Prompt history (2026-11-02):** the first full prompt (round 2, ~5,400 fixed
+tokens) is kept at local-notes/enrich_v3_test/prompt_r2.txt. The shorter prompt
+in db/enrich_v3_test.py (~3,900 tokens: grouped category tree, colour list
+stated once, one "n/a" rule) matched it within run-to-run variation on the same
+50 products (rounds r4a/r4b), so only the short one is used.
+
 ## 5. Also in scope (from earlier decisions; detailed later)
 
 - **Category in the main enrichment call:**
@@ -211,3 +219,95 @@ This section collects (2). Lessons from review-exports/new-categories/
   - rounds 1 and 2 approved, about 1,000 products to apply
   - 380 still open on review-exports/category-decisions-v2/
   - keyword-rule fixes in local-notes/catreview/FINDINGS.md
+
+## 6. Final design (agreed 2026-11-02)
+
+**Model:** GPT-6 Luna through the OpenAI Batch API, `reasoning_effort="none"`,
+strict json_schema output, `prompt_cache_key="libas-enrich-v3"`. The prompt and
+schema are the ones in db/enrich_v3_test.py (round r9). Cost is planned without
+cache (Batch caching was 0-43% across runs): ~$0.00036 per product, ~$16.3 for
+45,693 in-stock products. DeepSeek V4.1 Flash was tested on the same 50
+products and rejected: it broke more rules (engine suits as co-ords, "Kids" for
+boys/girls items, dress levels on socks, under-rated warmth).
+
+**Who gets a call:** active products with at least one in-stock variant and at
+least one photo. Sold-out products get nothing until they come back in stock.
+
+**Input per product:** all photos (max 12, deduplicated, low detail, each
+labelled "Photo n"), brand, title, store description and tags, the keyword-rule
+category as a hint, store colour names, sizes (no sizes on a suit = unstitched).
+
+**Output per product:**
+- `description`, `tags` (8-10), `looks_like` (garment type, must agree with the
+  category).
+- `category`: a leaf path from the grouped tree, confidence, reason, or
+  `NONE` with a proposed new category. The path is validated against the tree.
+- `audience`: Men / Women / Unisex / Boys / Girls / Kids, with confidence.
+- `not_apparel`: towels, candles, skincare and the like; these are hidden.
+- `versions`: one per colour version in the photos.
+  - `main_color`: covers most of the piece.
+  - `secondary`: big areas, each `equal` (half-and-half, two-tone) or `part`
+    (contrast sleeves, wide bands).
+  - `details`: small touches with where they are (piping, logo, embroidery).
+    Never the piece's colour.
+  - `pattern`, `photos` (photo numbers).
+  - All colours from the 31-colour palette.
+- `color_map`: store colour name → version index.
+- `descriptors`: fit, dress level (from/to), warmth, seasons, fabric,
+  embellishment (level + work), coverage (sleeves, length, neckline,
+  sheerness, slit), closure, activities, style, comfort, care.
+
+**Dress-level ladder:** casual < smart casual < office < party < wedding
+(`n/a` for underwear, socks, fragrance, non-apparel). What Pakistani stores call
+"formal" for women (chiffon, organza, silk, rich embroidery) is party; heavy
+formals, bridal and festive wear are wedding. Printed lawn or cotton and light
+embroidery never go above smart casual.
+
+**Storage (migration db/migrations/2026-11-02_enrichment_v3.sql):**
+- `ai_enrichment`: one row per product with the raw answer, model, prompt
+  version, tokens and cost, and `old` (the product's AI columns before the
+  apply step, for undo).
+- New product columns: `ai_audience` (+ confidence), `ai_category_id` (+
+  confidence, reason, proposed), `ai_not_apparel`, `ai_descriptors` (jsonb),
+  and ordered ladder columns for filtering: `ai_dress_from`, `ai_dress_to`
+  (0 casual … 4 wedding), `ai_warmth` (0 light … 2 warm), `ai_embellishment`
+  (0 plain … 4 heavy), `ai_sheerness` (0 opaque … 3 sheer). NULL = n/a or
+  unknown, and NULL is never excluded by a filter.
+- `product_color_versions`: one row per version with main colour, secondary,
+  details, pattern, photo positions, plus `match_colors` (main + equal
+  secondaries) and `part_colors` (part secondaries) for search.
+- `variants.color_version_id`: links each variant to its version, from
+  `color_map`, so stock is known per version.
+
+**Apply step (automatic, with undo):**
+- Reviewed overrides always win (any existing `category_overrides` row from a
+  review source is left alone).
+- High confidence category: written as a `category_overrides` row with source
+  `enrich-v3` (stores the old category, so `apply_category_overrides.py --undo
+  enrich-v3` reverts it).
+- Medium/low, `NONE` and invalid paths: keep the rule category, flagged for the
+  review page.
+- `not_apparel`: hidden through the same overrides table.
+- Audience, descriptors and colour versions are always saved.
+
+**Search use (step 7):**
+- Colour: a version whose main colour or `equal` secondary matches is a full
+  match; a `part` secondary ranks lower; details never match a colour filter
+  (only free text like "gold embroidery"). Only in-stock versions count, and a
+  card shows the matching version's photo.
+- Dress level: the planner reads "formal" from context (work/presentation →
+  office; dinner/event → party; wedding/mehndi/Eid → party + wedding). Ladder
+  descriptors can exclude; open lists (activities, style, comfort, care) only
+  boost.
+- Brand spacing: avoid same-brand neighbours where possible, never promote a
+  poorly ranked product to do it.
+
+**Before the run:** a fresh scrape (stock decides who gets a call). The home IP
+gets 429 from Shopify; 9 of the 10 Webshare proxies work (checked 2026-11-02,
+#0 is blocked). The scrape runs locally through a proxy so the branch's rules,
+overrides and new tables stay in the local database.
+
+**Order:** 1 spec, 2 migration (local), scrape, 3 batch pipeline, 4 apply step,
+5 pilot ~500 products, 6 full run + re-embed, 7 search, 8 UI, 9 eval + beta
+deploy (master merge is Ibrahim's call), 10 daily enrich of new and back-in-stock
+products.
