@@ -1,31 +1,44 @@
 """
 Fetcher for Salesforce Commerce Cloud stores (Khaadi, Sapphire): no product
-feed, so the product list comes from what each store's robots.txt allows and
-every product page is read for its details.
+feed, so the product list comes from what each store's robots.txt allows.
 
-  Khaadi    category pages (?start=&sz=, 96 per page) for the product ids,
-            then each product page: JSON-LD (name, photos, price, stock),
-            sizes with an inStock flag, the "Details" spec list, breadcrumb.
-  Sapphire  sitemap_0-product.xml for the product pages (?start=/?sz= are
-            disallowed there), then each page: name, price, sizes with a
-            "SOLD OUT" flag, photos, details tab, breadcrumb, keywords.
+  Khaadi    every category page in its sitemap (?start=&sz=, 96 per page).
+            The listing tiles already carry name, price, sale price and every
+            size with its stock (sold-out sizes are `disabled`), so sizes,
+            stock and prices always come from the tiles: ~700 requests for
+            the whole store. The product page is read only for a product we
+            haven't stored yet, for its full photo set (tiles show 2) and
+            the "Details" spec list and breadcrumb.
+  Sapphire  sitemap_0-product.xml for the product pages (its ?start=/?sz=
+            listing parameters are disallowed, and a listing page shows 12),
+            then each page: name, price, sizes with a "SOLD OUT" flag,
+            photos, details tab, breadcrumb, keywords.
 
-Both stores' /on/demandware.store/ endpoints are disallowed by robots.txt
-and never called. Each product is yielded in the /products.json shape the
-rest of the pipeline reads (normalize_product_fields, the writer), with
-handle "<id>.html": both stores redirect /products/<id>.html to the real
-page, so shopper links built as base_url/products/handle work unchanged.
+Pages are read by a few workers sharing one pacer (SCRAPE_SFCC_INTERVAL
+seconds between requests to a store, default 1). Both stores'
+/on/demandware.store/ endpoints are disallowed by robots.txt and never
+called. Each product is yielded in the /products.json shape the rest of the
+pipeline reads, with handle "<id>.html": both stores redirect
+/products/<id>.html to the real page, so shopper links built as
+base_url/products/handle work unchanged.
 """
 import html
 import json
+import os
 import re
+from concurrent.futures import ThreadPoolExecutor
 
 from fetchers import REQUEST_TIMEOUT_SECONDS, USER_AGENT, StoreFetchError
+from pacing import Pacer
 
-KHAADI_SECTIONS = ["/ready-to-wear/", "/fabrics/", "/western/", "/accessories/", "/fragrances/",
-                   "/sale/", "/new-in/", "/winter-collection/", "/festive-edit/", "/best-sellers/"]
+# Khaadi's sitemap lists only category pages. Every one is read (~610), since a
+# section like /western/ is a landing page whose products sit in sub-categories.
+# Skipped: Home (bedding etc.), blogs, and paths robots.txt disallows.
+KHAADI_SKIP = re.compile(r"^/(?:home|blogs|women|c)/|\.html$")
 KHAADI_PAGE = 96
 MAX_FAILURES_IN_A_ROW = 25   # a blocked store, not a few broken pages
+WORKERS = 3
+INTERVAL = float(os.environ.get("SCRAPE_SFCC_INTERVAL", "1"))
 
 
 def _text(s):
@@ -150,7 +163,55 @@ def parse_sapphire(page, pid):
                     sizes, price, compare, images)
 
 
-def fetch_sfcc_store(slug, base_url, session, pacer, store_label, max_retries=5):
+def parse_khaadi_tiles(page, base_url):
+    """pid -> what a listing tile shows: name, prices, sizes with stock, 2 photos."""
+    out = {}
+    for t in page.split('<div class="product" data-pid="')[1:]:
+        pid = t[:t.find('"')]
+        gtm = re.search(r'data-gtmdata="([^"]*)"', t)
+        try:
+            gtm = json.loads(html.unescape(gtm.group(1))) if gtm else {}
+        except ValueError:
+            gtm = {}
+        name = _text((re.search(r'<h2 class="pdp-link-heading">(.*?)</h2>', t, re.S) or [None, ""])[1]) or gtm.get("name", "")
+        i = t.find('<div class="price">')
+        price, compare = _prices(t[i:i + 1500] if i >= 0 else "")
+        sizes = [(m.group(2), not re.search(r"\bdisabled\b", m.group(1)))
+                 for m in re.finditer(r'<input type="radio"([^>]*?)>\s*<span[^>]*>\s*([^<]*?)\s*<', t)
+                 if "data-attr-value" in m.group(1)]
+        if name and pid not in out:
+            out[pid] = {"name": name, "price": price, "compare": compare, "sizes": list(dict.fromkeys(sizes)),
+                        "collection": gtm.get("category", ""),
+                        "alt": html.unescape((re.search(r'alt="([^"]*)"', t) or [None, ""])[1]),
+                        "images": [base_url + u for u in re.findall(r'data-hi-res-\d+="([^"]+)"', t)]}
+    return out
+
+
+def _khaadi_product(pid, tile, sections, known, page, base_url):
+    """Tile sizes/prices + photos/details from the product page (new) or the stored copy (known)."""
+    section_tags = [s.strip("/").replace("/", " > ").replace("-", " ") for s in sections]
+    if page is not None:
+        d = parse_khaadi(page, pid, base_url)
+        if d is None:
+            return None
+        images = [i["src"] for i in d["images"]]
+        body, product_type, tags = d["body_html"], d["product_type"], d["tags"]
+    elif known:
+        images = [i["src"] for i in known.get("images") or []]
+        body, product_type = known.get("body_html") or "", known.get("product_type") or ""
+        tags = [t for t in known.get("tags") or [] if t not in section_tags]
+    else:  # product page gone but still listed: keep what the tile shows
+        images, body, product_type, tags = tile["images"], f"<p>{html.escape(tile['alt'])}</p>", "", []
+    sizes = tile["sizes"] or [("One Size", True)]  # listed with no size picker: fabric, fragrance
+    return _product(pid, tile["name"], body, product_type, tags + [tile["collection"]] + section_tags, None,
+                    sizes, tile["price"], tile["compare"], images or tile["images"])
+
+
+def fetch_sfcc_store(slug, base_url, session, pacer, store_label, max_retries=5, known=None):
+    """known: native id -> stored raw_source, so Khaadi skips product pages it has read before."""
+    pacer = Pacer(INTERVAL)  # shared by the workers below
+    known = known or {}
+
     def get(url):
         """Response text, None for a gone page (404/410); raises after retries."""
         last = None
@@ -167,47 +228,80 @@ def fetch_sfcc_store(slug, base_url, session, pacer, store_label, max_retries=5)
                 return r.text
             last = f"HTTP {r.status_code}"
             if r.status_code in (403, 429) or r.status_code >= 500:
-                pacer.wait(); pacer.wait()  # slow down before the next try
+                for _ in range(5):
+                    pacer.wait()  # slow down before the next try
                 continue
             return None
         raise StoreFetchError(f"[{store_label}] {url} failed after {max_retries} attempts: {last}")
 
     if slug == "khaadi":
-        pids = {}
-        for section in KHAADI_SECTIONS:
-            start = 0
+        index = get(f"{base_url}/sitemap_index.xml") or ""
+        sections = []
+        for sm in re.findall(r"<loc>([^<]+)</loc>", index):
+            for loc in re.findall(r"<loc>([^<]+)</loc>", get(sm) or ""):
+                path = loc.replace(base_url, "")
+                if path.endswith("/") and path != "/" and not KHAADI_SKIP.search(path):
+                    sections.append(path)
+        sections = list(dict.fromkeys(sections))
+        tiles, found_in = {}, {}
+
+        def read_category(section):
+            got, start, previous = {}, 0, None
             while True:
-                page = get(f"{base_url}{section}?start={start}&sz={KHAADI_PAGE}")
-                found = list(dict.fromkeys(re.findall(r'<div class="product" data-pid="([^"]+)"', page or "")))
-                new = [p for p in found if p not in pids]
-                for p in found:
-                    pids.setdefault(p, section)
-                if len(found) < KHAADI_PAGE or not new:
-                    break
+                page_tiles = parse_khaadi_tiles(get(f"{base_url}{section}?start={start}&sz={KHAADI_PAGE}") or "", base_url)
+                got.update(page_tiles)
+                # A full page often holds 95 (one slot is a banner), so only an empty
+                # page, a clearly short one, or the same page twice ends a category.
+                if len(page_tiles) < KHAADI_PAGE - 10 or list(page_tiles) == previous:
+                    return section, got
+                previous = list(page_tiles)
                 start += KHAADI_PAGE
-        urls = {pid: f"{base_url}/products/{pid}.html" for pid in pids}
+
+        with ThreadPoolExecutor(WORKERS) as ex:
+            for n, (section, got) in enumerate(ex.map(read_category, sections), 1):
+                for pid, t in got.items():
+                    tiles.setdefault(pid, t)
+                    found_in.setdefault(pid, []).append(section)
+                if n % 50 == 0:
+                    print(f"  [{store_label}] {n}/{len(sections)} categories read, {len(tiles)} products", flush=True)
+        if not tiles:
+            raise StoreFetchError(f"[{store_label}] no products found in the category pages")
+        stored = {pid for pid in tiles if len((known.get(pid) or {}).get("images") or []) > 2}
+        print(f"  [{store_label}] {len(tiles)} products listed, {len(tiles) - len(stored)} product pages to read", flush=True)
+
+        def one(pid):
+            page = None if pid in stored else get(f"{base_url}/products/{pid}.html")
+            return _khaadi_product(pid, tiles[pid], found_in[pid], known.get(pid), page, base_url)
+        jobs = list(tiles)
     else:
         sitemap = get(f"{base_url}/sitemap_0-product.xml") or ""
         urls = {}
         for loc in re.findall(r"<loc>([^<]+\.html)</loc>", sitemap):
             urls.setdefault(loc.rsplit("/", 1)[1][:-5], loc)
-    if not urls:
-        raise StoreFetchError(f"[{store_label}] no product list found")
-    print(f"  [{store_label}] {len(urls)} product pages to read", flush=True)
+        if not urls:
+            raise StoreFetchError(f"[{store_label}] no product list found")
+        print(f"  [{store_label}] {len(urls)} product pages to read", flush=True)
+
+        def one(pid):
+            page = get(urls[pid])
+            return None if page is None else parse_sapphire(page, pid)
+        jobs = list(urls)
 
     failures = 0
-    for n, (pid, url) in enumerate(urls.items(), 1):
-        try:
-            page = get(url)
-            p = None if page is None else (parse_khaadi(page, pid, base_url) if slug == "khaadi"
-                                           else parse_sapphire(page, pid))
-            failures = 0
-        except StoreFetchError:
-            failures += 1
-            if failures >= MAX_FAILURES_IN_A_ROW:
-                raise
-            continue
-        if n % 250 == 0:
-            print(f"  [{store_label}] {n}/{len(urls)} pages read", flush=True)
-        if p:
-            yield p
+    with ThreadPoolExecutor(WORKERS) as ex:
+        futures = [ex.submit(one, pid) for pid in jobs]
+        for n, fut in enumerate(futures, 1):
+            try:
+                p = fut.result()
+                failures = 0
+            except StoreFetchError:
+                failures += 1
+                if failures >= MAX_FAILURES_IN_A_ROW:
+                    for other in futures:
+                        other.cancel()
+                    raise
+                continue
+            if n % 250 == 0:
+                print(f"  [{store_label}] {n}/{len(jobs)} products done", flush=True)
+            if p:
+                yield p

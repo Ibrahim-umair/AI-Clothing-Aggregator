@@ -98,6 +98,16 @@ BRANDS_ALL = [
     # fetched by reading product pages (db/scraper/fetch_sfcc.py).
     ("khaadi", "Khaadi", "https://pk.khaadi.com", "sfcc"),
     ("sapphire", "Sapphire", "https://pk.sapphireonline.pk", "sfcc"),
+    # Added 2026-11-03: women's Eastern brands, all Shopify with /products.json.
+    ("junaid_jamshed", "J. (Junaid Jamshed)", "https://www.junaidjamshed.com", "liquid_rest"),
+    ("gul_ahmed", "Gul Ahmed", "https://www.gulahmedshop.com", "liquid_rest"),
+    ("bonanza_satrangi", "Bonanza Satrangi", "https://bonanzasatrangi.com", "liquid_rest"),
+    ("maria_b", "Maria B", "https://www.mariab.pk", "liquid_rest"),
+    ("ethnic", "Ethnic", "https://pk.ethnc.com", "liquid_rest"),
+    ("limelight", "Limelight", "https://www.limelight.pk", "liquid_rest"),
+    ("nishat_linen", "Nishat Linen", "https://nishatlinen.com", "liquid_rest"),
+    ("alkaram", "Alkaram Studio", "https://www.alkaramstudio.com", "liquid_rest"),
+    ("beechtree", "Beechtree", "https://beechtree.pk", "liquid_rest"),
 ]
 # NOTE: an earlier run duplicated the category tree (see get_or_make_category
 # below) and split ~43k already-loaded products across the two copies, so
@@ -345,7 +355,10 @@ STORE_GENDER_DEFAULT = {"furor": "Men", "charcoal": "Men", "uniworth": "Men", "r
                          "monark": "Men", "equator": "Men", "cambridge": "Men",
                          # Khaadi's PK site has no men's line and never names a gender;
                          # Sapphire's breadcrumb says Woman/Man, this is only its fallback.
-                         "khaadi": "Women", "sapphire": "Women"}
+                         "khaadi": "Women", "sapphire": "Women",
+                         # No men's clothing in a 100-product sample of each (2026-11-03).
+                         "ethnic": "Women", "limelight": "Women", "nishat_linen": "Women",
+                         "beechtree": "Women"}
 
 UNSTITCHED_RE = re.compile(r"un[\s-]?stitched", re.I)
 # Singular-only was the bug: 131 real Outfitters/ONE-Be-One/Lama perfumes

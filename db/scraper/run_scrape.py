@@ -92,10 +92,21 @@ def fetch_iterator(slug, base_url, platform, pacer, bid=None, name=None):
     if platform == "hydrogen_graphql":
         return fetch_graphql_store(COUGAR_API_BASE_URL, requests.Session(), pacer, slug, COUGAR_STOREFRONT_TOKEN, MAX_RETRIES)
     if platform == "sfcc":
-        return fetch_sfcc_store(slug, base_url, requests.Session(), pacer, slug, MAX_RETRIES)
+        return fetch_sfcc_store(slug, base_url, requests.Session(), pacer, slug, MAX_RETRIES, stored_raw(bid))
     if platform == "shopify_ucp":
         return fetch_ucp_store(base_url, requests.Session(), pacer, slug, previous_raw(bid), name, MAX_RETRIES)
     return fetch_rest_store(base_url, requests.Session(), pacer, slug, MAX_RETRIES)
+
+
+def stored_raw(bid):
+    """Last raw record per product (native id -> raw_source), for fetchers that
+    only need a product page when the product is new (Khaadi)."""
+    conn = psycopg2.connect(DSN)
+    cur = conn.cursor()
+    cur.execute("SELECT native_product_id, raw_source FROM products WHERE brand_id=%s", (bid,))
+    out = {pid: raw if isinstance(raw, dict) else json.loads(raw) for pid, raw in cur.fetchall()}
+    cur.close(); conn.close()
+    return out
 
 
 def previous_raw(bid):
