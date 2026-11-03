@@ -1,8 +1,8 @@
 """
 Search v2 vectors: fills products.embedding_v2 and products.search_vector_v2
 for every enriched product (ai_description set by enrich_products.py) that
-doesn't have them yet. The original embedding/search_vector columns are
-never touched, so search v1 keeps working unchanged.
+doesn't have them yet. (The original search's embedding/search_vector
+columns were removed on 2026-11-03.)
 
 Embedded text = title + category path + brand + the AI description + AI
 tags + the store's own description (shortened). The AI text goes before the

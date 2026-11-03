@@ -1,4 +1,4 @@
-"""Timing/token/cost capture around the two OpenAI calls in rag.py.
+"""Timing/token/cost capture around the OpenAI calls in search_v2.py.
 
 Modeled on alexeygrigorev/fitness-assistant's metrics.py (an
 LLMCallRecord-shaped dataclass + a cost calculator), adapted to our two
@@ -29,7 +29,7 @@ _PRICING_PER_1M = {
     # rather than a number specific to this one model.
     "gpt-5.6-luna": {"input": 0.10, "output": 0.60},
     # gpt-6-luna (released 2026-09-23, replaces gpt-5.6-luna as SEARCH_MODEL
-    # — see rag.py): standard pricing is $0.10/$0.50 per 1M input/output,
+    # — see search_v2.py): standard pricing is $0.10/$0.50 per 1M input/output,
     # confirmed permanent (not promotional) per OpenAI. Same convention as
     # above — priced here at the discounted Batch rate (flat 50% off
     # standard): $0.05/$0.25. This pipeline still calls it synchronously, so

@@ -33,7 +33,7 @@ SORTS = {
 # plain "newest" means a single brand's bulk-load day can dominate every
 # "newest" slot outright, on a homepage whose own copy says "15 real
 # brands...not a marketplace listing". A first attempt just diversified a
-# flat top-300-newest pool by brand (same shape as rag.py's diversify()
+# flat top-300-newest pool by brand (same shape as search_v2.py's diversify()
 # for AI search) — verified WRONG against real data before shipping: two
 # brands got bulk-reloaded the same day this was built (Lama's domain
 # fix, Bandana's onboarding), 2,706 + 937 = 3,643 products newer than
@@ -198,7 +198,7 @@ async def list_products(request: Request):
     pool = await get_pool()
     total = await pool.fetchval(f"SELECT COUNT(*) FROM products p WHERE {where_sql}", *params)
 
-    # Same "show the matched color's actual photo" fix as rag.py's search
+    # Same "show the matched color's actual photo" fix as the search's
     # results — picks the image of whichever variant matched the `color`
     # filter above (empty list when no color filter is active, in which
     # case the subquery finds nothing and COALESCE falls through unchanged).

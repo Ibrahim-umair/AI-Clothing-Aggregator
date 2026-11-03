@@ -1,5 +1,9 @@
 # Natural-language search — `POST /api/search`
 
+> **Historical (2026-11-03):** this describes the original search (v1, `rag.py`),
+> which has been removed. The current search is `server/search_v2.py`; its
+> design is in that file's docstring.
+
 Originally built 2026-08-29 on Node/Express; migrated to Python/FastAPI
 2026-08-29/30 (see `MIGRATION_REPORT.md` at the repo root for the migration
 itself — this file is the pipeline design reference, same role as

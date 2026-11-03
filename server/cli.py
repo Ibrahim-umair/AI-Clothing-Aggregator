@@ -1,7 +1,8 @@
 #!/usr/bin/env python
-"""CLI introspection tool for the search pipeline — port of
-server/debug_search.js. No HTTP server needed, imports run_search()
-directly with debug=True so every stage is visible.
+"""CLI introspection tool for the search pipeline. No HTTP server needed:
+it calls run_search_v2() directly with debug=True, so every stage is
+visible: how the LLM planned the query, then each search's results with
+their scores and which retrieval legs found them.
 
   python cli.py "furor jeans"
   python cli.py "cozy warm sweaters for women under 5000"
@@ -9,6 +10,7 @@ directly with debug=True so every stage is visible.
 """
 import asyncio
 import sys
+import time
 
 # Windows' console defaults to cp1252, which can't render the em-dashes
 # used in the section headers below (silently prints "?" / mojibake) —
@@ -17,7 +19,7 @@ if sys.stdout.encoding.lower() != "utf-8":
     sys.stdout.reconfigure(encoding="utf-8")
 
 from db import close_pool
-from rag import run_search
+from search_v2 import run_search_v2
 
 GENDER_OPTIONS = [None, "Men", "Women", "Boys", "Girls"]  # index 0 unused, 1-4 match the prompt
 
@@ -45,20 +47,6 @@ def section(title: str):
     print("=" * 70)
 
 
-def title_list(rows, show_legs=False):
-    if not rows:
-        print("  (none)")
-        return
-    for i, r in enumerate(rows):
-        rank = f"{i + 1:>2}. "
-        leg_info = ""
-        if show_legs:
-            v = f"v#{r['legs']['vector']}" if r["legs"]["vector"] is not None else "  -  "
-            t = f"t#{r['legs']['textual']}" if r["legs"]["textual"] is not None else "  -  "
-            leg_info = f"  [{v} {t}  score={r['score']:.5f}]"
-        print(f"  {rank}{r['title']}{leg_info}")
-
-
 async def main():
     args = sys.argv[1:]
     flag_gender = next((a.split("=", 1)[1] for a in args if a.startswith("--gender=")), None)
@@ -70,40 +58,41 @@ async def main():
     gender_override = pick_gender(flag_gender)
     print(f'Query: "{query}"  (gender override: {gender_override or "none — AI infers"})')
 
-    import time
-
     t0 = time.perf_counter()
     try:
-        result = await run_search(query, debug=True, gender_override=gender_override)
+        result = await run_search_v2(query, debug=True, gender_override=gender_override)
     except Exception as err:
         print(f"ERROR: {err}", file=sys.stderr)
         sys.exit(1)
     elapsed = time.perf_counter() - t0
 
-    section("1. LLM tool-call — extracted filters (search_filters function)")
-    filters = {k: v for k, v in result["filters"].items() if k != "response_text"}
+    section("1. The plan — how the LLM read the query")
+    filters = {k: v for k, v in result["filters"].items() if k not in ("response_text", "searches", "semantic_query")}
     for k, v in filters.items():
-        print(f"  {k:<14} = {v!r}")
-    print(f"  (generated response_text: \"{result['filters']['response_text']}\")")
+        print(f"  {k:<10} = {v!r}")
 
-    section("2. Objective filter match — how much SQL filtering did (before any ranking)")
-    cat_ids = result["debug"].get("categoryIds")
-    print(f"  category resolved to {len(cat_ids) if cat_ids else 'ALL'} category id(s){' — NOT FOUND, zero results' if result['debug'].get('categoryNotFound') else ''}")
-    print(f"  total products matching gender/category/price/brand/size/color/sale filters: {result['total']}")
-
-    section(f"3. Vector search leg — top {len(result['debug']['vectorLeg'])} by embedding similarity, within the filtered set")
-    title_list(result["debug"]["vectorLeg"])
-
-    section(f"4. Textual (full-text/BM25-equivalent) leg — top {len(result['debug']['textualLeg'])} by ts_rank, within the filtered set")
-    title_list(result["debug"]["textualLeg"])
-
-    section(f"5. Final RRF-fused result — what /api/search actually returns ({len(result['debug']['fused'])} products)")
-    print("  [v#N = rank in vector leg, t#N = rank in textual leg, - = not present in that leg]")
-    title_list(result["debug"]["fused"], show_legs=True)
+    for n, g in enumerate(result["groups"], 2):
+        section(f"{n}. Search \"{g['label'] or g['query']}\" — {len(g['products'])} results")
+        print(f"  query      = {g['query']!r}")
+        print(f"  categories = {g['categories']}")
+        print(f"  must have  = {g['must_have']}   must not = {g['must_not']}")
+        for note in g["notes"]:
+            print(f"  note: {note}")
+        removed = g.get("_debug", {}).get("removed_count", 0)
+        if removed:
+            print(f"  removed by must-not: {removed}")
+        print("  [v#N / t#N = rank in the vector / text leg, - = not found by it; * = must-have hit; alt = alternative]")
+        for i, p in enumerate(g["products"], 1):
+            d = p.get("_debug", {})
+            legs = d.get("legs") or {}
+            v = f"v#{legs['vector']}" if legs.get("vector") is not None else "  -  "
+            t = f"t#{legs['textual']}" if legs.get("textual") is not None else "  -  "
+            flags = ("*" if d.get("must_have_hit") else " ") + (" alt" if p.get("alternative") else "    ")
+            print(f"  {i:>2}. {p['title'][:60]:<60} {p['store']:<12} {v} {t} {d.get('score', 0):.5f}{flags}")
 
     section("Summary")
     print(f"  response_text: \"{result['response_text']}\"")
-    print(f"  elapsed: {elapsed:.2f}s")
+    print(f"  {result['total']} products in {len(result['groups'])} group(s), {elapsed:.2f}s")
 
     await close_pool()
 

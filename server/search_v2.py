@@ -1,9 +1,9 @@
-"""Search v2 (backend-revamp): one LLM call plans the search, then plain
-database retrieval does the rest. Runs beside search v1 (rag.py), which is
-untouched; routes/search.py picks one per request (SEARCH_ENGINE env var,
-or the request's `engine` field).
+"""Search (v2, backend-revamp): one LLM call plans the search, then plain
+database retrieval does the rest. It replaced the original search (v1,
+rag.py), which shrank each query to a few keywords and was removed on
+2026-11-03 along with its database columns.
 
-What's different from v1, and why (agreed 2026-10-27):
+What changed from v1, and why (agreed 2026-10-27):
 
 1. Query rewriting. v1 shrank the query to a few leftover keywords, which
    threw away what vague queries mean. v2 rewrites it into a descriptive
@@ -32,13 +32,54 @@ import json
 import os
 import re
 import time
+from pathlib import Path
+
+from dotenv import load_dotenv
+from openai import AsyncOpenAI
 
 from db import get_pool
 from metrics import LLMCallRecord, Timer
 from query_helpers import category_ids_for_search, expand_size_aliases_for_query, resolve_brand_id, to_money
-from rag import RRF_K, LEG_WEIGHTS, SEARCH_MODEL, VALID_GENDER_OVERRIDES, diversify, openai
-from search_tool import KNOWN_CATEGORIES
 from taxonomy_tree import get_tree
+
+_env_path = Path(__file__).parent / ".env"
+if _env_path.exists():
+    load_dotenv(_env_path)
+
+openai = AsyncOpenAI() if os.environ.get("OPENAI_API_KEY") else None
+
+# Overridable without a code change (SEARCH_MODEL in server/.env) so the
+# planning model can be swapped or rolled back without a deploy. Pricing
+# entry: metrics.py.
+SEARCH_MODEL = os.environ.get("SEARCH_MODEL", "gpt-6-luna")
+
+VALID_GENDER_OVERRIDES = {"Women", "Men", "Boys", "Girls", "Unisex"}
+
+RRF_K = 60
+LEG_WEIGHTS = {"vector": 0.7, "textual": 0.3}
+
+# Every real leaf category name in the live taxonomy (47, as of this
+# writing) plus the 11 non-leaf grouping nodes (Upperwear, Bottomwear,
+# Western, Accessories, ...) — refresh this list if CATEGORY_TREE changes
+# (db/load_data.py). Added after a real, verified failure: without this,
+# "furor jeans" ranked a keychain above real jeans, because NOTHING
+# excluded the Accessories/Keychain leaf before ranking ever ran. This is
+# now a hard SQL filter, same as gender.
+KNOWN_CATEGORIES = [
+    "1-Piece", "2-Piece", "3-Piece", "Bag", "Belt", "Cap", "Cargo Trouser", "Co-ord Set",
+    "Cufflink", "Dress", "Formal Suit", "Frock", "Hoodie", "Jacket", "Jeans", "Jewelry",
+    "Joggers", "Jumpsuit", "Keychain", "Kurta", "Kurta Set", "Kurta Shalwar", "Kurti",
+    "Perfume", "Pocket Square", "Polo", "Sandals", "Saree", "Scarf", "Shalwar Kameez", "Shawl",
+    "Sherwani", "Shirt", "Shoes", "Shorts", "Skirt", "Socks", "Suit", "Sunglasses", "Sweater",
+    "Sweatshirt", "Tank Top", "Tie", "Tights", "Top", "Tracksuit", "Trouser", "T-Shirt",
+    "Underwear", "Vest", "Waistcoat", "Wallet", "Watch",
+    # Added 2026-10-28 from the category review (db/load_data.py _add_leaves).
+    "Abaya", "Blazer", "Dupatta", "Gift Set", "Gloves", "Hair Accessories", "Lehenga",
+    "Nightwear & Loungewear", "Pins & Clips", "Shalwar & Pajama", "Suspenders", "Swimwear",
+    "Sleepwear",
+    "Upperwear", "Bottomwear", "Footwear", "Suits & Sets", "Formalwear", "Stitched", "Unstitched",
+    "Western", "Eastern", "Accessories", "Fragrance & Beauty",
+]
 
 LEG_POOL = 80            # candidates per leg, per sub-search
 GROUP_SIZE = 40          # results returned per group
@@ -189,6 +230,45 @@ ones."""
 HISTORY_TURNS = 25  # earlier turns of the same thread sent to the planner
 _PLAN_KEYS = ("gender", "minPrice", "maxPrice", "brand", "sizes", "colors", "onSale")
 _SEARCH_KEYS = ("label", "query", "categories", "must_have", "must_not")
+
+
+
+def diversify(entries: list[dict]) -> list[dict]:
+    """Re-orders an already-scored, already-sorted list into a round-robin
+    mix by (category, then brand), so results don't read as "all polos then
+    all tees" or "every Zellbury shirt together" (stores reuse templated
+    text, so one brand's products embed almost identically and sort into a
+    run). Order WITHIN a (category, brand) bucket is untouched; it only
+    interleaves across buckets, and is a no-op with one category and brand.
+    """
+    from collections import OrderedDict, deque
+
+    by_category: "OrderedDict[str, OrderedDict[str, deque]]" = OrderedDict()
+    for e in entries:
+        cat = e["row"]["category_name"] or ""
+        brand = e["row"]["store"] or ""
+        by_category.setdefault(cat, OrderedDict()).setdefault(brand, deque()).append(e)
+
+    category_queue = deque(by_category.keys())
+    brand_pointer = {cat: 0 for cat in category_queue}
+
+    result = []
+    while category_queue:
+        cat = category_queue.popleft()
+        brands = list(by_category[cat].keys())
+        picked = None
+        for _ in range(len(brands)):
+            b = brands[brand_pointer[cat] % len(brands)]
+            brand_pointer[cat] += 1
+            bucket = by_category[cat][b]
+            if bucket:
+                picked = bucket.popleft()
+                break
+        if picked is not None:
+            result.append(picked)
+            category_queue.append(cat)  # more left in this category — back of the queue
+        # else: this category's buckets are all empty now, don't re-add it
+    return result
 
 
 def _history_messages(history: list[dict] | None) -> list[dict]:

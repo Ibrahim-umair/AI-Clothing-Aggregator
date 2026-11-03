@@ -1,5 +1,5 @@
 """FastAPI app + router registration — port of server/index.js. Thin on
-purpose: all real logic lives in rag.py/query_helpers.py/taxonomy_tree.py/
+purpose: all real logic lives in search_v2.py/query_helpers.py/taxonomy_tree.py/
 the routes/ modules, same separation as the Node version's index.js
 (routing only) vs search.js/queryHelpers.js/taxonomyTree.js (logic).
 """
