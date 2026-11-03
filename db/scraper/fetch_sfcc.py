@@ -246,16 +246,18 @@ def fetch_sfcc_store(slug, base_url, session, pacer, store_label, max_retries=5,
         tiles, found_in = {}, {}
 
         def read_category(section):
-            got, start, previous = {}, 0, None
-            while True:
+            got, start = {}, 0
+            while start < 20000:
                 page_tiles = parse_khaadi_tiles(get(f"{base_url}{section}?start={start}&sz={KHAADI_PAGE}") or "", base_url)
+                new = [p for p in page_tiles if p not in got]
                 got.update(page_tiles)
-                # A full page often holds 95 (one slot is a banner), so only an empty
-                # page, a clearly short one, or the same page twice ends a category.
-                if len(page_tiles) < KHAADI_PAGE - 10 or list(page_tiles) == previous:
-                    return section, got
-                previous = list(page_tiles)
+                # A full page often holds 95 (one slot is a banner), so a page ends the
+                # category only when it is clearly short or adds nothing new to it (past
+                # the end some categories repeat their products in another order).
+                if len(page_tiles) < KHAADI_PAGE - 10 or not new:
+                    break
                 start += KHAADI_PAGE
+            return section, got
 
         with ThreadPoolExecutor(WORKERS) as ex:
             for n, (section, got) in enumerate(ex.map(read_category, sections), 1):
