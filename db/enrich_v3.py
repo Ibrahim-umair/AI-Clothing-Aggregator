@@ -292,6 +292,30 @@ def eligible_ids_cache(cur):
     return _eligible
 
 
+def decide(res, cat_id, override_source, by_path):
+    """What the apply step does with one answer, given the product's category
+    before this run and the source of its override (None when it has none).
+    Shared with the review page so the page shows exactly what apply does.
+    Returns (action, ai_category_id); action is one of
+      agrees        the AI picked the category the product already has
+      moved         high confidence, different category: the AI's wins
+      flagged       medium/low confidence or NONE: the rules' category stays
+      hidden        not apparel
+      reviewed_wins you reviewed this product; your decision stays"""
+    reviewed = override_source is not None and override_source != SOURCE  # a human decision always wins
+    cat = res["category"]
+    ai_cat_id = by_path.get(cat["path"])
+    if reviewed:
+        return ("agrees" if ai_cat_id == cat_id and not res["not_apparel"] else "reviewed_wins"), ai_cat_id
+    if res["not_apparel"]:
+        return "hidden", ai_cat_id
+    if ai_cat_id == cat_id:
+        return "agrees", ai_cat_id
+    if cat["confidence"] == "high" and ai_cat_id:
+        return "moved", ai_cat_id
+    return "flagged", ai_cat_id
+
+
 def apply_one(cur, pid, res, photos, meta, by_path, paths):
     cur.execute("""SELECT category_id, ai_description, ai_tags, ai_looks_like, ai_category_ok, ai_meta
                    FROM products WHERE id = %s""", (pid,))
@@ -299,26 +323,20 @@ def apply_one(cur, pid, res, photos, meta, by_path, paths):
     old = dict(zip(["ai_description", "ai_tags", "ai_looks_like", "ai_category_ok", "ai_meta"], old_ai))
     cur.execute("SELECT source FROM category_overrides WHERE product_id = %s", (pid,))
     row = cur.fetchone()
-    reviewed = row is not None and row[0] != SOURCE   # a human decision always wins
     cat, aud, d = res["category"], res["audience"], res["descriptors"]
-    ai_cat_id = by_path.get(cat["path"])
-    action = "kept"
-    if not reviewed:
-        if res["not_apparel"]:
-            action = "hidden"
+    action, ai_cat_id = decide(res, cat_id, row[0] if row else None, by_path)
+    if action in ("hidden", "moved"):
+        if action == "hidden":
             cur.execute("""INSERT INTO category_overrides (product_id, category_id, hide, old_category_id, source, note)
                            VALUES (%s, NULL, true, %s, %s, %s)
                            ON CONFLICT (product_id) DO UPDATE SET category_id = NULL, hide = true, note = EXCLUDED.note""",
                         (pid, cat_id, SOURCE, f"not apparel: {res['looks_like']}"))
-        elif cat["confidence"] == "high" and ai_cat_id and ai_cat_id != cat_id:
-            action = "moved"
+        else:
             cur.execute("""INSERT INTO category_overrides (product_id, category_id, hide, old_category_id, source, note)
                            VALUES (%s, %s, false, %s, %s, %s)
                            ON CONFLICT (product_id) DO UPDATE SET category_id = EXCLUDED.category_id, hide = false,
                                note = EXCLUDED.note""",
                         (pid, ai_cat_id, cat_id, SOURCE, cat["reason"][:300]))
-        elif ai_cat_id != cat_id:
-            action = "flagged"  # medium/low or NONE: keep the rules' category, review page shows it
     final_cat = ai_cat_id if action == "moved" else cat_id
     dl, emb = d["dress_level"], d["embellishment"]
     cur.execute("""
