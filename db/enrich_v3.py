@@ -191,7 +191,7 @@ def validate(res, info, valid_paths):
         if bad:
             problems.append(f"photo numbers out of range: {bad}")
     for c in res["color_map"]:
-        if not 0 <= c["version"] < len(versions):
+        if not -1 <= c["version"] < len(versions):  # -1 = "can't tell", allowed by the prompt
             problems.append(f"color_map version out of range: {c}")
     mapped = {c["store_color"].strip().lower() for c in res["color_map"]}
     missing = [c for c in info["colors"] if c.strip().lower() not in mapped]
