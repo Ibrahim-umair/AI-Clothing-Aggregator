@@ -94,6 +94,10 @@ BRANDS_ALL = [
     # descriptions across every women's/men's/kids' collection before
     # writing any classify() rule for it — see CHANGELOG.md).
     ("bandana", "Bandana", "https://bandana.pk", "liquid_rest"),
+    # Added 2026-11-03: Salesforce Commerce Cloud stores, no product feed;
+    # fetched by reading product pages (db/scraper/fetch_sfcc.py).
+    ("khaadi", "Khaadi", "https://pk.khaadi.com", "sfcc"),
+    ("sapphire", "Sapphire", "https://pk.sapphireonline.pk", "sfcc"),
 ]
 # NOTE: an earlier run duplicated the category tree (see get_or_make_category
 # below) and split ~43k already-loaded products across the two copies, so
@@ -338,7 +342,10 @@ GENDER_WORDS = {"men": "Men", "man": "Men", "women": "Women", "woman": "Women", 
                 "boy": "Boys", "girls": "Girls", "girl": "Girls", "unisex": "Unisex", "kids": "Unisex"}
 
 STORE_GENDER_DEFAULT = {"furor": "Men", "charcoal": "Men", "uniworth": "Men", "royal_tag": "Men",
-                         "monark": "Men", "equator": "Men", "cambridge": "Men"}
+                         "monark": "Men", "equator": "Men", "cambridge": "Men",
+                         # Khaadi's PK site has no men's line and never names a gender;
+                         # Sapphire's breadcrumb says Woman/Man, this is only its fallback.
+                         "khaadi": "Women", "sapphire": "Women"}
 
 UNSTITCHED_RE = re.compile(r"un[\s-]?stitched", re.I)
 # Singular-only was the bug: 131 real Outfitters/ONE-Be-One/Lama perfumes

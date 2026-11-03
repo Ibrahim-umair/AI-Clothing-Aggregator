@@ -31,6 +31,7 @@ from category_lookup import build_category_lookup, resolve_category_id
 from pacing import Pacer
 from fetchers import fetch_rest_store, fetch_graphql_store, StoreFetchError
 from fetch_ucp import fetch_ucp_store
+from fetch_sfcc import fetch_sfcc_store
 from writer import ConnHolder, with_reconnect_retry, upsert_product_full, upsert_variant_availability_only, mark_stale_inactive
 
 
@@ -90,6 +91,8 @@ def write_alert(message):
 def fetch_iterator(slug, base_url, platform, pacer, bid=None, name=None):
     if platform == "hydrogen_graphql":
         return fetch_graphql_store(COUGAR_API_BASE_URL, requests.Session(), pacer, slug, COUGAR_STOREFRONT_TOKEN, MAX_RETRIES)
+    if platform == "sfcc":
+        return fetch_sfcc_store(slug, base_url, requests.Session(), pacer, slug, MAX_RETRIES)
     if platform == "shopify_ucp":
         return fetch_ucp_store(base_url, requests.Session(), pacer, slug, previous_raw(bid), name, MAX_RETRIES)
     return fetch_rest_store(base_url, requests.Session(), pacer, slug, MAX_RETRIES)
