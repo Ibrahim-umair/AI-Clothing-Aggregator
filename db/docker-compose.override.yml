@@ -1,0 +1,8 @@
+# Local development only. `docker compose up` (no -f) reads this file
+# automatically; production starts with
+# `-f docker-compose.yml -f docker-compose.prod.yml`, which skips it, so
+# prod runs the Dockerfile's CMD: several workers and no --reload.
+services:
+  api:
+    # One process that restarts on every .py edit (server/ is bind-mounted).
+    command: uvicorn main:app --host 0.0.0.0 --port 4000 --reload

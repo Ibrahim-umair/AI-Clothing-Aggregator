@@ -89,7 +89,7 @@ services:
     ports:
       - "4000:4000"
     volumes:
-      # Bind-mounted so `--reload` (in the Dockerfile's CMD) picks up
+      # Bind-mounted so `--reload` (dev, docker-compose.override.yml) picks up
       # local edits immediately, same dev experience as running uvicorn
       # directly — rebuild the image only when requirements.txt changes.
       - ../server:/app

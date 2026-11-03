@@ -22,6 +22,17 @@ after changing `server/requirements.txt`.
 
 Runs on port 4000, same as before — no frontend config changes.
 
+**Local vs production:** `--reload` comes from `db/docker-compose.override.yml`,
+which `docker compose` reads only when no `-f` is given, i.e. locally.
+Production starts with `-f docker-compose.yml -f docker-compose.prod.yml`,
+so it runs the Dockerfile's command instead: `WEB_WORKERS` worker
+processes (default 2) and no reload. So on the server, copying new `.py`
+files does nothing until the API is restarted
+(`docker compose -f docker-compose.yml -f docker-compose.prod.yml restart api`);
+a change to the Dockerfile or `requirements.txt` needs `up -d --build api`.
+The search rate limits count in Postgres (`api_rate_counts`) so every
+worker shares them; see `server/rate_limit.py`.
+
 **Not dockerized on purpose:** the CLI (`cli.py`, below) — it's an
 interactive debug tool, not a long-running service, and needs a real
 TTY for its gender prompt. Run it locally with your own Python/pip:

@@ -17,7 +17,7 @@ if _env_path.exists():
 
 from db import close_pool, get_pool  # noqa: E402  (after dotenv load, same as Node's search.js)
 from db_conversations import init_db  # noqa: E402
-from rate_limit import rate_limit_middleware  # noqa: E402
+from rate_limit import init_rate_limits, rate_limit_middleware  # noqa: E402
 from routes import brands, health, products, search, taxonomy  # noqa: E402
 
 
@@ -25,6 +25,7 @@ from routes import brands, health, products, search, taxonomy  # noqa: E402
 async def lifespan(app: FastAPI):
     await get_pool()  # pre-warm the pool instead of paying for it on the first request
     await init_db()  # idempotent CREATE TABLE IF NOT EXISTS — see db_conversations.py
+    await init_rate_limits()  # same, the shared search-limit counters
     # Future OpenTelemetry hook point: FastAPI/asyncpg/OpenAI auto-
     # instrumentation would be wired up here (see MIGRATION_REPORT.md —
     # deliberately not built yet, Postgres+Grafana only for now).
@@ -47,7 +48,7 @@ app.include_router(brands.router)
 app.include_router(taxonomy.router)
 app.include_router(health.router)
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # local development only; production runs the Dockerfile's CMD
     import uvicorn
 
     port = int(os.environ.get("PORT", "4000"))
