@@ -108,6 +108,10 @@ BRANDS_ALL = [
     ("nishat_linen", "Nishat Linen", "https://nishatlinen.com", "liquid_rest"),
     ("alkaram", "Alkaram Studio", "https://www.alkaramstudio.com", "liquid_rest"),
     ("beechtree", "Beechtree", "https://beechtree.pk", "liquid_rest"),
+    # Added 2026-11-05 as an unseen test of the Nov 2026 rules (category_refine.py).
+    ("generation", "Generation", "https://generation.com.pk", "liquid_rest"),
+    ("saya", "Saya", "https://saya.pk", "liquid_rest"),
+    ("iznik", "Iznik", "https://iznikfashions.com", "liquid_rest"),
 ]
 # NOTE: an earlier run duplicated the category tree (see get_or_make_category
 # below) and split ~43k already-loaded products across the two copies, so
@@ -337,6 +341,42 @@ _add_leaves("Girls", ("Eastern", "Stitched"), ["Lehenga", "Dupatta"])
 for _g in CATEGORY_TREE:
     CATEGORY_TREE[_g].setdefault("Uncategorised", [])
 
+
+# Nov 2026 tree, from the women's stores audit (decided with Ibrahim, pieces
+# checked with his mom). Women's and girls' Eastern clothes are filed by the
+# pieces sold together; kurta/kurti/kameez/"shirt" all mean the shirt.
+# Men's sets are Shalwar Kameez (kurta + shalwar) or Kurta Trouser; "Kurta
+# Set" is gone. Home and Beauty hold what clothing stores also sell; they
+# stay out of search and the AI run for now.
+def _leaves(names):
+    return [(n, re.sub(r"[^a-z0-9]+", "-", n.lower().replace("&", "")).strip("-")) for n in names]
+
+
+PIECES = ["1-Piece", "2-Piece (Shirt + Trouser)", "2-Piece (Shirt + Dupatta)", "3-Piece"]
+CATEGORY_TREE["Women"]["Eastern"] = {
+    "Stitched": _leaves(PIECES + ["Bottoms", "Dupatta", "Abaya", "Waistcoat", "Lehenga", "Sharara / Gharara",
+                                  "Saree", "Kaftan", "Slip / Inner"]),
+    "Unstitched": _leaves(PIECES + ["4-Piece", "Saree"]),
+}
+CATEGORY_TREE["Girls"]["Eastern"] = {
+    "Stitched": _leaves(PIECES + ["Bottoms", "Dupatta", "Waistcoat", "Lehenga", "Sharara / Gharara"]),
+    "Unstitched": _leaves(PIECES),
+}
+for _g in ("Men", "Boys", "Unisex"):
+    CATEGORY_TREE[_g]["Eastern"]["Stitched"] = [
+        leaf for leaf in CATEGORY_TREE[_g]["Eastern"]["Stitched"] if leaf[0] != "Kurta Set"]
+    _add_leaves(_g, ("Eastern", "Stitched"), ["Kurta Trouser"])
+for _g in ("Men", "Boys"):
+    _add_leaves(_g, ("Eastern", "Stitched"), ["Jubba"])
+    _add_leaves(_g, ("Western", "Formalwear"), ["Dress Pants"])
+_add_leaves("Women", ("Accessories",), ["Hijab", "Cape"])
+for _g in ("Women", "Men", "Unisex"):
+    _add_leaves(_g, ("Fragrance & Beauty",), ["Makeup", "Skincare"])
+CATEGORY_TREE["Unisex"]["Home"] = _leaves(
+    ["Bedding", "Cushions", "Table & Kitchen", "Curtains & Rugs", "Bath", "Home Fragrance"])
+NOT_BROWSABLE_BRANCHES = {"Home"}
+NOT_BROWSABLE_LEAVES = {"Makeup", "Skincare"}
+
 FABRICS =["Lawn","Khaddar","Cambric","Cotton","Silk","Chiffon","Denim","Polyester","Linen","Wool","Blended","Organza","Velvet"]
 
 # minimal seed; loader adds any new canonical color it meets
@@ -358,7 +398,9 @@ STORE_GENDER_DEFAULT = {"furor": "Men", "charcoal": "Men", "uniworth": "Men", "r
                          "khaadi": "Women", "sapphire": "Women",
                          # No men's clothing in a 100-product sample of each (2026-11-03).
                          "ethnic": "Women", "limelight": "Women", "nishat_linen": "Women",
-                         "beechtree": "Women"}
+                         "beechtree": "Women",
+                         # Women's Eastern labels (2026-11-05).
+                         "generation": "Women", "saya": "Women", "iznik": "Women"}
 
 UNSTITCHED_RE = re.compile(r"un[\s-]?stitched", re.I)
 # Singular-only was the bug: 131 real Outfitters/ONE-Be-One/Lama perfumes
@@ -1252,7 +1294,7 @@ DRESS_HEAD_RE = re.compile(
 FRAGRANCE_DESC_RE = re.compile(r"\b(?:fragrance|perfume|eau\s+de|cologne)\b", re.I)
 
 
-def classify(store, p, title, product_type, tags, vendor, description):
+def _classify_rules(store, p, title, product_type, tags, vendor, description):
     title = _fix_vocab(title)
     product_type = _fix_vocab(product_type)
     if (NON_APPAREL_RE.search(title) or NON_APPAREL_RE.search(product_type or "")) and not GARMENT_NOUN_RE.search(title):
@@ -2116,6 +2158,13 @@ def classify(store, p, title, product_type, tags, vendor, description):
                 style="western", construction="ready_to_wear")
 
 
+def classify(store, p, title, product_type, tags, vendor, description):
+    """The keyword rules above, then category_refine's pass for the Nov 2026 tree."""
+    from category_refine import refine
+    cls = _classify_rules(store, p, title, product_type, tags, vendor, description)
+    return refine(store, p, cls, _fix_vocab(title), _fix_vocab(product_type), tags, description)
+
+
 def strip_html(html):
     if not html:
         return None
@@ -2132,13 +2181,13 @@ def _load_one_product(conn, cur, bid, native_id, p, title, description, cat_id, 
     cur.execute(
         """INSERT INTO products (brand_id, native_product_id, handle, title, description,
             category_id, style_family, construction_status, age_group, piece_count,
-            tags, raw_source)
-           VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            tags, raw_source, is_browsable)
+           VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
            ON CONFLICT (brand_id, native_product_id) DO NOTHING
            RETURNING id""",
         (bid, native_id, p.get("handle"), title[:500], description, cat_id,
          cls["style"], cls["construction"], "adult", cls.get("piece_count"),
-         tags, json.dumps(p)),
+         tags, json.dumps(p), cls.get("browsable", True)),
     )
     row = cur.fetchone()
     if row is None:

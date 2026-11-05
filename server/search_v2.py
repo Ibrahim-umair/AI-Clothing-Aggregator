@@ -77,6 +77,9 @@ KNOWN_CATEGORIES = [
     "Abaya", "Blazer", "Dupatta", "Gift Set", "Gloves", "Hair Accessories", "Lehenga",
     "Nightwear & Loungewear", "Pins & Clips", "Shalwar & Pajama", "Suspenders", "Swimwear",
     "Sleepwear",
+    # Nov 2026 tree (db/load_data.py "Nov 2026 tree"): women's/girls' Eastern by pieces.
+    "2-Piece (Shirt + Trouser)", "2-Piece (Shirt + Dupatta)", "4-Piece", "Bottoms", "Kurta Trouser",
+    "Jubba", "Kaftan", "Hijab", "Cape", "Sharara / Gharara", "Slip / Inner", "Dress Pants",
     "Upperwear", "Bottomwear", "Footwear", "Suits & Sets", "Formalwear", "Stitched", "Unstitched",
     "Western", "Eastern", "Accessories", "Fragrance & Beauty",
 ]
@@ -212,7 +215,7 @@ Examples:
   categories ["Sweater"], must_have [], must_not []
 "what to wear to a winter wedding reception, women" -> gender Women, 3
   searches: "Formal suits": "formal embroidered stitched suit in rich
-  fabric for a winter evening", ["Shalwar Kameez","Kurta Set","3-Piece"];
+  fabric for a winter evening", ["3-Piece","2-Piece (Shirt + Trouser)","2-Piece (Shirt + Dupatta)"];
   "Shawls": "warm formal shawl to wear over an outfit", ["Shawl"];
   "Footwear": "dressy heels or sandals", ["Footwear"]; no must_have.
 "maroon cardigan in large" -> colors ["maroon"], sizes ["L"], 1 search:

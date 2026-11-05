@@ -116,6 +116,8 @@ def build():
         if gender == "Unisex" and gender + " > " + NEWCAT_PATH[key] not in path_ids:
             gender = UNISEX_FALLBACK[key]
         path = "Western > Formalwear > Blazer" if key == "blazer" and gender in BLAZER_FORMAL else NEWCAT_PATH[key]
+        if key == "eastbottoms" and gender in ("Women", "Girls"):
+            path = "Eastern > Stitched > Bottoms"  # Nov 2026 tree
         target = gender + " > " + path
         if target not in path_ids:
             unresolved[target] += 1

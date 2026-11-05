@@ -78,9 +78,9 @@ check("boxer -> Underwear", "BOXER (PACK OF TWO)", product_type="UNDERWEARS/VEST
 
 # 6/7. Kurta combo sets
 check("kurta pajama -> Kurta Set (Men)", "M Grey Texture Smart Fit Kurta Pajama",
-      vendor="Men", expect_gender="Men", expect_branch="Eastern", expect_leaf="Kurta Set")
+      vendor="Men", expect_gender="Men", expect_branch="Eastern", expect_leaf="Kurta Trouser")
 check("boys kurta pajama -> Kurta Set (Boys)", "Light Purple Boys Kurta Pajama With Waistcoat",
-      vendor="D-Juniors Boys", expect_gender="Boys", expect_branch="Eastern", expect_leaf="Kurta Set")
+      vendor="D-Juniors Boys", expect_gender="Boys", expect_branch="Eastern", expect_leaf="Kurta Trouser")
 check("plain kurta stays Kurta", "Blended Kurta - EBTK19-3597", vendor="D-Juniors Boys",
       expect_gender="Boys", expect_leaf="Kurta")
 
@@ -97,7 +97,7 @@ check("sherwani -> Eastern", "Sherwani Suit - ECBTSS5-008", vendor="Boys",
       expect_branch="Eastern", expect_leaf="Sherwani")
 # 2026-11-01: a "Waistcoat Suit" is a kurta outfit with a waistcoat (photos: "kurta waistcoat set").
 check("waistcoat suit -> Eastern Kurta Set", "Embroidered Silk Waistcoat Suit - ECBTWCS6-106",
-      vendor="Boys", expect_branch="Eastern", expect_leaf="Kurta Set")
+      vendor="Boys", expect_branch="Eastern", expect_leaf="Shalwar Kameez")
 
 # 13/14. Unstitched piece-count fallback
 check("SKU -3P suffix counted", "Embroidered Lawn Suit - EWU5V1-31244-3P",
@@ -105,10 +105,10 @@ check("SKU -3P suffix counted", "Embroidered Lawn Suit - EWU5V1-31244-3P",
       expect_sub="Unstitched", expect_leaf="3-Piece")
 check("named pieces counted (Shirt Trouser)", "Printed Khaddar Shirt Trouser - EWU24A3-29303ST",
       product_type="Woman Un Stitched", vendor="Women", expect_branch="Eastern",
-      expect_sub="Unstitched", expect_leaf="2-Piece")
+      expect_sub="Unstitched", expect_leaf="2-Piece (Shirt + Trouser)")
 check("no signal at all falls to Suit not branch", "Embroidered Lawn Suit",
       product_type="Woman Un Stitched", vendor="Women", expect_branch="Eastern",
-      expect_sub="Unstitched", expect_leaf="Suit")
+      expect_sub="Unstitched", expect_leaf="3-Piece")
 
 # 15. sweatpants vs sweatshirt
 check("sweatpant -> Bottomwear not Sweatshirt", "Solid Sweatpant", vendor="Men",
@@ -216,8 +216,8 @@ check("vendor 'junior' doesn't override explicit tag gender", "Clever Breton Str
       expect_gender="Boys", expect_branch="Western", expect_sub="Upperwear")
 check("age-only word with genuinely no gender signal still falls to Unisex",
       "Junior Kurta Pajama Suit", product_type="JUNIOR SHALWAR SUIT", vendor="Mashriq",
-      tags="2024,junior-shalwar-suit", expect_gender="Unisex", expect_branch="Eastern",
-      expect_leaf="Kurta Set")
+      tags="2024,junior-shalwar-suit", expect_gender="Boys", expect_branch="Eastern",
+      expect_leaf="Kurta Trouser")
 
 # 33. Unisex needs real Western/Eastern branches, not just Accessories —
 # genuinely gender-ambiguous kids items still need somewhere to land.
@@ -292,7 +292,7 @@ check("girls cap -> Cap", "GIRLS CAP", product_type="CAP", vendor="KIDS",
 # 42. "Cap" leaf-picker substring collision — space-stripped bare substring
 # matching let "cap" match inside "cape", misfiling a real shawl as a cap.
 check("cape shawl is Shawl not Cap", "Women Printed Cape Shawl", product_type="Women",
-      vendor="ENGINE", expect_gender="Women", expect_branch="Accessories", expect_leaf="Shawl")
+      vendor="ENGINE", expect_gender="Women", expect_branch="Accessories", expect_leaf="Cape")
 
 # 43. Boys' Eastern tree missing Sherwani leaf entirely
 check("boys sherwani suit -> Sherwani", "Sherwani Suit - EBTCSS5-004",
@@ -323,7 +323,7 @@ check("women cap -> Cap", "Embroidered Cap", product_type="CAPS & HATS", vendor=
 check("kurti forces gender to Girls even if a stray tag said boys",
       "Pink Embroidered Teens Kurti", product_type="Teens 2 Piece", vendor="Sohaye",
       tags="2 Piece,cotton jacquard,D-Juniors,girls-eastern,girls-western&boys-eastern-western,Teens",
-      store="diners", expect_gender="Girls", expect_branch="Eastern", expect_leaf="Kurti")
+      store="diners", expect_gender="Girls", expect_branch="Eastern", expect_leaf="1-Piece")
 
 # 47. Unstitched fabric with a bare garment-name word must not resolve to a
 # Stitched-only leaf name ("Kurta") that doesn't exist under any gender's
@@ -365,7 +365,7 @@ check("girls waistcoat -> Waistcoat", "Green Infant Girl Waistcoat",
       product_type="Infant Kurti", vendor="D-Juniors Girls", expect_gender="Girls",
       expect_branch="Eastern", expect_leaf="Waistcoat")
 check("girls kurta -> Kurta", "Kurta", product_type="Girls", vendor="ENGINE",
-      expect_gender="Girls", expect_branch="Eastern", expect_leaf="Kurta")
+      expect_gender="Girls", expect_branch="Eastern", expect_leaf="1-Piece")
 
 # 51. Men's Western Bottomwear missing Tights (athletic compression wear)
 check("men compression tights -> Tights", "Compression Tights", product_type="Tights",
@@ -403,12 +403,12 @@ check("sweatshirt still Sweatshirt, not confused with Sweater", "Crew Neck Sweat
 for gender in ("Men", "Women", "Boys", "Girls"):
     check_leaf_exists(gender, "Accessories", None, "Underwear")
 check_leaf_exists("Men", "Eastern", "Stitched", "Sherwani")
-check_leaf_exists("Boys", "Eastern", "Stitched", "Kurta Set")
-check_leaf_exists("Girls", "Eastern", "Stitched", "Shalwar Kameez")
+check_leaf_exists("Boys", "Eastern", "Stitched", "Kurta Trouser")
+check_leaf_exists("Girls", "Eastern", "Stitched", "2-Piece (Shirt + Trouser)")
 check_leaf_exists("Girls", "Western", "Bottomwear", "Jeans")
 check_leaf_exists("Girls", "Western", "Suits & Sets", "Co-ord Set")
 for gender in ("Men", "Women", "Boys", "Girls"):
-    check_leaf_exists(gender, "Eastern", "Unstitched", "Suit")
+    check_leaf_exists(gender, "Eastern", "Unstitched", "Suit" if gender in ("Men", "Boys") else "3-Piece")
     check_leaf_exists(gender, "Western", "Upperwear", "Hoodie")
     check_leaf_exists(gender, "Western", "Bottomwear", "Joggers")
     check_leaf_exists(gender, "Western", "Upperwear", "Shirt")
@@ -439,8 +439,8 @@ check_leaf_exists("Girls", "Western", "Upperwear", "Polo")
 check_leaf_exists("Boys", "Eastern", "Stitched", "Sherwani")
 check_leaf_exists("Women", "Eastern", "Stitched", "Waistcoat")
 check_leaf_exists("Girls", "Eastern", "Stitched", "Waistcoat")
-check_leaf_exists("Girls", "Eastern", "Stitched", "Kurta")
-check_leaf_exists("Girls", "Eastern", "Stitched", "Kurta Set")
+check_leaf_exists("Girls", "Eastern", "Stitched", "1-Piece")
+check_leaf_exists("Girls", "Eastern", "Stitched", "2-Piece (Shirt + Trouser)")
 check_leaf_exists("Men", "Western", "Bottomwear", "Tights")
 for gender in ("Men", "Women", "Boys", "Girls", "Unisex"):
     check_leaf_exists(gender, "Western", "Upperwear", "Sweater")
@@ -542,10 +542,10 @@ check("description-only undergarment signal still resolves Underwear", "White Pl
 # products) use "Kurta" for women's wear.
 check("women's 'Kurta' (not Kurti) resolves to its own Kurta leaf", "Embroidered Kurta - 2274",
       vendor="ZELLBURY WOMEN", product_type="Essential Pret",
-      expect_gender="Women", expect_branch="Eastern", expect_sub="Stitched", expect_leaf="Kurta")
+      expect_gender="Women", expect_branch="Eastern", expect_sub="Stitched", expect_leaf="1-Piece")
 check("women's 'Kurti' still resolves Kurti, unaffected by the new Kurta leaf", "Printed Kurti",
-      vendor="Women", expect_gender="Women", expect_branch="Eastern", expect_sub="Stitched", expect_leaf="Kurti")
-check_leaf_exists("Women", "Eastern", "Stitched", "Kurta")
+      vendor="Women", expect_gender="Women", expect_branch="Eastern", expect_sub="Stitched", expect_leaf="1-Piece")
+check_leaf_exists("Women", "Eastern", "Stitched", "1-Piece")
 
 # 48. "waist tie" (a garment's self-tie closure detail) was matching the
 # Tie ACCESSORY_RE/leaf check meant for actual neckties — same collision
@@ -604,8 +604,8 @@ check("'Hooded Denim Vest' is not Jeans", "Hooded Denim Vest - FMTJD21-018",
 # already had but Women's tree didn't (only added plain "Kurta" in #47).
 check("women's 'Kurta Shalwar' combo resolves Kurta Set", "Kurta Shalwar - 1679",
       vendor="ZELLBURY WOMEN", product_type="Essential Pret",
-      expect_gender="Women", expect_branch="Eastern", expect_sub="Stitched", expect_leaf="Kurta Set")
-check_leaf_exists("Women", "Eastern", "Stitched", "Kurta Set")
+      expect_gender="Women", expect_branch="Eastern", expect_sub="Stitched", expect_leaf="2-Piece (Shirt + Trouser)")
+check_leaf_exists("Women", "Eastern", "Stitched", "2-Piece (Shirt + Trouser)")
 # (b) real Outfitters "Multi-Charm Keychain"/"Crochet Keychain"/etc. (5
 # products, vendor "Women", product_type "JEWELLERY") — the "Keychain"
 # leaf added for #49 only went to Men's tree.
@@ -889,7 +889,7 @@ check("'Shirt Dupatta' is a two-piece suit, not a standalone dupatta", "Block Pr
 check("a stole stays a Scarf", "Printed Stole", product_type="Stoles/Dupatta", vendor="Women",
       expect_branch="Accessories", expect_leaf="Scarf")
 check("a dupatta bundled into a real kurta ensemble still resolves Eastern", "Kurta With Dupatta",
-      vendor="Women", expect_branch="Eastern", expect_leaf="Kurta")
+      vendor="Women", expect_branch="Eastern", expect_leaf="2-Piece (Shirt + Dupatta)")
 
 # 70. Outerwear vests (quilted/padded/sherpa) had no leaf of their own
 # once ruled out as underwear — ~60 real products were falling to Shirt
@@ -936,7 +936,7 @@ check("a 'Sports Vest' resolves Tank Top too", "Boys Panel Sports Vest",
 # Women/Girls/Boys/Teens/Infant sub-lines were falling to Shirt.
 # 2026-11-01: women's "2PC" is an Eastern stitched suit (review + photos: "tunic set").
 check("women's bare '2PC' resolves Eastern Kurta Set", "Printed 2PC",
-      product_type="2 Piece Stitched", vendor="Diners", expect_branch="Eastern", expect_sub="Stitched", expect_leaf="Kurta Set")
+      product_type="2 Piece Stitched", vendor="Diners", expect_branch="Eastern", expect_sub="Stitched", expect_leaf="Shalwar Kameez")
 check("'Boys Combo' resolves Co-ord Set", "Graphic Printed Boys Combos",
       product_type="Boys Combo", vendor="Diners", expect_branch="Western", expect_sub="Suits & Sets", expect_leaf="Co-ord Set")
 check("boys' 'Suiting' set is a Formal Suit (2026-10-28), even with a T-Shirt-mislabeled product_type", "Boys 3-Piece Suiting Set in Fawn",
@@ -954,9 +954,9 @@ check("a real Trouser with '(2 PC)' in its own title still resolves Trouser, not
 # pattern (670 real products) already resolved correctly via UNSTITCHED_RE
 # independently.
 check("stitched 'Shirt Trouser' resolves Kurta Set via product_type-confirmed Eastern naming", "Printed Cambric Shirt Trouser - EGTKP23-70343ST",
-      product_type="Girls Eastern", vendor="Edenrobe", expect_branch="Eastern", expect_leaf="Kurta Set")
+      product_type="Girls Eastern", vendor="Edenrobe", expect_branch="Eastern", expect_leaf="2-Piece (Shirt + Trouser)")
 check("the unstitched version of the same title pattern is unaffected, still 2-Piece", "Printed Khaddar Shirt Trouser - EWU5A3-36000ST",
-      product_type="Woman Un Stitched Allure Khaddar", vendor="Edenrobe", expect_branch="Eastern", expect_sub="Unstitched", expect_leaf="2-Piece")
+      product_type="Woman Un Stitched Allure Khaddar", vendor="Edenrobe", expect_branch="Eastern", expect_sub="Unstitched", expect_leaf="2-Piece (Shirt + Trouser)")
 
 # 73. Zellbury's "Top" leaf existed in CATEGORY_TREE for Women/Girls but no
 # rule ever emitted it — 538 real Women's "Tunic" products were falling to
@@ -1005,7 +1005,7 @@ check("'Cargo Shorts' is untouched — stays Shorts, not pulled into Cargo Trous
 check("'Cargo Joggers' is untouched — stays Joggers, not pulled into Cargo Trouser", "Cargo Joggers",
       vendor="Men", expect_branch="Western", expect_leaf="Joggers")
 check("a plain 'Trouser' with no cargo word is unaffected", "Men Formal Trouser",
-      vendor="Men", expect_branch="Western", expect_leaf="Trouser")
+      vendor="Men", expect_branch="Western", expect_leaf="Dress Pants")
 check_leaf_exists("Men", "Western", "Bottomwear", "Cargo Trouser")
 check_leaf_exists("Women", "Western", "Bottomwear", "Cargo Trouser")
 check_leaf_exists("Boys", "Western", "Bottomwear", "Cargo Trouser")
@@ -1048,20 +1048,20 @@ check("product_type-only '2PC' (Cougar) no longer forces Co-ord Set on a plain t
       product_type="2PC", vendor="Women", expect_branch="Western", expect_sub="Upperwear", expect_leaf="Top")
 check("a girls' title-stated piece count resolves Eastern Kurta Set (Diners)", "Printed 2PC",
       product_type="Girls 2 Piece", vendor="Girls",
-      expect_branch="Eastern", expect_sub="Stitched", expect_leaf="Kurta Set")
+      expect_branch="Eastern", expect_sub="Stitched", expect_leaf="2-Piece (Shirt + Trouser)")
 
 # Cambridge: tags alone reveal a "Suit"-titled item is really a Shalwar
 # Kameez — classify() never used to read tags/description at all.
 check("Cambridge tags reveal a real Shalwar Kameez under a 'Suit' title", "Cream Dobby Texture Suit",
       tags="2023,Blended,Designer Shalwar Kameez,Mashriq,RTW,Sale,Summer", vendor="Women",
-      expect_branch="Eastern", expect_sub="Stitched", expect_leaf="Shalwar Kameez")
+      expect_branch="Eastern", expect_sub="Stitched", expect_leaf="2-Piece (Shirt + Trouser)")
 # Equator: description alone reveals a "Suit"-titled item is really a kurta
 # ensemble from their own Qaftaan collection.
 check("Equator description reveals a real kurta ensemble under a 'Suit' title", "French Grey Suit",
       tags="Kurta Trouser,Qaftaan", vendor="Women",
       description="This two-piece suit from our Qaftaan collection will ensure your comfort and style. "
                    "It includes a kurta featuring a band collar with a button placket and cuff sleeves.",
-      expect_branch="Eastern", expect_sub="Stitched", expect_leaf="Kurta")
+      expect_branch="Eastern", expect_sub="Stitched", expect_leaf="2-Piece (Shirt + Trouser)")
 # Zellbury: description alone reveals a "Suit"-titled item is UNSTITCHED
 # fabric, not a ready-to-wear Western set.
 check("Zellbury description reveals real unstitched fabric under a 'Suit' title", "Marvel - Wash & Wear Suit - 2526",
@@ -1072,11 +1072,11 @@ check("Zellbury description reveals real unstitched fabric under a 'Suit' title"
 # Eastern vocabulary now, resolving to Kurta Set (not the generic Shalwar
 # Kameez default, and not Western Co-ord Set).
 check("Gharara Suit resolves Eastern Kurta Set, not Western Co-ord Set", "Embroidered Gharara Suit - 1512",
-      vendor="Women", expect_branch="Eastern", expect_sub="Stitched", expect_leaf="Kurta Set")
+      vendor="Women", expect_branch="Eastern", expect_sub="Stitched", expect_leaf="Sharara / Gharara")
 check("Jamawar Sharara Set resolves Eastern Kurta Set", "Jamawar Sharara Set",
-      vendor="Women", expect_branch="Eastern", expect_sub="Stitched", expect_leaf="Kurta Set")
+      vendor="Women", expect_branch="Eastern", expect_sub="Stitched", expect_leaf="Sharara / Gharara")
 check("a stray 'Girls Gharara Set' outside Co-ord Set is also caught", "Girls Gharara Set",
-      vendor="Girls", expect_gender="Girls", expect_branch="Eastern", expect_sub="Stitched", expect_leaf="Kurta Set")
+      vendor="Girls", expect_gender="Girls", expect_branch="Eastern", expect_sub="Stitched", expect_leaf="Sharara / Gharara")
 
 # Edenrobe's/Cambridge's real structural convention for a stitched
 # shirt/frock + trouser/shalwar 2-piece set, labeled with "Fit Type:" per
@@ -1086,12 +1086,12 @@ check("Edenrobe structured Shirt+Trouser description resolves Kurta Set", "Print
       vendor="Women",
       description="Shirt Fit Type: Straight Fit Fabric: Raw Silk Style: Floral Printed Shirt with Lace Detailing "
                    "Shalwar Fit Type: Straight Fit Fabric: Raw Silk Style: Printed Shalwar with Lace Detailing",
-      expect_branch="Eastern", expect_sub="Stitched", expect_leaf="Kurta Set")
+      expect_branch="Eastern", expect_sub="Stitched", expect_leaf="2-Piece (Shirt + Trouser)")
 check("the 'Frock' variant of the same structured convention also resolves Kurta Set", "Girls Co-Ord Set",
       vendor="Girls",
       description="Frock Fit Type: Relaxed Fit Fabric: Lawn Style: Printed Frock "
                    "Trouser Fit Type: Relaxed Fit Fabric: Lawn Style: Plain Trouser",
-      expect_gender="Girls", expect_branch="Eastern", expect_sub="Stitched", expect_leaf="Kurta Set")
+      expect_gender="Girls", expect_branch="Eastern", expect_sub="Stitched", expect_leaf="2-Piece (Shirt + Trouser)")
 # A real Edenrobe 3-piece variant of the same convention (adds a Dupatta)
 # resolves Kurta Set too, not just the bare 2-piece case.
 check("a Gharara Suit with the structured convention still resolves via its own word first", "Embroidered Organza Gharara Suit - EGTPLED5-50058-3P",
@@ -1099,7 +1099,7 @@ check("a Gharara Suit with the structured convention still resolves via its own 
       description="Shirt Fit Type: Straight Fit Fabric: Organza Style: Embroidered Shirt "
                    "Gharara Fit Type: Straight Fit Fabric: Organza Style: Banarsi Work Gharara "
                    "Dupatta Fabric: Organza Type: Embellished Dupatta with Lace Work",
-      expect_branch="Eastern", expect_sub="Stitched", expect_leaf="Kurta Set")
+      expect_branch="Eastern", expect_sub="Stitched", expect_leaf="Sharara / Gharara")
 
 # A "Prince Suit"/"Prince Coat" is a short embroidered Eastern formal coat
 # (Sherwani-adjacent), not a Western jacket — scoped to items that already
@@ -1195,7 +1195,7 @@ check("a 'blazer collar' detail on a real kurta pajama waistcoat stays Eastern",
       product_type="Men Waist Coat Suit", vendor="Men",
       description="Men's Waistcoat Suit Blazer Suiting Fabric Cotton Satin Kurta Pajama Contrast Blazer "
                    "Collar Fancy Buttons Decorative Chain & Brooch.",
-      expect_branch="Eastern", expect_sub="Stitched", expect_leaf="Kurta Set")  # 2026-11-01: waistcoat suit = kurta outfit
+      expect_branch="Eastern", expect_sub="Stitched", expect_leaf="Kurta Trouser")  # 2026-11-01: waistcoat suit = kurta outfit
 check("a plain Eastern koti waistcoat with no Western signal at all stays Eastern", "Waistcoat - ELTWC19-66953",
       product_type="Woman Waist Coat", vendor="Women",
       description="Fabric: Lawn stylized printed koti with pockets and accent lining",

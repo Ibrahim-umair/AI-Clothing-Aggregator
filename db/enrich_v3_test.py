@@ -339,7 +339,10 @@ def grouped_tree(cur):
 
 SELLABLE = """p.is_active
   AND EXISTS (SELECT 1 FROM variants v WHERE v.product_id = p.id AND v.current_available)
-  AND EXISTS (SELECT 1 FROM product_images i WHERE i.product_id = p.id)"""
+  AND EXISTS (SELECT 1 FROM product_images i WHERE i.product_id = p.id)
+  AND COALESCE(p.category_id, 0) NOT IN (SELECT c.id FROM categories c WHERE c.name IN ('Makeup', 'Skincare')
+                            OR c.parent_id IN (SELECT h.id FROM categories h WHERE h.slug = 'home')
+                            OR c.slug = 'home')"""  # Home and Beauty stay out of the AI run for now
 
 
 NON_CLOTHING_RE = ("Accessories", "Fragrance", "Footwear")

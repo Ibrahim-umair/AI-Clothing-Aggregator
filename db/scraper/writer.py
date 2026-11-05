@@ -132,17 +132,18 @@ def upsert_product_full(conn, cur, bid, native_id, p, title, description, cat_id
     cur.execute(
         """INSERT INTO products (brand_id, native_product_id, handle, title, description,
             category_id, style_family, construction_status, age_group, piece_count,
-            tags, raw_source, last_seen_at, is_active)
-           VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s, now(), true)
+            tags, raw_source, last_seen_at, is_active, is_browsable)
+           VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s, now(), true, %s)
            ON CONFLICT (brand_id, native_product_id) DO UPDATE SET
              handle=EXCLUDED.handle, title=EXCLUDED.title, description=EXCLUDED.description,
              category_id=EXCLUDED.category_id, style_family=EXCLUDED.style_family,
              construction_status=EXCLUDED.construction_status, piece_count=EXCLUDED.piece_count,
-             tags=EXCLUDED.tags, raw_source=EXCLUDED.raw_source, last_seen_at=now(), is_active=true
+             tags=EXCLUDED.tags, raw_source=EXCLUDED.raw_source, last_seen_at=now(), is_active=true,
+             is_browsable=products.is_browsable AND EXCLUDED.is_browsable
            RETURNING id""",
         (bid, native_id, p.get("handle"), title[:500], description, cat_id,
          cls["style"], cls["construction"], "adult", cls.get("piece_count"),
-         tags, json.dumps(p)),
+         tags, json.dumps(p), cls.get("browsable", True)),
     )
     pid = cur.fetchone()[0]
 
