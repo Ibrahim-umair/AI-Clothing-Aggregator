@@ -15,7 +15,7 @@ const NAV_LINKS = [
   // (a link to the current page is a replace, not a new visit).
   { to: "/ai-search", label: "Ask", end: true, state: { newChat: true } },
   { to: "/shop", label: "Browse" },
-  { to: "/#occasions", label: "Occasions", hash: true },
+  { to: "/home#occasions", label: "Occasions", hash: true },
   { to: "/shop?onSale=true", label: "On sale" },
 ];
 
@@ -59,7 +59,7 @@ export default function Header() {
   return (
     <header className="site-header">
       <div className="site-header__inner">
-        <Link to="/" className="brand" aria-label="Libas AI home">
+        <Link to="/ai-search" state={{ newChat: true }} className="brand" aria-label="Libas AI home">
           <LogoMark className="brand__logo" size={28} />
           <span className="brand__name">
             Libas <span className="brand__ai">AI</span>
@@ -120,7 +120,7 @@ function MobileNav({ open, onClose, isActive }) {
       <div className={`mobile-nav-backdrop${open ? " mobile-nav-backdrop--open" : ""}`} onClick={onClose} />
       <div className={`mobile-nav${open ? " mobile-nav--open" : ""}`} role="dialog" aria-modal="true" aria-label="Menu">
         <div className="mobile-nav__head">
-          <Link to="/" className="brand" onClick={onClose}>
+          <Link to="/ai-search" state={{ newChat: true }} className="brand" onClick={onClose}>
             <LogoMark className="brand__logo" size={24} />
             <span className="brand__name">
               Libas <span className="brand__ai">AI</span>

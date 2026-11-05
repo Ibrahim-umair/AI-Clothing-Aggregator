@@ -1,4 +1,4 @@
-import { Routes, Route, useLocation } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import Header from "./components/Header.jsx";
 import Home from "./pages/Home.jsx";
 import Shop from "./pages/Shop.jsx";
@@ -20,7 +20,9 @@ export default function App() {
               "Something broke" screen forever. */}
           <ErrorBoundary key={location.pathname + location.search}>
             <Routes>
-              <Route path="/" element={<Home />} />
+              {/* AI search is the landing page; the old home (occasions etc.) lives on /home. */}
+              <Route path="/" element={<Navigate to="/ai-search" replace />} />
+              <Route path="/home" element={<Home />} />
               <Route path="/shop" element={<Shop />} />
               <Route path="/ai-search" element={<AiSearch />} />
               <Route path="/product/:id" element={<ProductDetail />} />

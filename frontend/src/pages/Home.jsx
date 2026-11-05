@@ -54,7 +54,7 @@ export default function Home() {
   const [sale, setSale] = useState({ loading: true, error: false, products: [] });
   const [retryToken, setRetryToken] = useState(0);
 
-  // "/#occasions" from the header: react-router doesn't scroll to hashes.
+  // "/home#occasions" from the header: react-router doesn't scroll to hashes.
   useEffect(() => {
     if (!location.hash) return;
     const el = document.getElementById(location.hash.slice(1));
