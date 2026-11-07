@@ -320,6 +320,92 @@ SCHEMA = {
 }
 
 
+def _patched(text, *pairs):
+    """text with each (old, new) replaced; every old must occur exactly once."""
+    for old, new in pairs:
+        assert text.count(old) == 1, old[:60]
+        text = text.replace(old, new)
+    return text
+
+
+# v4 (Nov 2026 test): shape, drape, rise, a length ladder and per-piece detail for sets,
+# for all clothing; women's Eastern piece rules for the Nov 2026 tree. Fit keeps only
+# how close it sits; the leg/outline words move to shape.
+SYSTEM_PROMPT_V4 = _patched(
+    SYSTEM_PROMPT,
+    ("""description: 2-3 plain sentences. Start with the garment type and its fit, then
+length, sleeves, neckline/collar, prints/embroidery and where they sit, fabric look,
+notable details.""",
+     """description: 2-3 plain sentences. Start with the garment type, its shape and fit,
+then length, sleeves, neckline/collar, prints/embroidery and where they sit, fabric
+look and drape, notable details. For a set, say what each piece is."""),
+    ("repeat what the descriptors already say (fit, fabric, sleeves, closure).",
+     "repeat what the descriptors already say (fit, shape, fabric, sleeves, closure)."),
+    ("""  garment sizes (none, one size, "unstitched", fabric lengths) is unstitched.
+""",
+     """  garment sizes (none, one size, "unstitched", fabric lengths) is unstitched.
+- Women's and girls' Eastern clothes are filed by the pieces sold together; kurta,
+  kurti, kameez and "shirt" all mean the shirt. 1-Piece: the shirt alone. 2-Piece
+  (Shirt + Trouser): with a shalwar, trouser, pajama or culottes (brands also call
+  this a "co-ord" or "suit"). 2-Piece (Shirt + Dupatta): with a dupatta or shawl.
+  3-Piece: shirt, dupatta (or shawl) and a bottom. 4-Piece: those three plus an
+  inner/slip. Count only what is sold (a dupatta or trouser worn only for the photo
+  doesn't count); the title and description say what is included. A shalwar, pajama
+  or Eastern trouser sold alone is Bottoms.
+- Men's and boys' Eastern sets: kurta with shalwar is Shalwar Kameez; kurta with
+  trouser or pajama is Kurta Trouser.
+"""),
+    ("""- fit: slim, regular, relaxed, oversized, skinny, straight, wide leg, tapered,
+  flared, bodycon, A-line, "not clear", or "n/a" (accessories, socks, perfume).
+""",
+     """Fit and shape come from the photos; store words (slim, skinny, peplum) never
+override what the photos show.
+- fit: how close it sits to the body, only: skinny, slim, regular, relaxed,
+  oversized, bodycon, "not clear", or "n/a" (accessories, socks, perfume).
+- shape: the outline in a shopper's words, e.g. tops, kurtas, dresses: straight,
+  A-line, flared/kalidar, peplum, angrakha, frock, boxy, wrap, fit-and-flare, kaftan;
+  bottoms: straight, tapered, wide leg, flared, bootcut, barrel, palazzo, culottes,
+  cigarette, shalwar (loose, gathered at the ankle), tulip, dhoti. "n/a" for
+  footwear, accessories, dupattas and shawls.
+- drape: how the fabric falls: structured (holds its own shape: denim, khaddar,
+  organza, tailoring), soft, or flowy (moves and falls loosely: chiffon, georgette,
+  crinkle and soft silks are always flowy). For clothing, never "n/a": when the
+  photo can't show it, go by the fabric named in the text.
+- rise: high, mid or low for trousers, jeans, shorts and skirts (never "n/a" for
+  these); "n/a" for everything else, sets included.
+- pieces: for a set or unstitched suit, one entry per piece sold (shirt, trouser,
+  dupatta, shawl, inner, waistcoat...) with its shape, fabric and work (e.g.
+  "embroidered neckline", "printed", "plain", "embroidered borders"); [] for a single
+  item. For a set, the other descriptors describe the main piece (the shirt or top).
+- Unstitched fabric: fit, shape and length are always "n/a", even when the photo shows
+  a stitched sample; drape and its pieces' fabric and work still apply.
+"""),
+    ("""- coverage: sleeves (sleeveless, cap, short, elbow, three-quarter, full); length
+  (e.g. cropped, waist, hip, thigh, knee, midi, calf, ankle, floor); neckline (e.g.""",
+     """- coverage: sleeves (sleeveless, cap, short, elbow, three-quarter, full); length
+  where the hem ends, judged against the model's knee and ankle (for a set, the
+  shirt's; "n/a" for dupattas, shawls and accessories); neckline (e.g."""),
+)
+
+SCHEMA_V4 = json.loads(json.dumps(SCHEMA))
+SCHEMA_V4["name"] = "product_enrichment_v4"
+_d = SCHEMA_V4["schema"]["properties"]["descriptors"]
+_NA = ["not clear", "n/a"]
+_d["properties"].update({
+    "shape": {"type": "string"},
+    "drape": {"type": "string", "enum": ["structured", "soft", "flowy"] + _NA},
+    "rise": {"type": "string", "enum": ["high", "mid", "low"] + _NA},
+    "pieces": {"type": "array", "items": {
+        "type": "object",
+        "properties": {k: {"type": "string"} for k in ("piece", "shape", "fabric", "work")},
+        "required": ["piece", "shape", "fabric", "work"], "additionalProperties": False}},
+})
+_d["properties"]["coverage"]["properties"]["length"] = {"type": "string", "enum": [
+    "cropped", "waist", "hip", "thigh", "knee", "calf", "ankle", "floor"] + _NA}
+_d["required"] = ["fit", "shape", "drape", "rise"] + _d["required"][1:] + ["pieces"]
+PROMPTS = {"v3": (SYSTEM_PROMPT, SCHEMA), "v4": (SYSTEM_PROMPT_V4, SCHEMA_V4)}
+
+
 def leaf_paths(cur):
     """Every category that has no children, as a full path: the tree the model picks from."""
     cur.execute("SELECT id FROM categories c WHERE NOT EXISTS (SELECT 1 FROM categories k WHERE k.parent_id = c.id)")
@@ -335,6 +421,98 @@ def grouped_tree(cur):
         group, _, leaf = path.rpartition(" > ")
         groups.setdefault(group, []).append(leaf)
     return "\n".join(f"{g}: {', '.join(leaves)}" for g, leaves in groups.items())
+
+
+def code_tree():
+    """The Nov 2026 tree as load_data.py defines it, in grouped_tree's format, and its
+    leaf paths. The local DB still holds retired leaves (Kurta Set, women's Kurti...)
+    until it is re-categorised."""
+    from load_data import CATEGORY_TREE
+    groups = {}
+
+    def walk(node, path):
+        if isinstance(node, dict):
+            for k, v in node.items():
+                walk(v, path + [k])
+        elif node:
+            groups[" > ".join(path)] = sorted(name for name, _ in node)
+    walk(CATEGORY_TREE, [])
+    text = "\n".join(f"{g}: {', '.join(leaves)}" for g, leaves in sorted(groups.items()))
+    return text, {f"{g} > {leaf}" for g, leaves in groups.items() for leaf in leaves}
+
+
+def rules_category(cur, pid, fallback):
+    """The new keyword rules' path for a product (the AI's hint), from its raw store data."""
+    from eval_categorizer import to_path
+    from load_data import classify, strip_html
+    from product_normalize import normalize_product_fields
+    cur.execute("SELECT b.slug, p.title, p.raw_source FROM products p JOIN brands b ON b.id = p.brand_id "
+                "WHERE p.id = %s", (pid,))
+    slug, title, raw = cur.fetchone()
+    try:
+        nf = normalize_product_fields(raw, slug == "cougar")
+        path = to_path(classify(slug, raw, title, nf["product_type"], ",".join(nf["tags"]), nf["vendor"],
+                                strip_html(nf["description_html"]) or ""))
+    except Exception as e:  # a store whose raw data the normaliser doesn't know
+        print(f"rules failed for {pid} ({slug}): {e}; keeping {fallback}")
+        return fallback
+    return "Uncategorised" if path == "EXCLUDED" else path
+
+
+# Shape test (Nov 2026): mostly the clothes the new fields are for, a few of the rest.
+# Checked in order; the first group a product's current category falls in wins.
+SHAPE_QUOTAS = [
+    ("Footwear", 3), ("Fragrance", 1),
+    ("Women > Eastern > Stitched", 28), ("Women > Eastern > Unstitched", 10),
+    ("Women > Western > Bottomwear", 8), ("Women > Western > Upperwear", 13),
+    ("Women > Western > Suits & Sets", 2), ("Women > Accessories", 4),
+    ("Men > Western > Bottomwear", 10), ("Men > Western > Upperwear", 5), ("Men > Eastern", 6),
+    ("Men > Accessories", 2), ("Girls", 5), ("Boys", 3),
+]
+
+
+def pick_shape_sample(cur, exclude, per_brand=3, seed=20261107):
+    """SHAPE_QUOTAS products as (id, group), at most per_brand from one store in each group."""
+    cur.execute(f"SELECT p.id, p.category_id, b.slug FROM products p JOIN brands b ON b.id = p.brand_id "
+                f"WHERE {SELLABLE}")
+    by_group = {}
+    for pid, cid, slug in cur.fetchall():
+        if pid in exclude:
+            continue
+        path = category_path(cur, cid) if cid else "Uncategorised"
+        group = next((g for g, _ in SHAPE_QUOTAS if g in path), None)
+        if group:
+            by_group.setdefault(group, []).append((pid, slug))
+    rng = random.Random(seed)
+    ids = []
+    for group, quota in SHAPE_QUOTAS:
+        pool = sorted(by_group.get(group, []))
+        rng.shuffle(pool)
+        taken, per = [], {}
+        for pid, slug in pool:
+            if len(taken) == quota:
+                break
+            if per.get(slug, 0) < per_brand:
+                per[slug] = per.get(slug, 0) + 1
+                taken.append((pid, group))
+        ids += taken
+    return ids
+
+
+def stratified_subset(products, n, seed=20261107):
+    """n of the products in the same group mix."""
+    rng = random.Random(seed)
+    groups = {}
+    for p in products:
+        groups.setdefault(p["group"], []).append(p)
+    out = []
+    for ps in groups.values():
+        out += rng.sample(ps, n * len(ps) // len(products))
+    rest = [p for p in products if p not in out]
+    rng.shuffle(rest)
+    out = (out + rest)[:n]
+    order = {p["id"]: i for i, p in enumerate(products)}
+    return sorted(out, key=lambda p: order[p["id"]])
 
 
 SELLABLE = """p.is_active
@@ -437,15 +615,15 @@ def user_content(product, photos):
 CACHE_KEY = "libas-enrich-v3"
 
 
-def request_body(system_prompt, product, photos):
+def request_body(system_prompt, product, photos, schema=SCHEMA):
     return {
         "model": MODEL, "reasoning_effort": "none",
         "messages": [{"role": "system", "content": system_prompt},
                      {"role": "user", "content": user_content(product, photos)}],
-        "response_format": {"type": "json_schema", "json_schema": SCHEMA},
+        "response_format": {"type": "json_schema", "json_schema": schema},
         # Same key on every call routes them to the same cache, so the ~4,900
         # token prefix (rules + category tree) is billed at the cached rate.
-        "prompt_cache_key": CACHE_KEY,
+        "prompt_cache_key": f"{CACHE_KEY}-{schema['name']}",
     }
 
 
@@ -467,12 +645,12 @@ def usage_dict(u):
             "cached": getattr(u.prompt_tokens_details, "cached_tokens", 0) or 0}
 
 
-def run_one(client, system_prompt, product):
+def run_one(client, system_prompt, product, schema=SCHEMA):
     photos = fetch_photos(product)
     if not photos:
         return {"product": product, "error": "no photo could be downloaded"}
     t0 = time.time()
-    resp = client.chat.completions.create(**request_body(system_prompt, product, photos))
+    resp = client.chat.completions.create(**request_body(system_prompt, product, photos, schema))
     return {"product": product, "photos_sent": [n for n, _ in photos],
             "result": json.loads(resp.choices[0].message.content),
             "usage": usage_dict(resp.usage), "seconds": round(time.time() - t0, 1)}
@@ -502,6 +680,13 @@ def main():
     ap.add_argument("--batch-submit", action="store_true", help="send the sample through the Batch API")
     ap.add_argument("--batch-collect", action="store_true", help="fetch the batch results when done")
     ap.add_argument("--workers", type=int, default=6)
+    ap.add_argument("--prompt", choices=sorted(PROMPTS), default="v3", help="prompt and schema version")
+    ap.add_argument("--code-tree", action="store_true", help="send load_data.py's tree, not the DB's")
+    ap.add_argument("--pick-shape", action="store_true",
+                    help="choose the shape-test sample (SHAPE_QUOTAS), hints from the new rules")
+    ap.add_argument("--subset-of", help="with --subset-n: take the sample as a subset of this round's")
+    ap.add_argument("--subset-n", type=int, default=30)
+    ap.add_argument("--seed", type=int, default=20261107, help="sampling seed for --pick-shape")
     args = ap.parse_args()
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     sfx = f"_{args.round}" if args.round else ""
@@ -510,6 +695,27 @@ def main():
     cur = psycopg2.connect(DSN).cursor()
     from dotenv import load_dotenv
     load_dotenv(Path(__file__).resolve().parent.parent / "server" / ".env")
+
+    if args.pick_shape:
+        seen = set()  # never re-test a product from an earlier round
+        for old in OUT_DIR.glob("sample*.json"):
+            seen |= {p["id"] for p in json.loads(old.read_text(encoding="utf-8"))}
+        products = []
+        for pid, group in pick_shape_sample(cur, seen, seed=args.seed):
+            p = load_product(cur, pid)
+            p["group"], p["db_category"] = group, p["category"]
+            p["category"] = rules_category(cur, pid, p["category"])
+            products.append(p)
+        sample_file.write_text(json.dumps(products, indent=1, ensure_ascii=False), encoding="utf-8")
+        for p in products:
+            print(f"{p['id']:>7} {p['store']:<16} {p['category'][:55]:<55} {p['title'][:40]}")
+        print(f"{len(products)} products -> {sample_file}")
+
+    if args.subset_of:
+        full = json.loads((OUT_DIR / f"sample_{args.subset_of}.json").read_text(encoding="utf-8"))
+        products = stratified_subset(full, args.subset_n)
+        sample_file.write_text(json.dumps(products, indent=1, ensure_ascii=False), encoding="utf-8")
+        print(f"{len(products)} of {len(full)} products -> {sample_file}")
 
     if args.pick:
         if args.by_category:
@@ -525,15 +731,19 @@ def main():
             print(f"{p['id']:>7} {p['store']:<15} {len(p['photos']):>2} ph  {p['category'][:58]:<58} {p['title'][:38]}")
         print(f"{len(products)} products -> {sample_file}")
 
-    system_prompt = SYSTEM_PROMPT + grouped_tree(cur)
-    valid_paths = set(leaf_paths(cur))
+    prompt, schema = PROMPTS[args.prompt]
+    if args.code_tree:
+        tree, valid_paths = code_tree()
+    else:
+        tree, valid_paths = grouped_tree(cur), set(leaf_paths(cur))
+    system_prompt = prompt + tree
 
     if args.run:
         products = json.loads(sample_file.read_text(encoding="utf-8"))
         client = OpenAI()
         results = []
         with ThreadPoolExecutor(args.workers) as ex:
-            futs = [ex.submit(run_one, client, system_prompt, p) for p in products]
+            futs = [ex.submit(run_one, client, system_prompt, p, schema) for p in products]
             for f in as_completed(futs):
                 try:
                     results.append(f.result())
@@ -554,7 +764,7 @@ def main():
                 continue
             sent[p["id"]] = [n for n, _ in photos]
             lines.append(json.dumps({"custom_id": str(p["id"]), "method": "POST", "url": "/v1/chat/completions",
-                                     "body": request_body(system_prompt, p, photos)}))
+                                     "body": request_body(system_prompt, p, photos, schema)}))
         jsonl = OUT_DIR / f"batch{sfx}_input.jsonl"
         jsonl.write_text("\n".join(lines), encoding="utf-8")
         client = OpenAI()
