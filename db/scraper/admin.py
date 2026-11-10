@@ -7,6 +7,7 @@ Refresh buttons.
                                               # (page only if a worker is already running)
     python db/scraper/admin.py --worker       # worker only (the page runs elsewhere)
     python db/scraper/admin.py --queue-all    # queue a full refresh of every store, oldest first
+    python db/scraper/admin.py --queue equator --via direct   # one store, trying this route first
     python db/scraper/admin.py --test-egress  # one small request per way out, saved for the page
     python db/scraper/admin.py --status       # the queue and the worker, in the terminal
 
@@ -115,19 +116,23 @@ def queue_all(cur, tier="daily", stale_hours=None):
 
 # ---------------------------------------------------------------- egress
 
-def blocked(cur, fam):
-    """Ways out that were blocked for this platform family in the last BLOCK_HOURS,
-    unless a later run on the same way out completed."""
+def blocked(cur, fam, brand_id):
+    """Ways out blocked in the last BLOCK_HOURS, unless a later run on the same way out completed.
+    A 429 is the platform's rate limit (Shopify counts per IP across all its stores), so it
+    blocks the route for the whole platform family. A 403 is one store refusing that IP
+    (Equator refuses proxy IPs), so it blocks the route for that store only."""
     cur.execute(
         """WITH r AS (
-               SELECT sr.egress, sr.started_at, sr.status, sr.requests_429, sr.requests_403,
+               SELECT sr.egress, sr.brand_id, sr.started_at, sr.status, sr.requests_429, sr.requests_403,
                       CASE WHEN b.platform_type::text = 'sfcc' THEN 'sfcc' ELSE 'shopify' END AS fam
                FROM scrape_runs sr JOIN brands b ON b.id = sr.brand_id
                WHERE sr.egress IS NOT NULL AND sr.started_at > now() - %s * interval '1 hour')
            SELECT egress FROM r
-           WHERE fam = %s AND status = 'failed' AND (requests_429 > 0 OR requests_403 > 0)
+           WHERE fam = %s AND status = 'failed'
+             AND (requests_429 > 0 OR (requests_403 > 0 AND brand_id = %s))
              AND NOT EXISTS (SELECT 1 FROM r r2 WHERE r2.egress = r.egress AND r2.fam = r.fam
-                             AND r2.status = 'completed' AND r2.started_at > r.started_at)
+                             AND r2.status = 'completed' AND r2.started_at > r.started_at
+                             AND (r.requests_429 > 0 OR r2.brand_id = r.brand_id))
            UNION
            SELECT egress FROM (
                SELECT DISTINCT ON (egress) egress, http_status, checked_at FROM egress_checks
@@ -136,7 +141,7 @@ def blocked(cur, fam):
            WHERE (c.http_status IS NULL OR c.http_status >= 400)
              AND NOT EXISTS (SELECT 1 FROM r WHERE r.egress = c.egress AND r.fam = %s
                              AND r.status = 'completed' AND r.started_at > c.checked_at)""",
-        (BLOCK_HOURS, fam, fam, BLOCK_HOURS, fam))
+        (BLOCK_HOURS, fam, brand_id, fam, BLOCK_HOURS, fam))
     return {r[0] for r in cur.fetchall()}
 
 
@@ -161,10 +166,12 @@ def store_estimate(cur, bid):
 
 def pick_egress(cur, job, tried):
     """(label, proxy_url) for the next attempt, or (None, reason)."""
-    bad = blocked(cur, family(job["platform"]))
+    bad = blocked(cur, family(job["platform"]), job["brand_id"])
     over_budget = None
-    for label, url in all_egress():
-        if label in tried or label in bad:
+    routes = all_egress()
+    routes.sort(key=lambda r: r[0] != job.get("via"))  # the asked-for route first
+    for label, url in routes:
+        if label in tried or (label in bad and label != job.get("via")):
             continue
         if url:
             used, need = month_proxy_bytes(cur), store_estimate(cur, job["brand_id"])
@@ -260,11 +267,11 @@ class Worker:
                WHERE j.id = (SELECT id FROM scrape_jobs WHERE status='queued' ORDER BY id
                              FOR UPDATE SKIP LOCKED LIMIT 1) AND b.id = j.brand_id
                RETURNING j.id, j.brand_id, j.tier, coalesce(j.attempts,0), coalesce(j.tried,'{}'),
-                         b.slug, b.name, b.platform_type::text""")
+                         b.slug, b.name, b.platform_type::text, j.via""")
         row = self.cur.fetchone()
         if not row:
             return None
-        keys = ("id", "brand_id", "tier", "attempts", "tried", "slug", "name", "platform")
+        keys = ("id", "brand_id", "tier", "attempts", "tried", "slug", "name", "platform", "via")
         return dict(zip(keys, row))
 
     def job_status(self, job_id):
@@ -517,6 +524,8 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--worker", action="store_true", help="run only the worker")
     ap.add_argument("--queue-all", action="store_true", help="queue a refresh of every store, then exit")
+    ap.add_argument("--queue", metavar="SLUG", help="queue a refresh of one store, then exit")
+    ap.add_argument("--via", help="with --queue: route to try first ('direct', a proxy host, or '#N')")
     ap.add_argument("--stale-hours", type=float, help="with --queue-all: only stores not refreshed for this long")
     ap.add_argument("--tier", choices=["daily", "hourly"], default="daily")
     ap.add_argument("--test-egress", action="store_true", help="test every way out, then exit")
@@ -529,6 +538,20 @@ def main():
     cur = conn.cursor()
     if args.queue_all:
         print(f"queued {queue_all(cur, args.tier, args.stale_hours)} store(s)")
+        return
+    if args.queue:
+        via = args.via
+        if via and via.startswith("#"):
+            via = [label for label, _ in all_egress()][int(via[1:]) + 1]
+        elif via and via != "direct" and not via.startswith("proxy"):
+            via = f"proxy ({via})"
+        if via and via not in [label for label, _ in all_egress()]:
+            raise SystemExit(f"unknown route {via!r}; see --test-egress for the list")
+        cur.execute("INSERT INTO scrape_jobs (brand_id, tier, via) SELECT id, %s, %s FROM brands WHERE slug=%s "
+                    "ON CONFLICT DO NOTHING RETURNING id", (args.tier, via, args.queue))
+        row = cur.fetchone()
+        print(f"queued job {row[0]}" + (f" via {via}" if via else "") if row else
+              "not queued: unknown store, or it already has a refresh queued or running")
         return
     if args.test_egress:
         for label, r in test_egress(conn):

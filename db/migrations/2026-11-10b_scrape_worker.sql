@@ -20,3 +20,7 @@ ALTER TABLE scrape_worker
 -- second run changes nothing.
 UPDATE scrape_runs SET bytes_in = bytes_in / 14
 WHERE product_count > 0 AND bytes_in > 2000::bigint * product_count;
+
+-- A route asked for when queuing (admin.py --queue X --via direct): tried first,
+-- even if it was blocked recently for other stores.
+ALTER TABLE scrape_jobs ADD COLUMN IF NOT EXISTS via TEXT;
