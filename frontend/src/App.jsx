@@ -7,9 +7,14 @@ import ProductDetail from "./pages/ProductDetail.jsx";
 import Favourites from "./pages/Favourites.jsx";
 import Placeholder from "./pages/Placeholder.jsx";
 import ErrorBoundary from "./components/ErrorBoundary.jsx";
+import { lazy, Suspense } from "react";
+// Loaded only on /admin, so shoppers never download it.
+const Admin = lazy(() => import("./pages/Admin.jsx"));
 
 export default function App() {
   const location = useLocation();
+  // The scrape admin has its own layout, without the shopper header.
+  if (location.pathname.startsWith("/admin")) return <Suspense fallback={null}><Admin /></Suspense>;
   return (
     <div className="app-shell">
       <Header />
