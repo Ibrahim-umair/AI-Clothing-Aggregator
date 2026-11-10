@@ -48,6 +48,13 @@ app.include_router(brands.router)
 app.include_router(taxonomy.router)
 app.include_router(health.router)
 
+# Scrape admin (/api/admin/*): only exists where ADMIN_TOKEN is set, so a
+# server without it never exposes the routes at all.
+if os.environ.get("ADMIN_TOKEN"):
+    from routes import admin  # noqa: E402
+
+    app.include_router(admin.router)
+
 if __name__ == "__main__":  # local development only; production runs the Dockerfile's CMD
     import uvicorn
 

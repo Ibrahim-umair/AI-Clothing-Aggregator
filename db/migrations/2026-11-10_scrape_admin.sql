@@ -62,3 +62,11 @@ CREATE TABLE IF NOT EXISTS egress_checks (
     error       TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_egress_checks ON egress_checks(egress, checked_at DESC);
+
+-- The worker writes a heartbeat here while it runs; the page shows "worker on/off".
+CREATE TABLE IF NOT EXISTS scrape_worker (
+    id           INT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+    heartbeat_at TIMESTAMPTZ,
+    started_at   TIMESTAMPTZ,
+    pid          INT
+);

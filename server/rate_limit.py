@@ -121,7 +121,7 @@ def _too_many(message: str, retry_after: int) -> JSONResponse:
 
 async def rate_limit_middleware(request: Request, call_next):
     path = request.url.path
-    if not path.startswith("/api/") or path == "/api/health":
+    if not path.startswith("/api/") or path == "/api/health" or path.startswith("/api/admin/"):
         return await call_next(request)
     ip, now = client_ip(request), time.time()
 
