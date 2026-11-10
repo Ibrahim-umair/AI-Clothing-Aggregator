@@ -32,7 +32,9 @@ from pacing import Pacer
 from fetchers import fetch_rest_store, fetch_graphql_store, StoreFetchError
 from fetch_ucp import fetch_ucp_store
 from fetch_sfcc import fetch_sfcc_store
-from writer import ConnHolder, with_reconnect_retry, upsert_product_full, upsert_variant_availability_only, mark_stale_inactive
+from writer import (ConnHolder, with_reconnect_retry, upsert_product_full, upsert_variant_availability_only,
+                    mark_stale_inactive, count_stale)
+from progress import RunTracker
 
 
 def _load_dotenv():
@@ -65,6 +67,11 @@ STORE_CONCURRENCY = int(os.environ.get("SCRAPE_STORE_CONCURRENCY", "5"))
 PER_STORE_DELAY_SECONDS = float(os.environ.get("SCRAPE_PER_STORE_DELAY", "3"))
 MAX_RETRIES = int(os.environ.get("SCRAPE_MAX_RETRIES", "5"))
 CANARY_DROP_THRESHOLD = float(os.environ.get("SCRAPE_CANARY_DROP_THRESHOLD", "0.30"))  # 30%
+# A run that would delist more than this share of a store's active products
+# (and at least HOLD_MIN of them) looks partial: removals are held for a
+# person to apply or discard on the admin page instead of happening silently.
+HOLD_REMOVALS_SHARE = float(os.environ.get("SCRAPE_HOLD_REMOVALS_SHARE", "0.20"))
+HOLD_REMOVALS_MIN = int(os.environ.get("SCRAPE_HOLD_REMOVALS_MIN", "25"))
 COUGAR_STOREFRONT_TOKEN = os.environ.get("COUGAR_STOREFRONT_TOKEN")
 # Where Cougar's GraphQL API is fetched from. cougar.com.pk's own front door
 # started returning 403 "Access denied" to AWS and many proxy IPs (Oct 2026),
@@ -88,14 +95,14 @@ def write_alert(message):
             pass  # alerting must never itself take down a run
 
 
-def fetch_iterator(slug, base_url, platform, pacer, bid=None, name=None):
+def fetch_iterator(slug, base_url, platform, pacer, session, bid=None, name=None):
     if platform == "hydrogen_graphql":
-        return fetch_graphql_store(COUGAR_API_BASE_URL, requests.Session(), pacer, slug, COUGAR_STOREFRONT_TOKEN, MAX_RETRIES)
+        return fetch_graphql_store(COUGAR_API_BASE_URL, session, pacer, slug, COUGAR_STOREFRONT_TOKEN, MAX_RETRIES)
     if platform == "sfcc":
-        return fetch_sfcc_store(slug, base_url, requests.Session(), pacer, slug, MAX_RETRIES, stored_raw(bid))
+        return fetch_sfcc_store(slug, base_url, session, pacer, slug, MAX_RETRIES, stored_raw(bid))
     if platform == "shopify_ucp":
-        return fetch_ucp_store(base_url, requests.Session(), pacer, slug, previous_raw(bid), name, MAX_RETRIES)
-    return fetch_rest_store(base_url, requests.Session(), pacer, slug, MAX_RETRIES)
+        return fetch_ucp_store(base_url, session, pacer, slug, previous_raw(bid), name, MAX_RETRIES)
+    return fetch_rest_store(base_url, session, pacer, slug, MAX_RETRIES)
 
 
 def stored_raw(bid):
@@ -138,76 +145,82 @@ def run_store_daily(slug, name, base_url, platform, bid, category_id, leaf_looku
     holder = None if dry_run else ConnHolder()
     check_conn = psycopg2.connect(DSN)  # read-only lookups (existence checks in dry-run, canary baseline)
     check_cur = check_conn.cursor()
+    prior_count = last_known_count(check_cur, bid)
+    tracker = RunTracker(bid, "daily", started_at, prior_count, dry_run)
+    run_id = tracker.run_id
 
     counts = {"fetched": 0, "excluded": 0, "new": 0, "updated": 0, "unchanged": 0,
               "variants": 0, "snapshots": 0, "errors": 0}
     error_message = None
+    removed = held = 0
     try:
-        for p in fetch_iterator(slug, base_url, platform, pacer, bid, name):
-            counts["fetched"] += 1
-            title = p.get("title") or ""
-            nf = normalize_product_fields(p, is_graphql)
-            description = strip_html(nf["description_html"]) or ""
-            cls = classify(slug, p, title, nf["product_type"], ",".join(nf["tags"]), nf["vendor"], description)
-            if cls is None:
-                counts["excluded"] += 1
-                continue
-            cat_id = resolve_category_id(cls, category_id, leaf_lookup)
+        try:
+            for p in fetch_iterator(slug, base_url, platform, pacer, tracker.session(), bid, name):
+                counts["fetched"] += 1
+                tracker.fetched_one()
+                title = p.get("title") or ""
+                nf = normalize_product_fields(p, is_graphql)
+                description = strip_html(nf["description_html"]) or ""
+                cls = classify(slug, p, title, nf["product_type"], ",".join(nf["tags"]), nf["vendor"], description)
+                if cls is None:
+                    counts["excluded"] += 1
+                    continue
+                cat_id = resolve_category_id(cls, category_id, leaf_lookup)
 
-            if dry_run:
-                check_cur.execute(
-                    "SELECT 1 FROM products WHERE brand_id=%s AND native_product_id=%s", (bid, nf["native_id"])
+                if dry_run:
+                    check_cur.execute(
+                        "SELECT 1 FROM products WHERE brand_id=%s AND native_product_id=%s", (bid, nf["native_id"])
+                    )
+                    counts["new" if check_cur.fetchone() is None else "updated"] += 1
+                    continue
+
+                result = with_reconnect_retry(
+                    holder,
+                    lambda conn, cur: upsert_product_full(
+                        conn, cur, bid, nf["native_id"], p, title, description, cat_id, cls,
+                        nf["tags"], nf["images"], is_graphql, nf["raw_variants"], color_id_cache, run_id,
+                    ),
+                    slug,
+                    MAX_RETRIES,
                 )
-                counts["new" if check_cur.fetchone() is None else "updated"] += 1
-                continue
+                if result is None:
+                    counts["errors"] += 1
+                    continue
+                counts[result["outcome"]] += 1
+                counts["variants"] += result["variant_count"]
+                counts["snapshots"] += result["snapshot_count"]
+        except StoreFetchError as e:
+            error_message = str(e)
+            write_alert(f"{slug}: fetch failed — {e}")
 
-            result = with_reconnect_retry(
-                holder,
-                lambda conn, cur: upsert_product_full(
-                    conn, cur, bid, nf["native_id"], p, title, description, cat_id, cls,
-                    nf["tags"], nf["images"], is_graphql, nf["raw_variants"], color_id_cache,
-                ),
-                slug,
-                MAX_RETRIES,
-            )
-            if result is None:
-                counts["errors"] += 1
-                continue
-            counts[result["outcome"]] += 1
-            counts["variants"] += result["variant_count"]
-            counts["snapshots"] += result["snapshot_count"]
-    except StoreFetchError as e:
-        error_message = str(e)
-        write_alert(f"{slug}: fetch failed — {e}")
-
-    removed = 0
-    if not dry_run and error_message is None:
-        removed = with_reconnect_retry(holder, lambda conn, cur: mark_stale_inactive(conn, cur, bid, started_at), slug, MAX_RETRIES) or 0
-
-    prior_count = last_known_count(check_cur, bid)
-    if prior_count and counts["fetched"] > 0 and counts["fetched"] < prior_count * (1 - CANARY_DROP_THRESHOLD):
-        write_alert(
-            f"{slug}: fetched count dropped {100*(1-counts['fetched']/prior_count):.0f}% vs last daily run "
-            f"({prior_count} -> {counts['fetched']}) — data still written, please review"
-        )
+        dropped = bool(prior_count and counts["fetched"] > 0
+                       and counts["fetched"] < prior_count * (1 - CANARY_DROP_THRESHOLD))
+        if not dry_run and error_message is None:
+            tracker.set_phase("removing")
+            stale, active = count_stale(check_cur, bid, started_at)
+            if dropped or (stale >= HOLD_REMOVALS_MIN and stale > active * HOLD_REMOVALS_SHARE):
+                held = stale
+                write_alert(f"{slug}: {stale} of {active} products not seen this run — removals held for review "
+                            f"(fetched {counts['fetched']}, last run {prior_count})")
+            else:
+                removed = with_reconnect_retry(
+                    holder, lambda conn, cur: mark_stale_inactive(conn, cur, bid, started_at, run_id),
+                    slug, MAX_RETRIES) or 0
+        elif dropped:
+            write_alert(f"{slug}: fetched count dropped {100*(1-counts['fetched']/prior_count):.0f}% vs last daily run "
+                        f"({prior_count} -> {counts['fetched']})")
+    except Exception as e:
+        tracker.finish("failed", counts, error_message=f"crashed: {e}")
+        raise
 
     status = "failed" if error_message else "completed"
-    if not dry_run:
-        write_cur = holder.conn.cursor() if holder else None
-        if write_cur:
-            write_cur.execute(
-                "INSERT INTO scrape_runs (brand_id, tier, started_at, finished_at, product_count, status, "
-                "products_new, products_updated, products_removed, products_unchanged, error_message) "
-                "VALUES (%s,'daily',%s,now(),%s,%s,%s,%s,%s,%s,%s)",
-                (bid, started_at, counts["fetched"], status, counts["new"], counts["updated"],
-                 removed, counts["unchanged"], error_message),
-            )
-            holder.conn.commit()
+    tracker.finish(status, counts, removed, held, error_message)
 
     check_cur.close(); check_conn.close()
     if holder:
         holder.cur.close(); holder.conn.close()
-    return {"slug": slug, "name": name, "tier": "daily", "status": status, "removed": removed, **counts}
+    return {"slug": slug, "name": name, "tier": "daily", "status": status, "removed": removed,
+            "removals_held": held, "run_id": run_id, **counts}
 
 
 def run_store_hourly(slug, name, base_url, platform, bid, dry_run):
@@ -215,19 +228,25 @@ def run_store_hourly(slug, name, base_url, platform, bid, dry_run):
     pacer = Pacer(PER_STORE_DELAY_SECONDS)
     started_at = datetime.now(timezone.utc)
     holder = None if dry_run else ConnHolder()
+    check_conn = psycopg2.connect(DSN)
+    check_cur = check_conn.cursor()
+    tracker = RunTracker(bid, "hourly", started_at, last_known_count(check_cur, bid), dry_run)
+    check_cur.close(); check_conn.close()
+    run_id = tracker.run_id
 
     counts = {"fetched": 0, "found": 0, "not_found": 0, "updated": 0, "snapshots": 0, "errors": 0}
     error_message = None
     try:
-        for p in fetch_iterator(slug, base_url, platform, pacer, bid, name):
+        for p in fetch_iterator(slug, base_url, platform, pacer, tracker.session(), bid, name):
             counts["fetched"] += 1
+            tracker.fetched_one()
             nf = normalize_product_fields(p, is_graphql)
             if dry_run:
                 continue
             result = with_reconnect_retry(
                 holder,
                 lambda conn, cur: upsert_variant_availability_only(
-                    conn, cur, bid, nf["native_id"], is_graphql, nf["raw_variants"], nf["tags"]
+                    conn, cur, bid, nf["native_id"], is_graphql, nf["raw_variants"], nf["tags"], run_id
                 ),
                 slug,
                 MAX_RETRIES,
@@ -241,19 +260,16 @@ def run_store_hourly(slug, name, base_url, platform, bid, dry_run):
     except StoreFetchError as e:
         error_message = str(e)
         write_alert(f"{slug}: fetch failed — {e}")
+    except Exception as e:
+        tracker.finish("failed", counts, error_message=f"crashed: {e}")
+        raise
 
     status = "failed" if error_message else "completed"
-    if not dry_run and holder:
-        cur = holder.conn.cursor()
-        cur.execute(
-            "INSERT INTO scrape_runs (brand_id, tier, started_at, finished_at, product_count, status, "
-            "products_updated, error_message) VALUES (%s,'hourly',%s,now(),%s,%s,%s,%s)",
-            (bid, started_at, counts["fetched"], status, counts["updated"], error_message),
-        )
-        holder.conn.commit()
+    tracker.finish(status, counts, error_message=error_message)
+    if holder:
         holder.cur.close(); holder.conn.close()
 
-    return {"slug": slug, "name": name, "tier": "hourly", "status": status, **counts}
+    return {"slug": slug, "name": name, "tier": "hourly", "status": status, "run_id": run_id, **counts}
 
 
 color_id_cache = {}

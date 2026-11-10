@@ -57,11 +57,35 @@ python run_scrape.py --status
 | `SCRAPE_STORE_CONCURRENCY` | `5` | how many stores fetch in parallel |
 | `SCRAPE_PER_STORE_DELAY` | `3` | seconds between requests *to the same store* |
 | `SCRAPE_MAX_RETRIES` | `5` | retry attempts before a store is marked failed |
-| `SCRAPE_CANARY_DROP_THRESHOLD` | `0.30` | fetched-count drop (vs. last daily run) that triggers an ALERT |
+| `SCRAPE_CANARY_DROP_THRESHOLD` | `0.30` | fetched-count drop (vs. last daily run) that triggers an ALERT and holds removals |
+| `SCRAPE_HOLD_REMOVALS_SHARE` | `0.20` | a run that would delist more than this share of a store's active products holds the removals instead |
+| `SCRAPE_HOLD_REMOVALS_MIN` | `25` | ...but only once at least this many products would go |
+| `SCRAPE_EGRESS_LABEL` | unset | label stored on the run for the admin page; default is `direct` or `proxy (<host>)` from `HTTPS_PROXY` |
+| `SCRAPE_JOB_ID` | unset | set by the admin worker so a run links back to the button press |
 | `COUGAR_STOREFRONT_TOKEN` | unset | required for Cougar (GraphQL) only — see below |
 | `ALERT_WEBHOOK_URL` | unset | if set, alerts are also POSTed here as `{"text": "..."}` (Slack-compatible) |
 
 Alerts always go to `db/scraper/alerts.log` regardless of the webhook setting.
+
+## Live progress and change log (for the admin page)
+
+Needs `db/migrations/2026-11-10_scrape_admin.sql`. Each store's `scrape_runs`
+row is now written when the run **starts** (`status='running'`) and refreshed
+every 5 s: `phase`, `fetched_so_far` against `expected_count` (last run's
+count), `heartbeat_at`, `egress`, request counts (`requests_ok/429/403/other`)
+and `bytes_in` (bytes on the wire; an estimate of proxy bandwidth). A row
+still `running` with an old heartbeat means the process died.
+
+Every change a run makes is one row in `product_events`: `new`, `removed`,
+`returned`, `out_of_stock`, `back_in_stock`, `price`, `sale_on`, `sale_off`,
+`title`, `category`, `photos`, with small before/after values. Description
+edits are not logged (too noisy). `variant_snapshots.scrape_run_id` is now set.
+
+**Held removals:** if a run fetched far fewer products than last time, or would
+delist more than 20% of a store (see the variables above), nothing is delisted;
+`removals_held` says how many would have gone. Apply later with
+`mark_stale_inactive(conn, cur, brand_id, run.started_at, run.id)`, which picks
+out the same products, or let the next good run handle them.
 
 ## Cougar (GraphQL store) setup
 

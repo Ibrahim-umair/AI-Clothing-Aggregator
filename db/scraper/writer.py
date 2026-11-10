@@ -40,6 +40,41 @@ def _to_decimal(v):
         return None
 
 
+def _state(cur, pid):
+    """What a shopper sees at product level: in stock at all, lowest price, on sale."""
+    cur.execute(
+        "SELECT bool_or(current_available), min(current_price), "
+        "bool_or(current_compare_at IS NOT NULL AND current_compare_at > current_price) "
+        "FROM variants WHERE product_id=%s",
+        (pid,),
+    )
+    in_stock, price, on_sale = cur.fetchone()
+    return {"in_stock": bool(in_stock), "price": float(price) if price is not None else None,
+            "on_sale": bool(on_sale)}
+
+
+def _event(cur, run_id, pid, kind, before=None, after=None):
+    """One row in product_events (the admin page's change log). No-op without a run."""
+    if run_id is None:
+        return
+    cur.execute(
+        "INSERT INTO product_events (scrape_run_id, product_id, kind, before, after) VALUES (%s,%s,%s,%s,%s)",
+        (run_id, pid, kind, json.dumps(before) if before is not None else None,
+         json.dumps(after) if after is not None else None),
+    )
+
+
+def _state_events(cur, run_id, pid, old, new):
+    """Product-level events from a before/after _state(): stock, price, sale."""
+    if old["in_stock"] != new["in_stock"]:
+        _event(cur, run_id, pid, "back_in_stock" if new["in_stock"] else "out_of_stock")
+    if old["price"] is not None and new["price"] is not None and old["price"] != new["price"]:
+        _event(cur, run_id, pid, "price", {"price": old["price"]}, {"price": new["price"]})
+    if old["on_sale"] != new["on_sale"]:
+        _event(cur, run_id, pid, "sale_on" if new["on_sale"] else "sale_off",
+               {"price": old["price"]}, {"price": new["price"]})
+
+
 class ConnHolder:
     """Mutable holder for (conn, cur, opened_at) so with_reconnect_retry can
     swap in a fresh connection and have the caller see the new one too."""
@@ -115,7 +150,7 @@ def _resolve_color_id(conn, cur, color_id_cache, color_name):
 
 
 def upsert_product_full(conn, cur, bid, native_id, p, title, description, cat_id, cls,
-                         tags, images, is_graphql, raw_variants, color_id_cache):
+                         tags, images, is_graphql, raw_variants, color_id_cache, run_id=None):
     """Full daily-mode upsert. Returns a dict: outcome ('new'|'updated'|
     'unchanged'), variant_count, snapshot_count. 'updated' fires on EITHER
     a content change (title/description/category) OR a real variant-level
@@ -123,11 +158,12 @@ def upsert_product_full(conn, cur, bid, native_id, p, title, description, cat_id
     a size going out of stock or a price change is a real change to the
     product, not something hidden behind an "unchanged" content check."""
     cur.execute(
-        "SELECT title, description, category_id, raw_source FROM products "
+        "SELECT title, description, category_id, raw_source, id, is_active FROM products "
         "WHERE brand_id=%s AND native_product_id=%s",
         (bid, native_id),
     )
     existing = cur.fetchone()
+    state_before = _state(cur, existing[4]) if existing is not None else None
 
     cur.execute(
         """INSERT INTO products (brand_id, native_product_id, handle, title, description,
@@ -160,7 +196,7 @@ def upsert_product_full(conn, cur, bid, native_id, p, title, description, cat_id
     # content-only check should hide as "unchanged".
     content_changed = False
     if existing is not None:
-        old_title, old_description, old_cat_id, _old_raw = existing
+        old_title, old_description, old_cat_id, _old_raw, _old_id, was_active = existing
         content_changed = old_title != title[:500] or old_description != description or old_cat_id != cat_id
 
     # Images: only rewrite if the url list actually differs — avoids
@@ -169,6 +205,11 @@ def upsert_product_full(conn, cur, bid, native_id, p, title, description, cat_id
     existing_images = [r[0] for r in cur.fetchall()]
     new_images = images[:12]
     if existing_images != new_images:
+        # Only the main photo counts as a change worth showing; reordered or
+        # added gallery shots would flood the change log.
+        if existing is not None and existing_images[:1] != new_images[:1]:
+            _event(cur, run_id, pid, "photos", {"url": (existing_images or [None])[0]},
+                   {"url": (new_images or [None])[0]})
         cur.execute("DELETE FROM product_images WHERE product_id=%s", (pid,))
         for pos, url_ in enumerate(new_images):
             cur.execute(
@@ -239,9 +280,9 @@ def upsert_product_full(conn, cur, bid, native_id, p, title, description, cat_id
             old_price, old_compare, old_avail = existing_variant
             if old_price != new_price or old_compare != new_compare or old_avail != vf["available"]:
                 cur.execute(
-                    "INSERT INTO variant_snapshots (variant_id, price, compare_at_price, available) "
-                    "VALUES (%s,%s,%s,%s)",
-                    (vid, new_price, new_compare, vf["available"]),
+                    "INSERT INTO variant_snapshots (variant_id, scrape_run_id, price, compare_at_price, available) "
+                    "VALUES (%s,%s,%s,%s,%s)",
+                    (vid, run_id, new_price, new_compare, vf["available"]),
                 )
                 snapshot_count += 1
 
@@ -251,6 +292,20 @@ def upsert_product_full(conn, cur, bid, native_id, p, title, description, cat_id
         outcome = "updated"
     else:
         outcome = "unchanged"
+
+    # Change log. Description edits are left out on purpose: stores re-save
+    # whitespace and boilerplate constantly, which would bury real changes.
+    if existing is None:
+        _event(cur, run_id, pid, "new", None, {"title": title[:200], **_state(cur, pid)})
+    else:
+        if not was_active:
+            _event(cur, run_id, pid, "returned", None, {"title": title[:200]})
+        if old_title != title[:500]:
+            _event(cur, run_id, pid, "title", {"title": old_title[:200]}, {"title": title[:200]})
+        if old_cat_id != cat_id:
+            _event(cur, run_id, pid, "category", {"category_id": old_cat_id}, {"category_id": cat_id})
+        if snapshot_count > 0 or new_variant_count > 0:
+            _state_events(cur, run_id, pid, state_before, _state(cur, pid))
 
     piece_count = 0
     if existing is None and description and cls["construction"] == "unstitched_fabric":
@@ -275,7 +330,7 @@ def upsert_product_full(conn, cur, bid, native_id, p, title, description, cat_id
             "snapshot_count": snapshot_count, "piece_count": piece_count}
 
 
-def upsert_variant_availability_only(conn, cur, bid, native_id, is_graphql, raw_variants, tags=None):
+def upsert_variant_availability_only(conn, cur, bid, native_id, is_graphql, raw_variants, tags=None, run_id=None):
     """Hourly-mode write. Returns a dict: found (bool), updated count,
     snapshot_count. Does not touch products, product_images, or
     classification at all. `tags` is only used for the Cambridge
@@ -286,6 +341,7 @@ def upsert_variant_availability_only(conn, cur, bid, native_id, is_graphql, raw_
     if row is None:
         return {"found": False, "updated": 0, "snapshot_count": 0}
     pid = row[0]
+    state_before = _state(cur, pid)
 
     updated = 0
     snapshot_count = 0
@@ -315,23 +371,43 @@ def upsert_variant_availability_only(conn, cur, bid, native_id, is_graphql, raw_
         )
         vid = cur.fetchone()[0]
         cur.execute(
-            "INSERT INTO variant_snapshots (variant_id, price, compare_at_price, available) VALUES (%s,%s,%s,%s)",
-            (vid, new_price, new_compare, vf["available"]),
+            "INSERT INTO variant_snapshots (variant_id, scrape_run_id, price, compare_at_price, available) "
+            "VALUES (%s,%s,%s,%s,%s)",
+            (vid, run_id, new_price, new_compare, vf["available"]),
         )
         updated += 1
         snapshot_count += 1
 
+    if updated:
+        _state_events(cur, run_id, pid, state_before, _state(cur, pid))
     return {"found": True, "updated": updated, "snapshot_count": snapshot_count}
 
 
-def mark_stale_inactive(conn, cur, bid, run_started_at):
+def count_stale(cur, bid, run_started_at):
+    """(active products this run did not see, all active products) for one store."""
+    cur.execute(
+        "SELECT count(*) FILTER (WHERE last_seen_at < %s), count(*) FROM products "
+        "WHERE brand_id=%s AND is_active=true",
+        (run_started_at, bid),
+    )
+    return cur.fetchone()
+
+
+def mark_stale_inactive(conn, cur, bid, run_started_at, run_id=None):
     """Full daily-mode only, called once after a store's entire fetch
     completes successfully. Anything not touched (last_seen_at refreshed)
     by the run that just finished wasn't in the store's current feed —
-    soft-delist it. Precise, self-correcting, no arbitrary "N days" guess."""
+    soft-delist it, one 'removed' event each. Precise, self-correcting, no
+    arbitrary "N days" guess. Also how held removals get applied later:
+    the same run_started_at picks out the same products."""
     cur.execute(
-        "UPDATE products SET is_active=false WHERE brand_id=%s AND is_active=true AND last_seen_at < %s",
-        (bid, run_started_at),
+        """WITH gone AS (
+               UPDATE products SET is_active=false
+               WHERE brand_id=%s AND is_active=true AND last_seen_at < %s
+               RETURNING id, title)
+           INSERT INTO product_events (scrape_run_id, product_id, kind, before)
+           SELECT %s, id, 'removed', jsonb_build_object('title', left(title, 200)) FROM gone""",
+        (bid, run_started_at, run_id),
     )
     removed = cur.rowcount
     conn.commit()
