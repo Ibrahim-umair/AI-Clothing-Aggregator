@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { LogoMark } from "../components/icons.jsx";
 import "../styles/admin.css";
 
 // Scrape admin (/admin). Talks to /api/admin/*, which only exists where the
@@ -172,33 +173,38 @@ export default function Admin() {
   const usage = egress?.usage;
   const monthBytes = snap?.month_proxy_bytes ?? usage?.month_bytes ?? 0;
 
+  const t = overview?.totals;
+  const flagged = (overview?.stores || []).filter((s) => s.flags.length).length;
+
   return (
-    <div className="adm">
-      <header className="adm-top">
+    <div className="adm-page">
+      <AdminBar connected={connected} workerOnline={snap?.worker_online} />
+      <div className="adm">
+      <header className="adm-hero">
         <div>
-          <h1>Scraping</h1>
-          <p className="adm-sub">
-            <span className={`adm-pill ${connected ? "on" : "off"}`}>
-              <StatusDot status={connected ? "running" : "failed"} /> {connected ? "Live" : "Reconnecting"}
-            </span>
-            <span className={`adm-pill ${snap?.worker_online ? "on" : "off"}`}>
-              <StatusDot status={snap?.worker_online ? "completed" : "queued"} />
-              {snap?.worker_online ? "Worker on" : "Worker off"}
-            </span>
-            {!snap?.worker_online && (
-              <span className="adm-hint">Refresh buttons queue a job; it starts when you run <code>python db/scraper/admin.py</code></span>
-            )}
+          <p className="adm-eyebrow">Catalogue · {overview ? `${overview.stores.length} stores` : "loading"}</p>
+          <h1>Scraping, <em>at a glance</em></h1>
+          <p className="adm-lede">
+            {overview ? (
+              flagged
+                ? <>{flagged} of {overview.stores.length} stores need a look. Refresh a store to pull new arrivals, removals, prices and stock.</>
+                : <>Every store is fresh.</>
+            ) : "Loading stores…"}
           </p>
+          {!snap?.worker_online && (
+            <p className="adm-hint">Refresh buttons queue a job; it starts when you run <code>python db/scraper/admin.py</code></p>
+          )}
         </div>
-        {overview && (
-          <dl className="adm-totals">
-            <div><dt>Active products</dt><dd>{n(overview.totals.active)}</dd></div>
-            <div><dt>In stock</dt><dd>{n(overview.totals.in_stock)}</dd></div>
-            <div><dt>Out of stock</dt><dd>{n(overview.totals.out_of_stock)}</dd></div>
-            <div><dt>In stock, not enriched</dt><dd>{n(overview.totals.not_enriched)}</dd></div>
-          </dl>
-        )}
       </header>
+
+      {t && (
+        <dl className="adm-totals">
+          <div className="lead"><dt>Active products</dt><dd>{n(t.active)}</dd><span>across {overview.stores.length} stores</span></div>
+          <div><dt>In stock</dt><dd>{n(t.in_stock)}</dd><span>{Math.round((100 * t.in_stock) / Math.max(1, t.active))}% of active</span></div>
+          <div><dt>Out of stock</dt><dd>{n(t.out_of_stock)}</dd><span>every size sold out</span></div>
+          <div><dt>Not enriched</dt><dd>{n(t.not_enriched)}</dd><span>in stock, no AI details yet</span></div>
+        </dl>
+      )}
 
       {usage && <UsageMeter bytes={monthBytes} usage={usage} />}
 
@@ -223,16 +229,51 @@ export default function Admin() {
           refreshKey={lastFinished} />
       </div>
 
+      <footer className="adm-foot">
+        <LogoMark size={18} /> <span>Libas <b>AI</b> · admin</span>
+        <span className="adm-muted">Data refreshes live while this page is open.</span>
+      </footer>
+
       {toast && <div className={`adm-toast ${toast.tone}`} role="status">{toast.msg}</div>}
+      </div>
     </div>
   );
+}
+
+function AdminBar({ connected, workerOnline }) {
+  return (
+    <div className="adm-bar-top">
+      <div className="adm-bar-inner">
+        <a href="/ai-search" className="adm-brand" aria-label="Libas AI site">
+          <LogoMark size={26} />
+          <span className="adm-brand-name">Libas <span>AI</span></span>
+        </a>
+        <span className="adm-bar-sep" aria-hidden="true" />
+        <span className="adm-bar-title">Admin <em>Scraping</em></span>
+        <span className="adm-bar-status">
+          <span className={`adm-pill ${connected ? "on" : "off"}`}>
+            <StatusDot status={connected ? "running" : "failed"} /> {connected ? "Live" : "Reconnecting"}
+          </span>
+          <span className={`adm-pill ${workerOnline ? "on" : "off"}`}>
+            <StatusDot status={workerOnline ? "completed" : "queued"} /> {workerOnline ? "Worker on" : "Worker off"}
+          </span>
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function Monogram({ name }) {
+  const letters = name.replace(/[^A-Za-z ]/g, "").split(" ").filter(Boolean).slice(0, 2).map((w) => w[0]).join("");
+  return <span className="adm-mono" aria-hidden="true">{letters.toUpperCase()}</span>;
 }
 
 function TokenGate({ onSubmit, failed }) {
   const [v, setV] = useState("");
   return (
     <div className="adm adm-gate">
-      <h1>Scraping admin</h1>
+      <span className="adm-brand"><LogoMark size={30} /><span className="adm-brand-name">Libas <span>AI</span></span></span>
+      <h1>Scraping <em>admin</em></h1>
       <p className="adm-sub">
         {failed ? "That token didn't work, or the admin API is off on this server." : "Paste the ADMIN_TOKEN from server/.env."}
       </p>
@@ -387,8 +428,13 @@ function StoresTable({ token, overview, live, stopMb, monthBytes, onRefresh, onC
               return [
                 <tr key={s.id} className={`${s.flags.length ? "flag" : ""} ${open === s.id ? "open" : ""}`} onClick={() => setOpen(open === s.id ? null : s.id)}>
                   <td>
-                    <b>{s.name}</b>
-                    <div className="adm-muted small">{PLATFORM[s.platform] || s.platform}</div>
+                    <span className="adm-store">
+                      <Monogram name={s.name} />
+                      <span>
+                        <b>{s.name}</b>
+                        <span className="adm-muted small">{PLATFORM[s.platform] || s.platform}</span>
+                      </span>
+                    </span>
                   </td>
                   <td>
                     <StatusDot status={running ? "running" : d.status} /> {ago(s.last_ok_at)}
@@ -412,7 +458,7 @@ function StoresTable({ token, overview, live, stopMb, monthBytes, onRefresh, onC
                   <td className="num small" title={s.estimate_measured ? "from its last measured run" : "estimated at 4.8 KB per product"}>
                     ≈{s.estimate_mb} MB
                   </td>
-                  <td className="adm-actions" onClick={(e) => e.stopPropagation()}>
+                  <td className="adm-actions-cell" onClick={(e) => e.stopPropagation()}><span className="adm-actions">
                     {running ? (
                       <span className="adm-muted small">{running.expected_count ? `${Math.min(100, Math.round((100 * running.fetched_so_far) / running.expected_count))}%` : n(running.fetched_so_far)}</span>
                     ) : job ? (
@@ -430,7 +476,7 @@ function StoresTable({ token, overview, live, stopMb, monthBytes, onRefresh, onC
                           }}>Refresh</button>
                       </>
                     )}
-                  </td>
+                  </span></td>
                 </tr>,
                 open === s.id && (
                   <tr key={`${s.id}-detail`} className="adm-detail"><td colSpan={8}>
