@@ -5,12 +5,15 @@ token, as the X-Admin-Token header or ?token= (EventSource can't send headers).
 
 Scrapes never run inside this process. A Refresh button adds a scrape_jobs
 row; the worker started by `python db/scraper/admin.py` picks it up.
-Proxy credentials are never read into a response: only proxy hosts.
+Proxy credentials are never read into a response: only proxy hosts. The
+"test ways out" button is the one place this process uses them, in memory,
+through db/scraper/egress.py.
 """
 import asyncio
 import json
 import os
 import secrets
+import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -34,7 +37,7 @@ router = APIRouter(prefix="/api/admin", dependencies=[Depends(require_admin)])
 
 STALE_HOURS = 48             # a store not fully scraped for this long is flagged
 STALLED_SECONDS = 60         # a running run with no heartbeat for this long is probably dead
-BYTES_PER_PRODUCT = 4800     # measured on the wire (Iznik, 2026-11-10); used before a store has a measured run
+BYTES_PER_PRODUCT = 350      # gzipped on the wire (Edenrobe, 2026-11-10); used before a store has a measured run
 MONTHLY_MB = float(os.environ.get("WEBSHARE_MONTHLY_MB", "1024"))
 STOP_MB = float(os.environ.get("WEBSHARE_STOP_MB", "900"))
 PROXIES_FILE = Path(os.environ.get(
@@ -60,9 +63,12 @@ def proxy_hosts() -> list[str]:
 
 
 async def month_proxy_bytes(pool) -> int:
+    """Proxy bytes this month: scrape runs plus "test ways out" checks."""
     return await pool.fetchval(
-        "SELECT coalesce(sum(bytes_in),0)::bigint FROM scrape_runs "
-        "WHERE egress LIKE 'proxy%' AND started_at >= date_trunc('month', now())")
+        "SELECT ((SELECT coalesce(sum(bytes_in),0) FROM scrape_runs "
+        "         WHERE egress LIKE 'proxy%' AND started_at >= date_trunc('month', now())) + "
+        "        (SELECT coalesce(sum(bytes_in),0) FROM egress_checks "
+        "         WHERE egress LIKE 'proxy%' AND checked_at >= date_trunc('month', now())))::bigint")
 
 
 RUN_COLS = """sr.id, sr.brand_id, sr.tier, sr.status, sr.phase, sr.started_at, sr.finished_at, sr.heartbeat_at,
@@ -255,6 +261,66 @@ async def create_job(job: JobIn):
     return _row(row)
 
 
+class AllJobsIn(BaseModel):
+    tier: str = "daily"
+    stale_hours: float | None = None   # only stores not refreshed for this long
+
+
+@router.post("/jobs/all")
+async def create_all_jobs(body: AllJobsIn):
+    """Queue every store that has no open job, the longest-unrefreshed first."""
+    if body.tier not in ("daily", "hourly"):
+        raise HTTPException(422, "tier must be daily or hourly")
+    pool = await get_pool()
+    rows = await pool.fetch(
+        """INSERT INTO scrape_jobs (brand_id, tier, batch)
+           SELECT b.id, $1, 'all' FROM brands b
+           LEFT JOIN LATERAL (SELECT max(started_at) AS t FROM scrape_runs r
+                              WHERE r.brand_id = b.id AND r.tier = 'daily' AND r.status = 'completed') l ON true
+           WHERE NOT EXISTS (SELECT 1 FROM scrape_jobs j WHERE j.brand_id = b.id
+                             AND j.status IN ('queued','running','cancelling'))
+             AND ($2::float8 IS NULL OR l.t IS NULL OR l.t < now() - $2::float8 * interval '1 hour')
+           ORDER BY l.t NULLS FIRST, b.id
+           RETURNING id""", body.tier, body.stale_hours)
+    _overview_cache["data"] = None
+    return {"queued": len(rows)}
+
+
+def _egress_module():
+    """db/scraper/egress.py: the proxy list and the one-request check. Importable
+    only where the repo's db/ folder sits next to server/ (the laptop)."""
+    path = str(Path(__file__).resolve().parents[2] / "db" / "scraper")
+    if path not in sys.path:
+        sys.path.append(path)
+    try:
+        import egress as mod
+    except ImportError:
+        return None
+    return mod
+
+
+@router.post("/egress/test")
+async def test_egress():
+    """One small request per way out per platform (a few KB each), saved to egress_checks."""
+    mod = _egress_module()
+    if mod is None:
+        raise HTTPException(501, "the egress checker (db/scraper/egress.py) is not available here")
+    tasks = [(label, url, target) for label, url in mod.all_egress() for target in mod.CHECK_TARGETS]
+    sem = asyncio.Semaphore(6)
+
+    async def one(label, url, target):
+        async with sem:
+            return label, await asyncio.to_thread(mod.check, url, target)
+
+    results = await asyncio.gather(*(one(*t) for t in tasks))
+    pool = await get_pool()
+    await pool.executemany(
+        "INSERT INTO egress_checks (egress, target, http_status, latency_ms, error, bytes_in) "
+        "VALUES ($1,$2,$3,$4,$5,$6)",
+        [(label, r["target"], r["http_status"], r["latency_ms"], r["error"], r["bytes_in"]) for label, r in results])
+    return {"checks": [{"egress": label, **r, "ok": mod.check_ok(r)} for label, r in results]}
+
+
 @router.post("/jobs/{job_id}/cancel")
 async def cancel_job(job_id: int):
     """Queued jobs are dropped; a running one is stopped by the worker at its next check."""
@@ -311,14 +377,38 @@ async def _live_snapshot(pool) -> dict:
         f"""SELECT {RUN_COLS}, b.name AS store FROM scrape_runs sr JOIN brands b ON b.id = sr.brand_id
             WHERE sr.status='running' OR sr.finished_at > now() - interval '2 minutes' ORDER BY sr.id""")
     jobs = await pool.fetch(
-        """SELECT j.id, j.brand_id, b.name AS store, j.tier, j.status, j.egress, j.requested_at, j.started_at
+        """SELECT j.id, j.brand_id, b.name AS store, j.tier, j.status, j.egress, j.attempts, j.tried,
+                  j.requested_at, j.started_at
            FROM scrape_jobs j JOIN brands b ON b.id = j.brand_id
            WHERE j.status IN ('queued','running','cancelling') ORDER BY j.id""")
+    # Jobs that failed in the last 12 hours and were not redone since, so an overnight failure stays visible.
+    failed = await pool.fetch(
+        """SELECT j.id, j.brand_id, b.name AS store, j.tier, j.status, j.egress, j.attempts, j.tried, j.error,
+                  j.finished_at
+           FROM scrape_jobs j JOIN brands b ON b.id = j.brand_id
+           WHERE j.status = 'failed' AND j.finished_at > now() - interval '12 hours'
+             AND NOT EXISTS (SELECT 1 FROM scrape_jobs k WHERE k.brand_id = j.brand_id AND k.id > j.id
+                             AND k.status IN ('queued','running','done'))
+           ORDER BY j.id DESC LIMIT 20""")
+    # Progress of the latest "Refresh all".
+    batch = await pool.fetchrow(
+        """WITH last AS (SELECT max(requested_at) AS t FROM scrape_jobs WHERE batch = 'all')
+           SELECT count(*) AS total,
+                  count(*) FILTER (WHERE status = 'done') AS done,
+                  count(*) FILTER (WHERE status = 'failed') AS failed,
+                  count(*) FILTER (WHERE status = 'cancelled') AS cancelled,
+                  count(*) FILTER (WHERE status IN ('queued','running','cancelling')) AS open,
+                  min(requested_at) AS requested_at, max(finished_at) AS last_finished_at
+           FROM scrape_jobs, last
+           WHERE batch = 'all' AND requested_at > last.t - interval '1 minute'""")
     worker = await pool.fetchrow(
-        "SELECT extract(epoch FROM now() - max(heartbeat_at))::int AS age FROM scrape_worker")
+        "SELECT extract(epoch FROM now() - max(heartbeat_at))::int AS age, max(note) AS note FROM scrape_worker")
     last_id = await pool.fetchval("SELECT coalesce(max(id),0) FROM scrape_runs WHERE status <> 'running'")
+    online = bool(worker and worker["age"] is not None and worker["age"] < 15)
     return {"runs": [_run(r) for r in running], "jobs": [_row(j) for j in jobs],
-            "worker_online": bool(worker and worker["age"] is not None and worker["age"] < 15),
+            "failed_jobs": [_row(j) for j in failed],
+            "batch": _row(batch) if batch and batch["total"] else None,
+            "worker_online": online, "worker_note": worker["note"] if online else None,
             "month_proxy_bytes": await month_proxy_bytes(pool), "last_finished_run": last_id,
             "at": datetime.now(timezone.utc).isoformat()}
 

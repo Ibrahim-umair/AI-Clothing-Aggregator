@@ -35,6 +35,7 @@ from fetch_sfcc import fetch_sfcc_store
 from writer import (ConnHolder, with_reconnect_retry, upsert_product_full, upsert_variant_availability_only,
                     mark_stale_inactive, count_stale)
 from progress import RunTracker
+from egress import scrub
 
 
 def _load_dotenv():
@@ -84,6 +85,7 @@ ALERTS_LOG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "aler
 
 
 def write_alert(message):
+    message = scrub(message)
     line = f"[{datetime.now(timezone.utc).isoformat(timespec='seconds')}] ALERT {message}"
     print(line, file=sys.stderr)
     with open(ALERTS_LOG_PATH, "a", encoding="utf-8") as f:

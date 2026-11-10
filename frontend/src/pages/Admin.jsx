@@ -192,7 +192,7 @@ export default function Admin() {
             ) : "Loading stores…"}
           </p>
           {!snap?.worker_online && (
-            <p className="adm-hint">Refresh buttons queue a job; it starts when you run <code>python db/scraper/admin.py</code></p>
+            <p className="adm-hint">The worker is off: Refresh buttons queue a job, and it starts when you run <code>python db/scraper/admin.py</code></p>
           )}
         </div>
       </header>
@@ -220,9 +220,19 @@ export default function Admin() {
         onCancel={(id) => act(`/jobs/${id}/cancel`, {}, () => "Cancelled")}
         onResolve={(run, action) => act(`/runs/${run.id}/held`, { action },
           (r) => (action === "apply" ? `${r.removed} products delisted` : "Held removals discarded"))}
-        onShowChanges={showChanges} />
+        onShowChanges={showChanges}
+        onRefreshAll={() => {
+          if (window.confirm("Queue a full refresh of every store? They run one at a time, oldest first (a few hours in all)."))
+            act("/jobs/all", { tier: "daily" }, (r) => (r.queued ? `${r.queued} stores queued` : "Every store already has a refresh queued"));
+        }} />
 
-      <EgressPanel egress={egress} />
+      <EgressPanel egress={egress} onTest={async () => {
+        const r = await act("/egress/test", {}, (res) => {
+          const bad = res.checks.filter((c) => !c.ok).length;
+          return bad ? `${bad} of ${res.checks.length} checks failed` : `All ${res.checks.length} checks passed`;
+        });
+        return r;
+      }} />
 
       <div ref={changesRef}>
         <ChangesPanel token={token} stores={overview?.stores || []} filter={changeFilter} setFilter={setChangeFilter}
@@ -305,14 +315,41 @@ function UsageMeter({ bytes, usage }) {
   );
 }
 
+const QUEUE_SHOWN = 4;
+
+function BatchLine({ batch, online, note }) {
+  if (!batch) return null;
+  const finished = batch.done + batch.failed + batch.cancelled;
+  const pct = Math.round((100 * finished) / Math.max(1, batch.total));
+  return (
+    <div className="adm-batch">
+      <div className="adm-run-head">
+        <b>Refresh all</b>
+        <span className="adm-muted">
+          {finished} of {batch.total} stores done{batch.failed ? ` · ${batch.failed} failed` : ""}{batch.cancelled ? ` · ${batch.cancelled} cancelled` : ""}
+          {" · "}started {ago(batch.requested_at)}
+          {batch.open === 0 && batch.last_finished_at ? ` · finished ${ago(batch.last_finished_at)}` : ""}
+        </span>
+        {online && note && note !== "idle" && <span className="adm-right adm-muted small">worker: {note}</span>}
+      </div>
+      <div className="adm-bar"><i style={{ width: `${pct}%` }} /></div>
+    </div>
+  );
+}
+
 function LivePanel({ snap, onCancel }) {
   const runs = snap?.runs || [];
   const jobs = (snap?.jobs || []).filter((j) => j.status !== "running");
-  if (!runs.length && !jobs.length) return null;
+  const failedJobs = snap?.failed_jobs || [];
+  const [showAll, setShowAll] = useState(false);
+  const batchOpen = snap?.batch && snap.batch.open > 0;
+  if (!runs.length && !jobs.length && !failedJobs.length && !batchOpen) return null;
+  const shown = showAll ? jobs : jobs.slice(0, QUEUE_SHOWN);
   return (
     <section className="adm-card">
       <h2>Now</h2>
       <div className="adm-live">
+        <BatchLine batch={snap?.batch} online={snap?.worker_online} note={snap?.worker_note} />
         {runs.map((r) => {
           const pct = r.expected_count ? Math.min(100, (100 * (r.fetched_so_far || 0)) / r.expected_count) : null;
           const perMin = r.seconds ? Math.round(((r.fetched_so_far || 0) / r.seconds) * 60) : 0;
@@ -337,14 +374,29 @@ function LivePanel({ snap, onCancel }) {
             </div>
           );
         })}
-        {jobs.map((j) => (
+        {shown.map((j, i) => (
           <div key={`j${j.id}`} className="adm-run queued">
             <div className="adm-run-head">
               <StatusDot status="queued" />
               <b>{j.store}</b>
-              <span className="adm-muted">{j.tier === "daily" ? "full refresh" : "stock check"} · {j.status === "cancelling" ? "stopping" : snap?.worker_online ? "starting" : "waiting for the worker"} · asked {ago(j.requested_at)}</span>
+              <span className="adm-muted">{j.tier === "daily" ? "full refresh" : "stock check"} · {j.status === "cancelling" ? "stopping" : !snap?.worker_online ? "waiting for the worker" : i === 0 ? "next" : `#${i + 1} in the queue`} · asked {ago(j.requested_at)}</span>
               {j.status === "queued" && <button className="adm-btn small adm-right" onClick={() => onCancel(j.id)}>Cancel</button>}
             </div>
+          </div>
+        ))}
+        {jobs.length > QUEUE_SHOWN && (
+          <button className="adm-link" onClick={() => setShowAll(!showAll)}>
+            {showAll ? "Show fewer" : `+ ${jobs.length - QUEUE_SHOWN} more in the queue`}
+          </button>
+        )}
+        {failedJobs.map((j) => (
+          <div key={`f${j.id}`} className="adm-run failed">
+            <div className="adm-run-head">
+              <StatusDot status="failed" />
+              <b>{j.store}</b>
+              <span className="adm-muted">{j.tier === "daily" ? "full refresh" : "stock check"} failed {ago(j.finished_at)}{j.tried?.length ? ` · tried ${j.tried.join(", ")}` : ""}</span>
+            </div>
+            {j.error && <div className="adm-run-meta"><span className="adm-err">{j.error}</span></div>}
           </div>
         ))}
       </div>
@@ -381,7 +433,7 @@ const SORTS = {
   products: (a, b) => b.active - a.active,
 };
 
-function StoresTable({ token, overview, live, stopMb, monthBytes, onRefresh, onCancel, onResolve, onShowChanges }) {
+function StoresTable({ token, overview, live, stopMb, monthBytes, onRefresh, onRefreshAll, onCancel, onResolve, onShowChanges }) {
   const [sort, setSort] = useState("stale");
   const [open, setOpen] = useState(null);
   const liveByStore = useMemo(() => {
@@ -403,6 +455,8 @@ function StoresTable({ token, overview, live, stopMb, monthBytes, onRefresh, onC
     <section className="adm-card">
       <div className="adm-card-head">
         <h2>Stores <span className="adm-muted">{stores.length}</span></h2>
+        <span className="adm-actions">
+        <button className="adm-btn small" onClick={onRefreshAll} title="Queue a full refresh of every store without one">Refresh all</button>
         <label className="adm-sort">Sort
           <select value={sort} onChange={(e) => setSort(e.target.value)}>
             <option value="stale">Longest since scraped</option>
@@ -410,6 +464,7 @@ function StoresTable({ token, overview, live, stopMb, monthBytes, onRefresh, onC
             <option value="products">Most products</option>
           </select>
         </label>
+        </span>
       </div>
       <div className="adm-table-wrap">
         <table className="adm-table">
@@ -540,16 +595,23 @@ function StoreRuns({ token, store, onResolve, onShowChanges }) {
   );
 }
 
-function EgressPanel({ egress }) {
+const TARGET_NAME = { shopify: "Shopify", sfcc: "Khaadi/Sapphire" };
+
+function EgressPanel({ egress, onTest }) {
+  const [testing, setTesting] = useState(false);
   if (!egress) return null;
   return (
     <section className="adm-card">
       <div className="adm-card-head">
         <h2>Ways out <span className="adm-muted">direct + Webshare proxies</span></h2>
+        <button className="adm-btn small" disabled={testing} onClick={async () => { setTesting(true); await onTest(); setTesting(false); }}
+          title="One small request per route to Shopify and to Khaadi (about 2 KB each)">
+          {testing ? "Testing…" : "Test ways out"}
+        </button>
       </div>
       <div className="adm-table-wrap">
         <table className="adm-table">
-          <thead><tr><th>Route</th><th>Health</th><th>Last used</th><th>Last success</th><th className="num">Last 24h</th><th className="num">This month</th><th>Last store</th></tr></thead>
+          <thead><tr><th>Route</th><th>Health</th><th>Last test</th><th>Last used</th><th>Last success</th><th className="num">Last 24h</th><th className="num">This month</th><th>Last store</th></tr></thead>
           <tbody>
             {egress.egress.map((e) => {
               const health = !e.last_used ? "unused"
@@ -559,6 +621,14 @@ function EgressPanel({ egress }) {
                 <tr key={e.egress}>
                   <td><b>{e.index != null ? `#${e.index} ` : ""}</b>{e.egress.replace(/^proxy \((.*)\)$/, "$1")}{!e.is_proxy && <span className="adm-muted small"> (this laptop's IP)</span>}</td>
                   <td><span className={`adm-chip h-${health}`}>{{ unused: "not used yet", blocked: "blocked last time", slowed: "rate-limited", ok: "working" }[health]}</span></td>
+                  <td className="small">
+                    {e.checks?.length ? e.checks.map((c) => {
+                      const ok = c.http_status != null && c.http_status < 400;
+                      return <span key={c.target} className={`adm-chip ${ok ? "h-ok" : "h-blocked"}`} title={`${ago(c.checked_at)} · ${c.latency_ms} ms${c.error ? ` · ${c.error}` : ""}`}>
+                        {TARGET_NAME[c.target] || c.target} {c.http_status ?? "error"}
+                      </span>;
+                    }) : "–"}
+                  </td>
                   <td className="small">{e.last_used ? ago(e.last_used) : "–"}</td>
                   <td className="small">{e.last_ok ? ago(e.last_ok) : "–"}</td>
                   <td className="num small">{e.last_used ? <>{n(e.ok_24h)} ok{e.r429_24h ? <span className="neg"> · {e.r429_24h}×429</span> : null}{e.r403_24h ? <span className="neg"> · {e.r403_24h}×403</span> : null}</> : "–"}</td>
@@ -570,7 +640,7 @@ function EgressPanel({ egress }) {
           </tbody>
         </table>
       </div>
-      <p className="adm-note">Per-run counts only exist from today on; runs before that show as "not recorded". Shopify blocks this laptop's own IP, so Shopify stores go through a proxy.</p>
+      <p className="adm-note">The worker tries this laptop's own IP first, then each proxy in turn, and skips a route that was blocked (429/403) in the last 6 hours. Shopify limits by IP across all its stores, so one blocked Shopify store means that route is blocked for every Shopify store.</p>
     </section>
   );
 }

@@ -8,9 +8,12 @@ and finishes it with the final counts. It uses its own autocommit
 connection so heartbeats never mix with the writer's transactions.
 
 TrackedSession is a requests.Session that counts every response by status
-and adds up bytes received (compressed body as read from the socket, plus
-headers). Through a proxy that is close to what the proxy bills; it slightly
-under-counts TLS overhead, so the admin page treats it as an estimate.
+and adds up bytes received: the body as it came over the wire (still
+gzipped), plus headers. It reads the raw body itself and decodes it, because
+urllib3 does not count bytes for chunked responses (most Shopify pages), and
+counting the decoded body over-states the cost about 14 times. Through a
+proxy that is close to what the proxy bills; it slightly under-counts TLS
+overhead, so the admin page treats it as an estimate.
 
 The egress label says which way the traffic went: 'direct', or the proxy's
 host taken from HTTPS_PROXY. Credentials in that URL are never stored.
@@ -18,12 +21,14 @@ host taken from HTTPS_PROXY. Credentials in that URL are never stored.
 import os
 import threading
 import time
+import zlib
 from urllib.parse import urlparse
 
 import psycopg2
 import requests
 
 from load_data import DSN
+from egress import scrub
 
 HEARTBEAT_SECONDS = 5
 
@@ -45,12 +50,10 @@ class Counters:
         self.bytes_in = 0
         self.fetched = 0
 
-    def add_response(self, resp):
-        raw = getattr(resp.raw, "_fp_bytes_read", None)
-        body = raw if isinstance(raw, int) and raw > 0 else len(resp.content or b"")
+    def add_response(self, resp, wire_bytes):
         headers = sum(len(k) + len(v) + 4 for k, v in resp.headers.items()) + 300  # +request line/headers
         with self.lock:
-            self.bytes_in += body + headers
+            self.bytes_in += wire_bytes + headers
             if resp.status_code == 429:
                 self.r429 += 1
             elif resp.status_code == 403:
@@ -69,18 +72,43 @@ class Counters:
             return self.fetched, self.ok, self.r429, self.r403, self.other, self.bytes_in
 
 
+def _decode(data, encoding):
+    encoding = (encoding or "").lower().strip()
+    try:
+        if encoding == "gzip":
+            return zlib.decompress(data, 16 + zlib.MAX_WBITS)
+        if encoding == "deflate":
+            try:
+                return zlib.decompress(data)
+            except zlib.error:
+                return zlib.decompress(data, -zlib.MAX_WBITS)
+    except zlib.error:
+        pass
+    return data
+
+
 class TrackedSession(requests.Session):
     def __init__(self, counters):
         super().__init__()
         self._counters = counters
+        # Only encodings _decode() handles (requests would add br/zstd if those packages exist).
+        self.headers["Accept-Encoding"] = "gzip, deflate"
 
-    def request(self, *args, **kwargs):
+    def request(self, method, url, **kwargs):
+        caller_streams = kwargs.pop("stream", False)
         try:
-            resp = super().request(*args, **kwargs)
+            resp = super().request(method, url, stream=True, **kwargs)
+            if caller_streams:
+                self._counters.add_response(resp, 0)
+                return resp
+            raw = b"".join(resp.raw.stream(64 * 1024, decode_content=False))
         except requests.RequestException:
             self._counters.add_failure()
             raise
-        self._counters.add_response(resp)
+        resp._content = _decode(raw, resp.headers.get("content-encoding"))
+        resp._content_consumed = True
+        resp.raw.release_conn()
+        self._counters.add_response(resp, len(raw))
         return resp
 
 
@@ -155,6 +183,6 @@ class RunTracker:
             ", status=%s, finished_at=now(), product_count=%s, products_new=%s, products_updated=%s, "
             "products_removed=%s, products_unchanged=%s, removals_held=%s, error_message=%s",
             (status, counts.get("fetched", 0), counts.get("new", 0), counts.get("updated", 0),
-             removed, counts.get("unchanged", 0), held, error_message),
+             removed, counts.get("unchanged", 0), held, scrub(error_message)),
         )
         self.conn.close()

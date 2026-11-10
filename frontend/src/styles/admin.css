@@ -177,3 +177,8 @@
   .adm-bar-status .adm-pill { padding: 3px 8px; }
 }
 .adm-actions-cell { text-align: right; white-space: nowrap; }
+
+/* Refresh-all progress (step 4) */
+.adm-batch { border: 1px solid var(--accent-soft); border-radius: var(--radius-md); padding: 10px 12px; background: var(--accent-soft); }
+.adm-batch .adm-bar { background: var(--bg); }
+.adm-live > .adm-link { justify-self: start; }

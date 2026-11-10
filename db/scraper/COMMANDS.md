@@ -190,3 +190,32 @@ python reseed_categories.py         # run after adding a new leaf to CATEGORY_TR
 python backfill_categories.py       # recompute category_id for all products from stored raw_source
 python load_data.py                 # one-time JSONL -> Postgres load/replay (dev/offline use)
 ```
+
+## Admin page and worker (`admin.py`)
+
+Needs both migrations: `db/migrations/2026-11-10_scrape_admin.sql` and
+`2026-11-10b_scrape_worker.sql`, plus `ADMIN_TOKEN` in `server/.env`.
+
+```powershell
+python db/scraper/admin.py                # API (:4000) + page (:5173/admin) + worker; opens the browser
+                                          # (page only when a worker is already running)
+python db/scraper/admin.py --worker       # worker only
+python db/scraper/admin.py --queue-all    # queue a full refresh of every store, oldest first
+python db/scraper/admin.py --queue-all --stale-hours 20   # only stores older than 20 h
+python db/scraper/admin.py --test-egress  # one small request per route, saved for the page
+python db/scraper/admin.py --status       # queue, worker, proxy MB this month
+```
+
+The worker runs one job at a time (`run_scrape.py --store X --tier T` as a
+child process, one request every `SCRAPE_WORKER_DELAY` = 3 s). Route order:
+direct first, then each proxy in `local-notes/webshare_proxies.txt`; a route
+that was blocked (failed run with 429/403, or a failed test) in the last
+`SCRAPE_BLOCK_HOURS` (6) is skipped, and a blocked run is retried on the next
+route, up to `SCRAPE_MAX_ATTEMPTS` (3). Proxies are skipped once this
+month's proxy bytes + 1.5x the store's estimate would pass `WEBSHARE_STOP_MB`
+(900). Cancel from the page kills the child; Ctrl+C puts the running job back
+in the queue. Logs: `db/scraper/logs/` (job-<id>.log, worker, api, page),
+scrubbed of credentials. While a job runs Windows is kept from idle sleep.
+
+`bytes_in` is now the gzipped wire size (~350 B a product on Shopify). Rows
+from before counted the unzipped body (~14x); the migration scales them down.
