@@ -12,7 +12,7 @@ const URDU = "لباس";
 const FONT_UR = '"Noto Nastaliq Urdu", "Jameel Noori Nastaleeq", "Urdu Typesetting", serif';
 const FONTS_HREF =
   "https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&family=Noto+Nastaliq+Urdu:wght@700&display=swap";
-const GROUND = "#a8342c";
+const GROUND = "#6b7649"; // the brand olive (index.css --accent)
 const TILE_BACKDROP = "#f1f1ef";
 
 const formatRs = (n) => "Rs " + Math.round(n).toLocaleString("en-US");
@@ -147,12 +147,15 @@ function Mosaic() {
           const y = rr * bh;
           const im = imgs[idxAt(rr, cc)];
           if (!im.complete || !im.naturalWidth) continue;
+          // Each brick overlaps its neighbours by a pixel: at fractional edges the
+          // backdrop otherwise shows through as a thin seam, and every tile in
+          // that column samples it, drawing a dashed line through the word.
           g.save();
           g.beginPath();
-          g.rect(x, y, bw, bh);
+          g.rect(x - 1, y - 1, bw + 2, bh + 2);
           g.clip();
-          g.translate(x, y);
-          coverZoom(g, im, bw, bh, 1.55);
+          g.translate(x - 1, y - 1);
+          coverZoom(g, im, bw + 2, bh + 2, 1.55);
           g.restore();
         }
       }
@@ -223,7 +226,12 @@ function Mosaic() {
       const speed = Math.min(14, Math.hypot(LP.vx, LP.vy));
       LP.vx *= 0.86;
       LP.vy *= 0.86;
-      ctx.clearRect(0, 0, M.W, M.H);
+      // Clear in device pixels: the canvas can be a pixel wider than M.W * dpr
+      // after rounding, and an uncleared edge column keeps a trail of every tile
+      // that passes through it (a dashed line beside the word).
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, cv.width, cv.height);
+      ctx.setTransform(M.dpr, 0, 0, M.dpr, 0, 0);
       // every few idle seconds a gentle wave runs right to left through the word
       if (!reduce && t - M.lastInteract > 3500 && t - M.wave > 7000) M.wave = t;
       const waveX = !reduce && t - M.wave < 2600 && t - M.lastInteract > 3500 ? M.W + 80 - (t - M.wave) * 0.6 : -1e9;
@@ -431,7 +439,6 @@ export default function ComingSoon() {
         <main className="cs__grid">
           <div className="cs__art">
             <Mosaic />
-            <p className="cs__hint">Drag through the letters. Tap a square to see the piece it came from.</p>
           </div>
 
           <div className="cs__copy">

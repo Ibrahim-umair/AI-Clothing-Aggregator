@@ -1,18 +1,25 @@
 /* ---------- Coming-soon page: the Libas mosaic ----------
    Self-contained, all classes prefixed cs-, so nothing here reaches the
-   rest of the app's styles (index.css is untouched). A full red ground
-   (#a8342c, the red already in the brand palette as --sale) with the Urdu
+   rest of the app's styles (index.css is untouched). A full ground in the
+   brand olive (index.css --accent) with the Urdu
    word libas (clothing) built from real product photos, and an editorial
    dictionary-entry layout in the launch videos' type: Geist, Geist Mono
    and Instrument Serif. Fonts are loaded by ComingSoon.jsx. */
 .cs {
-  --cs-ground: #a8342c;
+  /* olive: the brand accent (--accent #6b7649) as the ground, off-white type */
+  --cs-ground: #6b7649;
   --cs-ink: #f7f7f5;
-  --cs-soft: #f0d6cf;
-  --cs-line: rgba(247, 247, 245, 0.24);
+  --cs-soft: #e4e7da;
+  --cs-line: rgba(247, 247, 245, 0.28);
   --cs-gold: #eab86a;
   --cs-dark: #14161a;
   --cs-dark-soft: #63665f;
+  /* the sign-up controls and text that sit on the ground */
+  --cs-field: #f7f7f5;
+  --cs-field-line: transparent;
+  --cs-btn: #eab86a;
+  --cs-btn-text: #14161a;
+  --cs-btn-hover: #f7f7f5;
   --cs-shadow: 0 22px 48px rgba(20, 23, 20, 0.22);
   --cs-ui: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --cs-mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
@@ -64,7 +71,6 @@
   .cs__mosaic { aspect-ratio: 1.2; max-height: max(360px, calc(100vh - 180px)); }
 }
 .cs__mosaic canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-.cs__hint { margin-top: 8px; text-align: center; font: 400 12px/1.4 var(--cs-mono); color: var(--cs-soft); }
 
 .cs__tag {
   position: absolute; z-index: 2; left: 0; top: 0;
@@ -92,10 +98,10 @@
 .cs__sub { margin-top: 16px; max-width: 40ch; font-size: 16.5px; line-height: 1.5; color: var(--cs-soft); }
 
 .cs__form { margin-top: 26px; display: flex; gap: 8px; width: 100%; max-width: 420px; }
-.cs__input { flex: 1; min-width: 0; height: 50px; padding: 0 16px; border-radius: 14px; border: 1px solid transparent; background: var(--cs-ink); color: var(--cs-dark); font: 400 15px var(--cs-ui); }
+.cs__input { flex: 1; min-width: 0; height: 50px; padding: 0 16px; border-radius: 14px; border: 1px solid var(--cs-field-line); background: var(--cs-field); color: var(--cs-dark); font: 400 15px var(--cs-ui); }
 .cs__input:focus { outline: 2px solid var(--cs-gold); outline-offset: 1px; }
-.cs__submit { height: 50px; padding: 0 22px; border-radius: 14px; background: var(--cs-gold); color: var(--cs-dark); font: 600 15px var(--cs-ui); white-space: nowrap; transition: background 0.15s ease; }
-.cs__submit:hover { background: var(--cs-ink); }
+.cs__submit { height: 50px; padding: 0 22px; border-radius: 14px; background: var(--cs-btn); color: var(--cs-btn-text); font: 600 15px var(--cs-ui); white-space: nowrap; transition: background 0.15s ease; }
+.cs__submit:hover { background: var(--cs-btn-hover); }
 .cs__submit:disabled { opacity: 0.7; cursor: default; }
 .cs__confirm { margin-top: 26px; font: italic 400 26px/1.2 var(--cs-serif); color: var(--cs-ink); }
 .cs__error { margin-top: 10px; font: 500 13.5px/1.4 var(--cs-ui); color: var(--cs-ink); }
