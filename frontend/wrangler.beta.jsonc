@@ -1,0 +1,15 @@
+{
+  // beta.libasai.com: the full app, built from the backend-revamp branch
+  // (see .github/workflows/deploy-beta.yml). A second static-assets Worker
+  // next to the production one (wrangler.jsonc, the coming-soon page), so
+  // beta and production deploy independently. Its API is
+  // beta-api.libasai.com (the beta container, reached through the
+  // Cloudflare Tunnel), set at build time with VITE_API_BASE.
+  "name": "libas-beta",
+  "compatibility_date": "2026-08-31",
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "single-page-application"
+  },
+  "routes": [{ "pattern": "beta.libasai.com", "custom_domain": true }]
+}

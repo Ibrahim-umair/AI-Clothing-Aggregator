@@ -34,10 +34,17 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Libas API", lifespan=lifespan)
+# Only our own sites may call the API from a browser. ALLOWED_ORIGINS
+# (comma-separated) overrides the list, e.g. for a preview domain.
+ALLOWED_ORIGINS = [o.strip() for o in os.environ.get(
+    "ALLOWED_ORIGINS",
+    "https://libasai.com,https://www.libasai.com,https://beta.libasai.com,"
+    "http://localhost:5173,http://127.0.0.1:5173").split(",") if o.strip()]
 app.middleware("http")(rate_limit_middleware)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    # Only our own sites may call the API from a browser (see ALLOWED_ORIGINS).
+    allow_origins=ALLOWED_ORIGINS,
     allow_methods=["*"],
     allow_headers=["*"],
 )

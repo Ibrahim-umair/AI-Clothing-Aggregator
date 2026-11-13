@@ -1,0 +1,41 @@
+# beta.libasai.com: build the frontend from backend-revamp and deploy it to
+# the "libas-beta" Worker (frontend/wrangler.beta.jsonc). Production
+# (libasai.com) is deploy-frontend.yml, which only runs on master.
+name: Deploy beta frontend
+
+on:
+  push:
+    branches: [backend-revamp]
+    paths:
+      - "frontend/**"
+      - ".github/workflows/deploy-beta.yml"
+  workflow_dispatch: {}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+
+      - run: npm run build
+        env:
+          VITE_API_BASE: https://beta-api.libasai.com/api
+
+      # Keep beta out of search engines (only for this build, so the header
+      # never reaches production when backend-revamp is merged).
+      - run: printf '/*\n  X-Robots-Tag: noindex, nofollow\n' > dist/_headers
+
+      - run: npx wrangler deploy --config wrangler.beta.jsonc
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
