@@ -138,3 +138,31 @@ curl http://localhost:4000/api/health
   Kids-mode toggle already works around this for UI-driven searches.
 - OpenTelemetry is planned, not built — Postgres + Grafana only for now
   (see the marker comment in `server/main.py`'s `lifespan`).
+
+## How traffic reaches the server (Cloudflare Tunnel, since 2026-11-13)
+
+Caddy and the nip.io hostname are gone. The server (EC2 `libas-prod`) has
+**no open inbound ports**; admin access is AWS SSM only.
+
+| Address | Goes to |
+|---|---|
+| `libasai.com` | Cloudflare Worker `ai-clothing-aggregator` (coming-soon page), deployed by `deploy-frontend.yml` on push to `master` |
+| `beta.libasai.com` | Cloudflare Worker `libas-beta` (full app), deployed by `deploy-beta.yml` on push to `backend-revamp` |
+| `api.libasai.com` | tunnel `libas-prod` → container `libas-api:4000` |
+| `beta-api.libasai.com` | tunnel `libas-prod` → container `libas-api-beta:4000` |
+
+The tunnel runs on the server as its own container (not in compose):
+
+```bash
+# config + credentials: /home/ec2-user/cloudflared/{config.yml,creds.json} (root-only, never in git)
+docker run -d --name libas-tunnel --restart unless-stopped --network db_default \
+  -v /home/ec2-user/cloudflared:/etc/cloudflared:ro cloudflare/cloudflared:2026.11.0 \
+  tunnel --no-autoupdate --config /etc/cloudflared/config.yml run
+docker logs libas-tunnel --tail 20      # expect 4x "Registered tunnel connection"
+```
+
+To add a hostname: add an `ingress` entry to `config.yml`, `docker restart
+libas-tunnel`, then on the laptop `cloudflared tunnel route dns libas-prod
+<host>.libasai.com` (needs `cloudflared tunnel login`). CORS: the API only
+answers browsers from libasai.com, www, beta and localhost
+(`ALLOWED_ORIGINS` env overrides).

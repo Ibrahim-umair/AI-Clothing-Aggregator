@@ -32,10 +32,10 @@ SEARCH_GLOBAL_PER_DAY = int(os.environ.get("RATE_SEARCH_GLOBAL_PER_DAY", "5000")
 
 
 def client_ip(request: Request) -> str:
-    # Behind Cloudflare's proxy every request reaches Caddy from a Cloudflare
-    # edge IP, so the visitor's real address is CF-Connecting-IP. Without
-    # Cloudflare, Caddy's X-Forwarded-For has it (uvicorn isn't started with
-    # --proxy-headers, so request.client is Caddy itself).
+    # Every request arrives through the Cloudflare Tunnel (the server has no
+    # open inbound ports), and Cloudflare sets CF-Connecting-IP to the real
+    # visitor, so a client can't fake it. X-Forwarded-For is only a fallback
+    # for running behind another proxy; request.client is the tunnel itself.
     for header in ("cf-connecting-ip", "x-forwarded-for"):
         value = request.headers.get(header)
         if value:

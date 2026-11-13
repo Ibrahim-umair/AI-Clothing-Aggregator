@@ -21,7 +21,7 @@ Build from these. Don't redesign the style, don't use Hyperframes/brag compositi
 
 1. **Brief (one short round of questions, only what's missing):** the idea, the queries (or let the user check yours), and music.
 2. **Queries and real data:** run each query live:
-   `POST https://3-235-254-9.nip.io/api/search` with `{"query": "...", "gender": "Men"}`.
+   `POST https://api.libasai.com/api/search` with `{"query": "...", "gender": "Men"}`.
    The app is semi-complete, so photo-check every card you will show: download the returned colour-matched `image_url`s, make a contact sheet, and look at it. Use a query only if its top N are all the right type and colour and under any price cap; show only that clean top N. Prefer queries the user already verified. If a query fails, tell the user and suggest alternatives; never hand-pick products to fake a grid.
 3. **Assets:** save grid images as 3:4 JPG crops (600×800) under `public/<video>/`. For flat-lay cut-outs, fetch the product's hi-res packshot (`GET /api/products/<id>` → `images`, append `width=1600`) and remove the background with `npx hyperframes remove-background in.jpg -o out.png`, then trim to the alpha bbox.
 4. **Music:** the user picks by ear. Offer to reuse a kit track (`perspective.ogg` ~143.5 BPM from 16.0 s; `lofiupbeat.ogg` ~92.3 BPM from 9.079 s), or shortlist 5–7 upbeat CC0/CC BY tracks (lo-fi, hip-hop, funk; not moody, dramatic or very bright) from the Openverse API, cut each to its loudest 30 s, and give the user the previews. Measure the chosen track with librosa (`uv run --with librosa python -c ...`, `beat_track`) and set `trimBefore` to a beat after its intro. Snap scene boundaries and key moments to beat frames where it's cheap.

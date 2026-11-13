@@ -85,7 +85,7 @@ Levels: keys 0.17–0.26 (every 2nd–3rd character), tick 0.32–0.35 on submit
 - Name on screen: "Libas AI" ("AI" in olive). Logo is the hanger.
 - Never total product or brand counts; say "all major Pakistani brands". Per-moment counts are fine.
 - Reusable lines: "One destination. Countless brands." / "Shop across Pakistan's best brands with one intelligent search."
-- Search results must be the app's real, unedited output. The app is semi-complete: before using a query, run it live (`POST https://3-235-254-9.nip.io/api/search` with `{"query": …, "gender": "Men"}`) and photo-check every card you will show (type, colour, under the price cap) using the returned colour-matched `image_url`. Show only the clean top N. Re-run on render day; prices and stock change daily.
+- Search results must be the app's real, unedited output. The app is semi-complete: before using a query, run it live (`POST https://api.libasai.com/api/search` with `{"query": …, "gender": "Men"}`) and photo-check every card you will show (type, colour, under the price cap) using the returned colour-matched `image_url`. Show only the clean top N. Re-run on render day; prices and stock change daily.
 - Avoid shoe queries other than "chunky sneakers" (slides/clogs pollute them).
 - Clean titles: strip SKU codes and "(E-FACTORY OUTLET)", Title Case ALL-CAPS names. Prices "Rs 5,316".
 - True claim: "every sale, every brand, one search". False: "lowest price for the same item", "price alerts", "compare the same style across stores".

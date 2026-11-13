@@ -32,12 +32,12 @@ jobs:
 
       - run: npm ci
 
-      # The live API has no domain (nip.io + Caddy, chosen specifically to
-      # avoid buying one) — see api.js's own VITE_API_BASE fallback for why
+      # The production API, reached through the Cloudflare Tunnel (no ports
+      # open on the server) — see api.js's own VITE_API_BASE fallback for why
       # this has to be supplied at build time, not read at runtime.
       - run: npm run build
         env:
-          VITE_API_BASE: https://3-235-254-9.nip.io/api
+          VITE_API_BASE: https://api.libasai.com/api
 
       - run: npx wrangler deploy
         env:

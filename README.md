@@ -39,7 +39,7 @@ Classification correctness is treated as a first-class, continuously-audited pro
 - **React + Vite** — storefront frontend
 - **Docker Compose** — Postgres, Grafana, and the API, all orchestrated together for local dev
 - **AWS EC2** — production backend, administered exclusively via SSM Session Manager (no SSH, no open port 22)
-- **Caddy** — automatic HTTPS in production via a `nip.io` wildcard hostname, avoiding a domain purchase entirely
+- **Cloudflare Tunnel** — the API is reached at `api.libasai.com` (beta: `beta-api.libasai.com`) through a tunnel from Cloudflare to the server; HTTPS is handled by Cloudflare and the server has no open inbound ports
 - **Cloudflare Workers** — static frontend hosting, deployed via `wrangler` through a GitHub Actions pipeline on every push
 - **Grafana** — search cost, latency, and quality monitoring
 
