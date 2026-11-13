@@ -34,7 +34,8 @@ jobs:
 
       # Keep beta out of search engines (only for this build, so the header
       # never reaches production when backend-revamp is merged).
-      - run: printf '/*\n  X-Robots-Tag: noindex, nofollow\n' > dist/_headers
+      - run: |
+          printf '/*\n  X-Robots-Tag: noindex, nofollow\n' > dist/_headers
 
       - run: npx wrangler deploy --config wrangler.beta.jsonc
         env:
