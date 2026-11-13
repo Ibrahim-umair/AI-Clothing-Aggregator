@@ -28,12 +28,15 @@ _hits: dict[str, list[float]] = {}
 
 
 def _client_ip(request: Request) -> str:
-    # Caddy's reverse_proxy sets this automatically; uvicorn isn't started
-    # with --proxy-headers, so request.client.host would otherwise be
-    # Caddy's own container IP on every request, not the real visitor.
-    forwarded = request.headers.get("x-forwarded-for")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
+    # Traffic arrives through the Cloudflare Tunnel, and Cloudflare sets
+    # CF-Connecting-IP to the real visitor (a client can't override it once
+    # the server only accepts traffic from the tunnel). X-Forwarded-For is
+    # the fallback for the old Caddy path; uvicorn isn't started with
+    # --proxy-headers, so request.client.host is the proxy, not the visitor.
+    for header in ("cf-connecting-ip", "x-forwarded-for"):
+        value = request.headers.get(header)
+        if value:
+            return value.split(",")[0].strip()
     return request.client.host if request.client else "unknown"
 
 
